@@ -200,7 +200,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-1)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
                   {displayName}
                 </p>
-                <p style={{ fontSize: '9px', color: 'var(--brand)', fontWeight: 700, textTransform: 'uppercase', tracking: '0.05em', margin: '2px 0 0 0' }}>
+                <p style={{ fontSize: '9px', color: 'var(--brand)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '2px 0 0 0' }}>
                   SUPER ADMIN
                 </p>
               </div>
