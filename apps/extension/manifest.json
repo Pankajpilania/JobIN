@@ -1,0 +1,73 @@
+{
+  "manifest_version": 3,
+  "name": "JobIN Copilot",
+  "version": "1.0.0",
+  "description": "Autofill job applications, tailor resumes in 10 seconds, and track matches automatically.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "sidePanel",
+    "scripting",
+    "declarativeNetRequest",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*.linkedin.com/*",
+    "https://*.indeed.com/*",
+    "https://*.glassdoor.com/*",
+    "https://*.reed.co.uk/*",
+    "https://*.totaljobs.com/*",
+    "https://*.cv-library.co.uk/*",
+    "https://*.monster.co.uk/*",
+    "https://boards.greenhouse.io/*",
+    "https://jobs.lever.co/*",
+    "https://*.workday.com/*",
+    "http://localhost:4000/*",
+    "https://api.jobin.ai/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.linkedin.com/jobs/*",
+        "https://*.indeed.com/*",
+        "https://*.reed.co.uk/jobs/*",
+        "https://*.totaljobs.com/*",
+        "https://*.glassdoor.com/*"
+      ],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://boards.greenhouse.io/*",
+        "https://jobs.lever.co/*"
+      ],
+      "js": ["src/content/autofill/index.ts"],
+      "run_at": "document_end"
+    }
+  ],
+  "side_panel": {
+    "default_path": "src/sidepanel/index.html"
+  },
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "JobIN Copilot"
+  },
+  "options_page": "src/options/index.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

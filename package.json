@@ -1,0 +1,42 @@
+{
+  "name": "jobin-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web",
+    "apps/extension"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:extension": "npm run dev --workspace=apps/extension",
+    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web",
+    "build:extension": "npm run build --workspace=apps/extension",
+    "lint": "npm run lint --workspace=apps/api && npm run lint --workspace=apps/web",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,json}\" --ignore-path .gitignore",
+    "db:generate": "npm run db:generate --workspace=apps/api",
+    "db:migrate": "npm run db:migrate --workspace=apps/api",
+    "db:studio": "npm run db:studio --workspace=apps/api",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
+    "prettier": "^3.2.4"
+  },
+  "lint-staged": {
+    "apps/**/*.{ts,tsx}": [
+      "eslint --fix --max-warnings 0",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

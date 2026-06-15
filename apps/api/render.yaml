@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: jobin-api
+    env: node
+    buildCommand: npm run build
+    startCommand: npm run start:prod
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 4000
+      - key: NODE_ENV
+        value: production

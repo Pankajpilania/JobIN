@@ -1,0 +1,5 @@
+JobIN PDF Export Route Scan Results:
+- Checked all .ts, .tsx, .js, and .jsx source files in the monorepo.
+- The ONLY client-side file triggering /export/pdf or /export/docx is c:\Users\pilan\Desktop\JobIN\apps\web\src\app\(dashboard)\tailor\page.tsx.
+- The implementation in apps/web/src/app\(dashboard)\tailor\page.tsx is verified to be secure and uses the modern fetch-based mechanism with the Supabase JWT Bearer token included in the Authorization header.
+- The backend routes in apps/api/src/resumes/resumes.controller.ts and apps/api/src/cover-letters/cover-letters.controller.ts are correctly configured with @UseGuards(SupabaseAuthGuard) and expect this Bearer token.

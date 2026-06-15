@@ -1,0 +1,19 @@
+{
+  "root": true,
+  "extends": ["eslint:recommended"],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2022": true
+  },
+  "rules": {
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-undef": "off",
+    "no-empty": ["warn", { "allowEmptyCatch": true }],
+    "no-console": ["warn", { "allow": ["warn", "error", "log"] }]
+  },
+  "ignorePatterns": ["node_modules", "dist", ".next", "coverage"]
+}

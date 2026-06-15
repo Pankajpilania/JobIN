@@ -1,0 +1,22 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit checks..."
+
+# Lint api
+cd apps/api && npx eslint "{src}/**/*.ts" --max-warnings 0
+if [ $? -ne 0 ]; then
+  echo "❌ API lint failed. Please fix errors before committing."
+  exit 1
+fi
+cd ../..
+
+# Lint web
+cd apps/web && npx eslint "src/**/*.{ts,tsx}" --max-warnings 0
+if [ $? -ne 0 ]; then
+  echo "❌ Web lint failed. Please fix errors before committing."
+  exit 1
+fi
+cd ../..
+
+echo "✅ All checks passed."
