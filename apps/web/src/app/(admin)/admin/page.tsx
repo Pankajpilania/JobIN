@@ -208,7 +208,7 @@ export default function AdminDashboardPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <SectionTitle>⚙️ Platform Diagnostics</SectionTitle>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyText: 'space-between', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600, borderBottom: '1px solid rgba(228, 228, 240, 0.4)', paddingBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600, borderBottom: '1px solid rgba(228, 228, 240, 0.4)', paddingBottom: '8px' }}>
                   <span style={{ color: 'var(--text-2)' }}>Database Service</span>
                   <Badge variant="success">ONLINE</Badge>
                 </div>
