@@ -124,7 +124,7 @@ function AddApplicationModal({ onClose }: { onClose: () => void }) {
       >
         <Card hoverEffect={false} style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyText: 'space-between', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', padding: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', padding: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-1)' }}>
               <Briefcase style={{ height: '18px', width: '18px', color: 'var(--brand)' }} />
               <h2 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>Add Application</h2>

@@ -498,7 +498,7 @@ export default function TailorPage() {
                         .sort(([, a], [, b]) => b - a)
                         .slice(0, 12)
                         .map(([kw, count]) => (
-                          <div key={kw} style={{ display: 'flex', alignItems: 'center', justifyText: 'space-between', justifyContent: 'space-between', gap: '8px' }}>
+                          <div key={kw} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                             <span style={{ fontSize: '12px', color: '#1E40AF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kw}</span>
                             <span style={{ borderRadius: '999px', backgroundColor: '#DBEAFE', padding: '2px 6px', fontSize: '10px', fontWeight: 700, color: '#1E40AF' }}>{count}×</span>
                           </div>

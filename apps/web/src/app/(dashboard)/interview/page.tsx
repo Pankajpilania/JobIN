@@ -269,7 +269,7 @@ export default function InterviewPage() {
                       gap: '8px',
                       userSelect: 'none'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyText: 'space-between', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700 }}>
                         <span style={{ color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <TrendingUp style={{ height: '14px', width: '14px' }} /> STAR Feedback
                         </span>
