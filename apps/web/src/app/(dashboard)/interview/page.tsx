@@ -350,7 +350,7 @@ export default function InterviewPage() {
             <Card hoverEffect={false} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <h3 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-3)', letterSpacing: '0.05em', margin: 0 }}>Session Stats</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyText: 'space-between', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600 }}>
                   <span style={{ color: 'var(--text-2)' }}>Progress</span>
                   <span style={{ color: 'var(--text-1)', fontWeight: 700 }}>
                     {Math.min(currentQuestionIdx + 1, mockQuestions.length)} / {mockQuestions.length}
