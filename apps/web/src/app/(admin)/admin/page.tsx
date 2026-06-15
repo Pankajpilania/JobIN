@@ -13,8 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { RefreshCw } from 'lucide-react';
 
 function StatCard({
-  label, value, sub, colorClass = '', icon,
-}: { label: string; value: string | number; sub?: string; colorClass?: string; icon: string }) {
+  label, value, sub, _colorClass = '', icon,
+}: { label: string; value: string | number; sub?: string; _colorClass?: string; icon: string }) {
   return (
     <Card hoverEffect={true} style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: '1 1 220px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
@@ -114,13 +114,13 @@ export default function AdminDashboardPage() {
       {/* KPI Grid */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
         <StatCard label="Total Users" value={data.totalUsers.toLocaleString()} icon="👤" />
-        <StatCard label="Active (30d)" value={data.activeUsers.toLocaleString()} icon="🟢" colorClass="text-emerald-600 dark:text-emerald-400" />
-        <StatCard label="MRR" value={`£${data.mrr.toLocaleString()}`} icon="💰" colorClass="text-brand dark:text-brand-mid" sub={`ARR £${data.arr.toLocaleString()}`} />
-        <StatCard label="AI Requests" value={data.totalAIRequests.toLocaleString()} icon="🤖" colorClass="text-indigo-600 dark:text-indigo-400" sub={`$${data.totalAICostUsd} total cost`} />
+        <StatCard label="Active (30d)" value={data.activeUsers.toLocaleString()} icon="🟢" _colorClass="text-emerald-600 dark:text-emerald-400" />
+        <StatCard label="MRR" value={`£${data.mrr.toLocaleString()}`} icon="💰" _colorClass="text-brand dark:text-brand-mid" sub={`ARR £${data.arr.toLocaleString()}`} />
+        <StatCard label="AI Requests" value={data.totalAIRequests.toLocaleString()} icon="🤖" _colorClass="text-indigo-600 dark:text-indigo-400" sub={`$${data.totalAICostUsd} total cost`} />
         <StatCard label="Subscriptions" value={data.activeSubscriptions} icon="💳" />
-        <StatCard label="New Users (30d)" value={data.newUsersMonth} icon="✨" colorClass="text-emerald-600 dark:text-emerald-400" />
-        <StatCard label="Churn Rate" value={`${data.churnRate}%`} icon="📉" colorClass={data.churnRate > 5 ? 'text-rose-500' : 'text-emerald-500'} sub="last 30 days" />
-        <StatCard label="AI Cost" value={`$${data.totalAICostUsd}`} icon="⚡" colorClass="text-amber-500" />
+        <StatCard label="New Users (30d)" value={data.newUsersMonth} icon="✨" _colorClass="text-emerald-600 dark:text-emerald-400" />
+        <StatCard label="Churn Rate" value={`${data.churnRate}%`} icon="📉" _colorClass={data.churnRate > 5 ? 'text-rose-500' : 'text-emerald-500'} sub="last 30 days" />
+        <StatCard label="AI Cost" value={`$${data.totalAICostUsd}`} icon="⚡" _colorClass="text-amber-500" />
       </div>
 
       {/* Charts row 1 */}
