@@ -3,7 +3,7 @@
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
-async function getHeaders(): Promise<Record<string, string>> {
+async function _getHeaders(): Promise<Record<string, string>> {
   // In Next.js app router, use Clerk's getToken() from the component
   // This module exports a factory so callers can pass the token
   return { 'Content-Type': 'application/json' };

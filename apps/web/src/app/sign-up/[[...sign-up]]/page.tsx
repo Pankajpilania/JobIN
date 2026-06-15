@@ -4,14 +4,14 @@ import React from 'react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Sparkles, Eye, EyeOff, Loader2, Zap } from 'lucide-react';
+import { Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 export default function SignUpPage() {
-  const router = useRouter();
+  const _router = useRouter();
   const supabase = createClient();
 
   const [fullName, setFullName] = useState('');

@@ -384,7 +384,7 @@ function AddApplicationModal({ onClose }: { onClose: () => void }) {
 
 function KanbanCard({
   app,
-  col,
+  _col,
   onDelete,
 }: {
   app: JobApplication;
@@ -514,7 +514,7 @@ function KanbanColumn({
   col,
   applications,
   onDelete,
-  activeId,
+  _activeId,
 }: {
   col: ColumnConfig;
   applications: JobApplication[];
@@ -673,7 +673,7 @@ function ListView({
         </thead>
         <tbody>
           {sorted.map((app, i) => {
-            const col = colById[app.status];
+            const _col = colById[app.status];
             return (
               <motion.tr
                 key={app.id}

@@ -2,19 +2,16 @@
 
 import React from 'react';
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   Mic,
   MicOff,
   Send,
-  Zap,
   Play,
   RotateCcw,
   Sparkles,
-  ArrowRight,
   TrendingUp,
-  Award,
   RefreshCw,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';

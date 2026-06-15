@@ -53,7 +53,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
       {/* Filters & Submit button */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3 flex-shrink-0">
-        {filterOptions.map((filter, i) => (
+        {filterOptions.map((filter, _i) => (
           <React.Fragment key={filter.name}>
             {/* Divider (only visible on large screens) */}
             <div className="hidden sm:block h-6 w-[1.5px] bg-border/80 self-center" />

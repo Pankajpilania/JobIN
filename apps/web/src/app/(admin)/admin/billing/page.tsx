@@ -9,7 +9,6 @@ import {
 } from 'recharts';
 import { getBilling } from '@/lib/admin-api';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 

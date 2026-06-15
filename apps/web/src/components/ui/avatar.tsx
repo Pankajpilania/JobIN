@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 export interface AvatarProps {
   src?: string | null;
@@ -14,7 +14,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   alt = 'User',
   fallback = 'U',
   size = 'md',
-  className,
+  _className,
 }) => {
   const sizePixels = {
     sm: 32,
@@ -44,7 +44,7 @@ export const Avatar: React.FC<AvatarProps> = ({
       }}
     >
       {src ? (
-        <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <Image src={src} alt={alt} width={36} height={36} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       ) : (
         <span>{fallback}</span>
       )}

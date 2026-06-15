@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
   Wand2, ChevronDown, TrendingUp, TrendingDown,
   AlertCircle, Lightbulb, CheckCircle, Download,
-  Copy, RefreshCw, FileText, ArrowRight,
+  Copy, RefreshCw, ArrowRight,
 } from 'lucide-react';
 import { useResumes } from '@/hooks/use-resumes';
 import { useTailorResume } from '@/hooks/use-tailor';
@@ -14,7 +14,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { TailorResult } from '@/types';
 import { Button } from '@/components/ui/button';
 
-const supabase = createClient();
+const _supabase = createClient();
 
 // ─── Score delta bar ──────────────────────────────────────────────────────────
 
@@ -98,7 +98,7 @@ function HighlightedText({ text, keywords }: { text: string; keywords: string[] 
     const pattern = new RegExp(`\\b(${escaped.join('|')})\\b`, 'gi');
     const parts   = text.split(pattern);
     return parts.map((part, i) => {
-      const isMatch = pattern.test(part);
+      const _isMatch = pattern.test(part);
       pattern.lastIndex = 0; // reset
       if (keywords.some(k => k.toLowerCase() === part.toLowerCase())) {
         return (

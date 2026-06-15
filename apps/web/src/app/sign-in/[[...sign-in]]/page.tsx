@@ -8,7 +8,6 @@ import { CheckCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 const highlights = [
   'AI resume tailoring in under 10 seconds',

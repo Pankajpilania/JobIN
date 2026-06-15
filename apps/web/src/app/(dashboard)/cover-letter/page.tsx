@@ -11,9 +11,7 @@ import {
   Trash2,
   ChevronDown,
   RefreshCw,
-  Clock,
   FileText,
-  CheckCircle,
 } from 'lucide-react';
 import { useResumes } from '@/hooks/use-resumes';
 import { useGenerateCoverLetter, useCoverLetters, useDeleteCoverLetter } from '@/hooks/use-cover-letters';

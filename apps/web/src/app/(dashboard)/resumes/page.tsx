@@ -11,8 +11,6 @@ import {
   Trash2,
   Star,
   Zap,
-  CheckCircle,
-  AlertCircle,
   TrendingUp,
   Clock,
   Download,

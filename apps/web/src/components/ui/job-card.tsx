@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Card } from './card';
 import { ScorePill } from './score-pill';
 import { Button } from './button';
@@ -41,9 +42,11 @@ export const JobCard: React.FC<JobCardProps> = ({
       {/* Left section: Logo + Details */}
       <div className="flex items-start gap-4 flex-1 min-w-0">
         {logoUrl ? (
-          <img
+          <Image
             src={logoUrl}
             alt={`${companyName} logo`}
+            width={44}
+            height={44}
             className="h-11 w-11 rounded-[10px] object-cover bg-surface-2 border border-border flex-shrink-0"
           />
         ) : (

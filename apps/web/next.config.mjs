@@ -16,6 +16,9 @@ export default withSentryConfig(
     silent: true,
     org: "jobin",
     project: "jobin-web",
+    sourcemaps: {
+      deleteSourcemapsAfterUpload: true,
+    },
   },
   {
     widenClientSandbox: true,

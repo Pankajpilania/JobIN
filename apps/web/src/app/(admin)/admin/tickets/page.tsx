@@ -3,9 +3,7 @@
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useState, useCallback } from 'react';
 import { listTickets, updateTicket, replyToTicket, sendNotification } from '@/lib/admin-api';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { RefreshCw, ChevronDown } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -74,7 +72,7 @@ function TicketPanel({
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100,
-      display: 'flex', alignItems: 'center', justifyText: 'center', justifyContent: 'center', padding: 20,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
       backdropFilter: 'blur(4px)'
     }} onClick={onClose}>
       <div style={{
@@ -83,7 +81,7 @@ function TicketPanel({
         boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: '16px'
       }} onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyText: 'space-between', justifyContent: 'space-between', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)', marginBottom: 4 }}>
               {ticket.subject}
@@ -175,9 +173,9 @@ function NotifyModal({ token, onClose }: { token: string; onClose: () => void })
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyText: 'center', justifyContent: 'center', padding: 20, backdropFilter: 'blur(4px)' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, backdropFilter: 'blur(4px)' }} onClick={onClose}>
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, maxWidth: 500, width: '100%', boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: '20px' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyText: 'space-between', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>📢 Send Email Campaign</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
@@ -242,9 +240,9 @@ export default function AdminTicketsPage() {
 
   useEffect(() => {
     getToken().then(t => { if (t) { setToken(t); load(t); } });
-  }, []);
+  }, [getToken, load]);
 
-  useEffect(() => { load(); }, [status, page]);
+  useEffect(() => { load(); }, [load, status, page]);
 
   const { data: rows = [], meta = {} } = tickets;
 

@@ -4,7 +4,6 @@ import React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useState, useCallback } from 'react';
 import { listSubscriptions } from '@/lib/admin-api';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, ArrowLeft, ArrowRight } from 'lucide-react';

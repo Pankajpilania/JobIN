@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Card } from './card';
 import { Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -39,9 +40,11 @@ export const TestimonialCard: React.FC<TestimonialCardProps> = ({
       
       <div className="flex items-center gap-3 pt-2 border-t border-border/50">
         {avatarUrl ? (
-          <img
+          <Image
             src={avatarUrl}
             alt={author}
+            width={36}
+            height={36}
             className="h-10 w-10 rounded-full object-cover border border-border"
           />
         ) : (
