@@ -433,7 +433,7 @@ export default function ResumesPage() {
         }}
       >
         <Zap style={{ height: '18px', width: '18px', color: 'var(--brand)', flexShrink: 0, marginTop: '2px' }} />
-        <p style={{ fontSize: '12px', color: 'var(--brand-dark)', leadingRelaxed: 1.5, fontWeight: 600, margin: 0 }}>
+        <p style={{ fontSize: '12px', color: 'var(--brand-dark)', lineHeight: 1.625, fontWeight: 600, margin: 0 }}>
           ATS evaluation consumes 1 AI credit. Evaluations audit CV structure formatting, keyword density, role relevance, and deliver actionable writing improvements.
         </p>
       </motion.div>

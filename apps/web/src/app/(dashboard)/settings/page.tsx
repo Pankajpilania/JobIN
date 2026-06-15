@@ -385,7 +385,7 @@ export default function SettingsPage() {
             onChange: setWeeklyDigest,
           },
         ].map(({ label, description, value, onChange }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', justifyText: 'space-between', justifyContent: 'space-between', gap: '16px', padding: '8px 0' }}>
+          <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '8px 0' }}>
             <div>
               <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{label}</p>
               <p style={{ fontSize: '12px', color: 'var(--text-3)', margin: '2px 0 0 0', fontWeight: 500 }}>{description}</p>

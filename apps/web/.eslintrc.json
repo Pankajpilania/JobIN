@@ -9,7 +9,14 @@
     "no-empty": ["warn", { "allowEmptyCatch": true }],
     "no-console": "off",
     "react/react-in-jsx-scope": "off",
-    "@typescript-eslint/no-explicit-any": "off"
+    "@typescript-eslint/no-explicit-any": "off",
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "Property[key.name=/^(leading|tracking|font[A-Z]|text[A-Z]|rounded[A-Z]|justify[A-Z])/]",
+        "message": "Do not use Tailwind class names as inline style properties. Use valid CSS property names instead."
+      }
+    ]
   },
   "env": {
     "browser": true,
