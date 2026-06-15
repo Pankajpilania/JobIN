@@ -532,7 +532,7 @@ export default function DashboardPage() {
                           : 'var(--text-3)';
                       return (
                         <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyText: 'space-between', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600 }}>
                             <span style={{ color: 'var(--text-2)' }}>{cfg.label}</span>
                             <span style={{ color: 'var(--text-1)', fontWeight: 700 }}>{count}</span>
                           </div>
