@@ -400,7 +400,7 @@ export default function SignInPage() {
             </button>
 
             <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: 500, userSelect: 'none' }}>
-              <span style={{ color: 'var(--text-3)' }}>Don't have an account? </span>
+              <span style={{ color: 'var(--text-3)' }}>Don&apos;t have an account? </span>
               <Link href="/sign-up" style={{ color: 'var(--brand)', fontWeight: 700, textDecoration: 'none' }} onMouseOver={(e) => e.currentTarget.style.textDecoration = 'underline'} onMouseOut={(e) => e.currentTarget.style.textDecoration = 'none'}>
                 Sign up
               </Link>

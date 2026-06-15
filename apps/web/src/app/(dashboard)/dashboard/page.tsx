@@ -334,7 +334,7 @@ export default function DashboardPage() {
           {greeting}, <span style={{ color: 'var(--brand)' }}>{firstName}</span> 👋
         </h1>
         <p style={{ marginTop: '8px', color: 'var(--text-2)', fontSize: '14px', fontWeight: 500, margin: '8px 0 0 0' }}>
-          Here's your job search overview. Keep the momentum going!
+          Here&apos;s your job search overview. Keep the momentum going!
         </p>
       </motion.div>
 
