@@ -13,7 +13,7 @@
     "no-restricted-syntax": [
       "error",
       {
-        "selector": "Property[key.name=/^(leading|tracking|font[A-Z]|text[A-Z]|rounded[A-Z]|justify[A-Z])/]",
+        "selector": "Property[key.name=/^(leadingRelaxed|leadingNone|leadingTight|leadingSnug|leadingNormal|leadingLoose|trackingTight|trackingWide|trackingWidest|justifyText|fontMedium|fontBold|fontSemibold|textSm|textBase|textLg|textXl|roundedFull|roundedLg|truncate)$/]",
         "message": "Do not use Tailwind class names as inline style properties. Use valid CSS property names instead."
       }
     ]
