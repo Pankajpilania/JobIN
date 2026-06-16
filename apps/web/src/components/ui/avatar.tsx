@@ -14,7 +14,6 @@ export const Avatar: React.FC<AvatarProps> = ({
   alt = 'User',
   fallback = 'U',
   size = 'md',
-  _className,
 }) => {
   const sizePixels = {
     sm: 32,

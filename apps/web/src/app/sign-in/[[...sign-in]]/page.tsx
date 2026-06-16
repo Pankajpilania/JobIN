@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-import { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CheckCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -16,7 +15,7 @@ const highlights = [
   'Chrome autofill on Greenhouse & Lever',
 ];
 
-export default function SignInPage() {
+function SignInPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -408,5 +407,17 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--surface)', color: 'var(--brand)' }}>
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <SignInPageContent />
+    </Suspense>
   );
 }
