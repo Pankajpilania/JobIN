@@ -1,6 +1,110 @@
-import Link from 'next/link'
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+
+const ALL_JOBS = [
+  {logo:'G',logoColor:'#4F46E5',
+    title:'Senior Software Engineer',
+    company:'Google · London, UK',
+    locationCategory:'United Kingdom',
+    tags:['Remote','New today','£90k–£130k','Senior'],
+    match:96,time:'2 hours ago'},
+  {logo:'M',logoColor:'#0EA5E9',
+    title:'Product Manager — AI Platform',
+    company:'Microsoft · Manchester, UK',
+    locationCategory:'United Kingdom',
+    tags:['Hybrid','£75k–£95k','Mid-level','Visa OK'],
+    match:88,time:'5 hours ago'},
+  {logo:'A',logoColor:'#F59E0B',
+    title:'Data Scientist — Growth',
+    company:'Airbnb · Edinburgh, UK',
+    locationCategory:'United Kingdom',
+    tags:['Remote','New today','£65k–£85k'],
+    match:82,time:'8 hours ago'},
+  {logo:'N',logoColor:'#E50914',
+    title:'Full Stack Engineer',
+    company:'Netflix · London, UK',
+    locationCategory:'United Kingdom',
+    tags:['Remote','£80k–£110k','Mid-level'],
+    match:91,time:'1 day ago'},
+  {logo:'S',logoColor:'#0077B5',
+    title:'Frontend Engineer (React)',
+    company:'Stripe · Dublin, Ireland',
+    locationCategory:'Europe',
+    tags:['Hybrid','New today','£70k–£90k','Visa OK'],
+    match:85,time:'4 hours ago'},
+  {logo:'O',logoColor:'#10B981',
+    title:'Staff AI Engineer',
+    company:'OpenAI · San Francisco, US',
+    locationCategory:'United States',
+    tags:['Remote','New today','$180k–$240k','Senior','Visa OK'],
+    match:98,time:'1 hour ago'},
+  {logo:'Ap',logoColor:'#000000',
+    title:'Senior UX Designer',
+    company:'Apple · Cupertino, US',
+    locationCategory:'United States',
+    tags:['Hybrid','$140k–$180k','Senior'],
+    match:92,time:'3 hours ago'},
+  {logo:'Am',logoColor:'#FF9900',
+    title:'DevOps Specialist',
+    company:'Amazon · Seattle, US',
+    locationCategory:'United States',
+    tags:['On-site','$130k–$160k','Mid-level'],
+    match:87,time:'1 day ago'},
+];
 
 export default function LandingPage() {
+  const [activeTab, setActiveTab] = useState('Best matches');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [workType, setWorkType] = useState('All');
+  const [location, setLocation] = useState('All');
+
+  const filteredJobs = ALL_JOBS.filter(job => {
+    // 1. Tab Filter
+    if (activeTab === 'Recently posted' && !job.tags.includes('New today')) return false;
+    if (activeTab === 'Remote only' && !job.tags.includes('Remote')) return false;
+    if (activeTab === 'Visa sponsored' && !job.tags.includes('Visa OK')) return false;
+
+    // 2. Search Query Filter
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      const matchesTitle = job.title.toLowerCase().includes(q);
+      const matchesCompany = job.company.toLowerCase().includes(q);
+      const matchesTags = job.tags.some(tag => tag.toLowerCase().includes(q));
+      if (!matchesTitle && !matchesCompany && !matchesTags) return false;
+    }
+
+    // 3. Work Type Filter
+    if (workType !== 'All') {
+      const hasWorkType = job.tags.includes(workType);
+      if (!hasWorkType) return false;
+    }
+
+    // 4. Location Filter
+    if (location !== 'All') {
+      if (location === 'Europe') {
+        if (job.locationCategory !== 'Europe' && job.locationCategory !== 'United Kingdom') {
+          return false;
+        }
+      } else if (job.locationCategory !== location) {
+        return false;
+      }
+    }
+
+    return true;
+  }).sort((a, b) => {
+    if (activeTab === 'Best matches') return b.match - a.match;
+    return 0;
+  });
+
+  const handleFindJobs = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const listingsSection = document.getElementById('job-listings');
+    if (listingsSection) {
+      listingsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
   return (
     <main style={{fontFamily:'Inter,-apple-system,sans-serif',
       background:'var(--surface)',color:'var(--text-1)'}}>
@@ -29,13 +133,18 @@ export default function LandingPage() {
           </span>
         </div>
         <div className="mobile-hide" style={{display:'flex',alignItems:'center',gap:'4px'}}>
-          {['Features','AI Resume','Job Match','Pricing','Blog']
-            .map(l => (
-            <span key={l} style={{fontSize:'14px',fontWeight:500,
+          {[
+            { label: 'Features', href: '#features' },
+            { label: 'AI Resume', href: '#features' },
+            { label: 'Job Match', href: '#jobs' },
+            { label: 'Pricing', href: '#pricing' },
+            { label: 'Blog', href: '#features' },
+          ].map(l => (
+            <a key={l.label} href={l.href} style={{fontSize:'14px',fontWeight:500,
               color:'var(--text-2)',padding:'6px 14px',
-              borderRadius:'8px',cursor:'pointer'}}>
-              {l}
-            </span>
+              borderRadius:'8px',cursor:'pointer',textDecoration:'none'}}>
+              {l.label}
+            </a>
           ))}
         </div>
         <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
@@ -103,12 +212,14 @@ export default function LandingPage() {
               Start for free
             </button>
           </Link>
-          <button style={{fontSize:'16px',fontWeight:500,
-            color:'var(--text-2)',padding:'14px 28px',
-            background:'white',border:'1px solid var(--border)',
-            borderRadius:'10px',cursor:'pointer'}}>
-            See how it works
-          </button>
+          <a href="#how-it-works" style={{textDecoration:'none'}}>
+            <button style={{fontSize:'16px',fontWeight:500,
+              color:'var(--text-2)',padding:'14px 28px',
+              background:'white',border:'1px solid var(--border)',
+              borderRadius:'10px',cursor:'pointer'}}>
+              See how it works
+            </button>
+          </a>
         </div>
 
         {/* TRUST BADGES */}
@@ -168,7 +279,7 @@ export default function LandingPage() {
       </section>
 
       {/* SEARCH BAR */}
-      <div className="mobile-px-4" style={{padding:'40px 40px 0',maxWidth:'860px',
+      <div id="jobs" className="mobile-px-4" style={{padding:'40px 40px 0',maxWidth:'860px',
         margin:'0 auto'}}>
         <div className="search-bar" style={{display:'flex',alignItems:'center',
           gap:'8px',background:'white',
@@ -180,160 +291,167 @@ export default function LandingPage() {
             <circle cx="11" cy="11" r="8"/>
             <path d="m21 21-4.35-4.35"/>
           </svg>
-          <input placeholder="Job title, skills, or company..."
+          <input 
+            placeholder="Job title, skills, or company..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             style={{flex:1,border:'none',outline:'none',
               fontSize:'14px',color:'var(--text-1)',
               background:'transparent'}}/>
           <div className="mobile-hide" style={{width:'1px',height:'24px',
             background:'var(--border)'}}/>
-          <select style={{border:'none',outline:'none',
-            fontSize:'13px',color:'var(--text-2)',
-            background:'transparent',padding:'0 8px',
-            cursor:'pointer'}}>
-            <option>Remote</option>
-            <option>Hybrid</option>
-            <option>On-site</option>
+          <select 
+            value={workType}
+            onChange={(e) => setWorkType(e.target.value)}
+            style={{border:'none',outline:'none',
+              fontSize:'13px',color:'var(--text-2)',
+              background:'transparent',padding:'0 8px',
+              cursor:'pointer'}}>
+            <option value="All">All types</option>
+            <option value="Remote">Remote</option>
+            <option value="Hybrid">Hybrid</option>
+            <option value="On-site">On-site</option>
           </select>
           <div className="mobile-hide" style={{width:'1px',height:'24px',
             background:'var(--border)'}}/>
-          <select style={{border:'none',outline:'none',
-            fontSize:'13px',color:'var(--text-2)',
-            background:'transparent',padding:'0 8px',
-            cursor:'pointer'}}>
-            <option>United Kingdom</option>
-            <option>United States</option>
-            <option>Europe</option>
+          <select 
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            style={{border:'none',outline:'none',
+              fontSize:'13px',color:'var(--text-2)',
+              background:'transparent',padding:'0 8px',
+              cursor:'pointer'}}>
+            <option value="All">All locations</option>
+            <option value="United Kingdom">United Kingdom</option>
+            <option value="United States">United States</option>
+            <option value="Europe">Europe</option>
           </select>
-          <button style={{background:'var(--brand)',
-            color:'white',border:'none',borderRadius:'10px',
-            padding:'10px 22px',fontSize:'14px',
-            fontWeight:600,cursor:'pointer',
-            whiteSpace:'nowrap'}}>
+          <button 
+            onClick={handleFindJobs}
+            style={{background:'var(--brand)',
+              color:'white',border:'none',borderRadius:'10px',
+              padding:'10px 22px',fontSize:'14px',
+              fontWeight:600,cursor:'pointer',
+              whiteSpace:'nowrap'}}>
             Find jobs
           </button>
         </div>
       </div>
 
       {/* JOB CARDS */}
-      <section className="mobile-px-4" style={{padding:'40px 40px 0',
+      <section id="job-listings" className="mobile-px-4" style={{padding:'40px 40px 0',
         maxWidth:'860px',margin:'0 auto'}}>
         <div className="mobile-scroll-x" style={{display:'flex',gap:'0',
           borderBottom:'2px solid var(--border)',
           marginBottom:'20px'}}>
           {['Best matches','Recently posted',
-            'Remote only','Visa sponsored'].map((t,i) => (
-            <div key={t} style={{fontSize:'14px',
-              fontWeight: i===0 ? 700 : 500,
-              color: i===0 ? 'var(--brand)' : 'var(--text-2)',
-              padding:'10px 20px',cursor:'pointer',
-              borderBottom: i===0 
-                ? '2px solid var(--brand)' : '2px solid transparent',
-              marginBottom:'-2px'}}>
+            'Remote only','Visa sponsored'].map((t) => (
+            <div key={t}
+              onClick={() => setActiveTab(t)}
+              style={{fontSize:'14px',
+                fontWeight: activeTab === t ? 700 : 500,
+                color: activeTab === t ? 'var(--brand)' : 'var(--text-2)',
+                padding:'10px 20px',cursor:'pointer',
+                borderBottom: activeTab === t 
+                  ? '2px solid var(--brand)' : '2px solid transparent',
+                marginBottom:'-2px'}}>
               {t}
             </div>
           ))}
         </div>
 
-        {[
-          {logo:'G',logoColor:'#4F46E5',
-            title:'Senior Software Engineer',
-            company:'Google · London, UK',
-            tags:['Remote','New today','£90k–£130k','Senior'],
-            match:96,time:'2 hours ago'},
-          {logo:'M',logoColor:'#0EA5E9',
-            title:'Product Manager — AI Platform',
-            company:'Microsoft · Manchester, UK',
-            tags:['Hybrid','£75k–£95k','Mid-level','Visa OK'],
-            match:88,time:'5 hours ago'},
-          {logo:'A',logoColor:'#F59E0B',
-            title:'Data Scientist — Growth',
-            company:'Airbnb · Edinburgh, UK',
-            tags:['Remote','New today','£65k–£85k'],
-            match:82,time:'8 hours ago'},
-        ].map(job => (
-          <div key={job.title} className="job-card" style={{display:'flex',
-            alignItems:'flex-start',justifyContent:'space-between',
-            gap:'16px',background:'white',
-            border:'1px solid var(--border)',borderRadius:'14px',
-            padding:'20px 24px',marginBottom:'10px',
-            cursor:'pointer',transition:'all .15s'}}>
-            <div style={{display:'flex',gap:'14px',
-              alignItems:'flex-start',flex:1}}>
-              <div style={{width:'44px',height:'44px',
-                borderRadius:'10px',
-                background:'var(--surface-2)',
-                border:'1px solid var(--border)',
-                display:'flex',alignItems:'center',
-                justifyContent:'center',fontSize:'16px',
-                fontWeight:800,color:job.logoColor,
-                flexShrink:0}}>
-                {job.logo}
-              </div>
-              <div>
-                <div style={{fontSize:'15px',fontWeight:700,
-                  color:'var(--text-1)',marginBottom:'4px',
-                  letterSpacing:'-0.2px'}}>
-                  {job.title}
-                </div>
-                <div style={{fontSize:'13px',
-                  color:'var(--text-2)',marginBottom:'10px'}}>
-                  {job.company}
-                </div>
-                <div style={{display:'flex',gap:'6px',
-                  flexWrap:'wrap'}}>
-                  {job.tags.map(tag => (
-                    <span key={tag} style={{fontSize:'11px',
-                      fontWeight:600,padding:'3px 10px',
-                      borderRadius:'999px',
-                      background: tag==='Remote'||tag==='Hybrid' 
-                        ? 'var(--brand-light)' 
-                        : tag==='New today' 
-                        ? '#F0FDF4' : 'var(--surface-2)',
-                      color: tag==='Remote'||tag==='Hybrid' 
-                        ? 'var(--brand)' 
-                        : tag==='New today' 
-                        ? '#16A34A' : 'var(--text-2)',
-                      border: `1px solid ${
-                        tag==='Remote'||tag==='Hybrid' 
-                          ? '#C7D2FE' 
-                          : tag==='New today' 
-                          ? '#BBF7D0' : 'var(--border)'}`}}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="job-card-actions" style={{display:'flex',flexDirection:'column',
-              alignItems:'flex-end',gap:'8px',flexShrink:0}}>
-              <span style={{fontSize:'12px',fontWeight:800,
-                padding:'4px 12px',borderRadius:'999px',
-                background: job.match>=90 
-                  ? '#F0FDF4' : 'var(--brand-light)',
-                color: job.match>=90 
-                  ? '#16A34A' : 'var(--brand)',
-                border: `1px solid ${job.match>=90 
-                  ? '#BBF7D0' : '#C7D2FE'}`}}>
-                {job.match}% match
-              </span>
-              <button style={{fontSize:'12px',fontWeight:600,
-                color:'var(--brand)',padding:'6px 14px',
-                borderRadius:'8px',
-                border:'1.5px solid var(--brand)',
-                background:'none',cursor:'pointer'}}>
-                1-click apply
-              </button>
-              <span style={{fontSize:'11px',
-                color:'var(--text-3)'}}>
-                {job.time}
-              </span>
-            </div>
+        {filteredJobs.length === 0 ? (
+          <div style={{padding:'40px', textAlign:'center', color:'var(--text-3)'}}>
+            No jobs found matching your criteria.
           </div>
-        ))}
+        ) : (
+          filteredJobs.map(job => (
+            <div key={job.title} className="job-card" style={{display:'flex',
+              alignItems:'flex-start',justifyContent:'space-between',
+              gap:'16px',background:'white',
+              border:'1px solid var(--border)',borderRadius:'14px',
+              padding:'20px 24px',marginBottom:'10px',
+              cursor:'pointer',transition:'all .15s'}}>
+              <div style={{display:'flex',gap:'14px',
+                alignItems:'flex-start',flex:1}}>
+                <div style={{width:'44px',height:'44px',
+                  borderRadius:'10px',
+                  background:'var(--surface-2)',
+                  border:'1px solid var(--border)',
+                  display:'flex',alignItems:'center',
+                  justifyContent:'center',fontSize:'16px',
+                  fontWeight:800,color:job.logoColor,
+                  flexShrink:0}}>
+                  {job.logo}
+                </div>
+                <div>
+                  <div style={{fontSize:'15px',fontWeight:700,
+                    color:'var(--text-1)',marginBottom:'4px',
+                    letterSpacing:'-0.2px'}}>
+                    {job.title}
+                  </div>
+                  <div style={{fontSize:'13px',
+                    color:'var(--text-2)',marginBottom:'10px'}}>
+                    {job.company}
+                  </div>
+                  <div style={{display:'flex',gap:'6px',
+                    flexWrap:'wrap'}}>
+                    {job.tags.map(tag => (
+                      <span key={tag} style={{fontSize:'11px',
+                        fontWeight:600,padding:'3px 10px',
+                        borderRadius:'999px',
+                        background: tag==='Remote'||tag==='Hybrid' 
+                          ? 'var(--brand-light)' 
+                          : tag==='New today' 
+                          ? '#F0FDF4' : 'var(--surface-2)',
+                        color: tag==='Remote'||tag==='Hybrid' 
+                          ? 'var(--brand)' 
+                          : tag==='New today' 
+                          ? '#16A34A' : 'var(--text-2)',
+                        border: `1px solid ${
+                          tag==='Remote'||tag==='Hybrid' 
+                            ? '#C7D2FE' 
+                            : tag==='New today' 
+                            ? '#BBF7D0' : 'var(--border)'}`}}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="job-card-actions" style={{display:'flex',flexDirection:'column',
+                alignItems:'flex-end',gap:'8px',flexShrink:0}}>
+                <span style={{fontSize:'12px',fontWeight:800,
+                  padding:'4px 12px',borderRadius:'999px',
+                  background: job.match>=90 
+                    ? '#F0FDF4' : 'var(--brand-light)',
+                  color: job.match>=90 
+                    ? '#16A34A' : 'var(--brand)',
+                  border: `1px solid ${job.match>=90 
+                    ? '#BBF7D0' : '#C7D2FE'}`}}>
+                  {job.match}% match
+                </span>
+                <Link href="/auth/signup" style={{textDecoration:'none'}}>
+                  <button style={{fontSize:'12px',fontWeight:600,
+                    color:'var(--brand)',padding:'6px 14px',
+                    borderRadius:'8px',
+                    border:'1.5px solid var(--brand)',
+                    background:'none',cursor:'pointer'}}>
+                    1-click apply
+                  </button>
+                </Link>
+                <span style={{fontSize:'11px',
+                  color:'var(--text-3)'}}>
+                  {job.time}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
       </section>
 
       {/* FEATURES */}
-      <section className="mobile-px-4 mobile-py-8" style={{padding:'88px 40px'}}>
+      <section id="features" className="mobile-px-4 mobile-py-8" style={{padding:'88px 40px'}}>
         <p style={{fontSize:'13px',fontWeight:700,
           color:'var(--brand)',textTransform:'uppercase',
           letterSpacing:'.08em',textAlign:'center',
@@ -405,7 +523,7 @@ export default function LandingPage() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="mobile-px-4 mobile-py-8" style={{padding:'88px 40px',
+      <section id="how-it-works" className="mobile-px-4 mobile-py-8" style={{padding:'88px 40px',
         background:'var(--surface-2)'}}>
         <p style={{fontSize:'13px',fontWeight:700,
           color:'var(--brand)',textTransform:'uppercase',
@@ -530,7 +648,7 @@ export default function LandingPage() {
       </section>
 
       {/* PRICING */}
-      <section className="mobile-px-4 mobile-py-8" style={{padding:'88px 40px',
+      <section id="pricing" className="mobile-px-4 mobile-py-8" style={{padding:'88px 40px',
         background:'var(--surface-2)'}}>
         <p style={{fontSize:'13px',fontWeight:700,
           color:'var(--brand)',textTransform:'uppercase',
@@ -609,16 +727,18 @@ export default function LandingPage() {
                 margin:'12px 0 24px',lineHeight:1.5}}>
                 {p.desc}
               </p>
-              <button style={{width:'100%',padding:'12px',
-                borderRadius:'8px',fontSize:'14px',
-                fontWeight:600,cursor:'pointer',
-                background: p.popular ? 'var(--brand)' : 'none',
-                color: p.popular ? 'white' : 'var(--text-1)',
-                border: p.popular 
-                  ? 'none' : '1.5px solid var(--border)',
-                marginBottom:'20px'}}>
-                {p.cta}
-              </button>
+              <Link href="/auth/signup" style={{textDecoration:'none'}}>
+                <button style={{width:'100%',padding:'12px',
+                  borderRadius:'8px',fontSize:'14px',
+                  fontWeight:600,cursor:'pointer',
+                  background: p.popular ? 'var(--brand)' : 'none',
+                  color: p.popular ? 'white' : 'var(--text-1)',
+                  border: p.popular 
+                    ? 'none' : '1.5px solid var(--border)',
+                  marginBottom:'20px'}}>
+                  {p.cta}
+                </button>
+              </Link>
               {p.features.map(f => (
                 <div key={f} style={{fontSize:'13px',
                   color:'var(--text-2)',padding:'7px 0',
