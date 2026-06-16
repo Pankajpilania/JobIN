@@ -268,7 +268,7 @@ export default function TailorPage() {
                   </option>
                 ))}
               </select>
-              <ChevronDown style={{ pointerEvents: 'none', absolute: 'absolute', position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', height: '16px', width: '16px', color: 'var(--text-3)' }} />
+              <ChevronDown style={{ pointerEvents: 'none', position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', height: '16px', width: '16px', color: 'var(--text-3)' }} />
             </div>
           </div>
 
