@@ -387,7 +387,7 @@ export default function TailorPage() {
               ].map(({ label, value, color }) => (
                 <div key={label} style={{ borderRadius: '12px', border: '1px solid var(--border)', backgroundColor: 'var(--surface)', padding: '16px', textAlign: 'center' }}>
                   <p style={{ fontSize: '24px', fontWeight: 800, color, margin: 0 }}>{value}</p>
-                  <p style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '4px', margin: '4px 0 0 0', uppercase: 'uppercase', fontWeight: 700 }}>{label}</p>
+                  <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: '4px 0 0 0', textTransform: 'uppercase', fontWeight: 700 }}>{label}</p>
                 </div>
               ))}
             </div>
