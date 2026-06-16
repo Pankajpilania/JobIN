@@ -16,16 +16,30 @@ export class S3Service {
   private readonly logger = new Logger(S3Service.name);
 
   constructor(private readonly configService: ConfigService) {
-    this.region = configService.get<string>('AWS_REGION') || 'eu-west-2';
-    this.bucket = configService.get<string>('AWS_S3_BUCKET') || '';
+    const r2Endpoint = configService.get<string>('R2_ENDPOINT') || process.env.R2_ENDPOINT;
 
-    this.s3 = new S3Client({
-      region: this.region,
-      credentials: {
-        accessKeyId: configService.get<string>('AWS_ACCESS_KEY_ID') || '',
-        secretAccessKey: configService.get<string>('AWS_SECRET_ACCESS_KEY') || '',
-      },
-    });
+    if (r2Endpoint) {
+      this.bucket = configService.get<string>('R2_BUCKET_NAME') || process.env.R2_BUCKET_NAME || 'jobin-resumes';
+      this.region = 'auto';
+      this.s3 = new S3Client({
+        region: 'auto',
+        endpoint: r2Endpoint,
+        credentials: {
+          accessKeyId:     configService.get<string>('R2_ACCESS_KEY_ID') || process.env.R2_ACCESS_KEY_ID || '',
+          secretAccessKey: configService.get<string>('R2_SECRET_ACCESS_KEY') || process.env.R2_SECRET_ACCESS_KEY || '',
+        },
+      });
+    } else {
+      this.region = configService.get<string>('AWS_REGION') || 'eu-west-2';
+      this.bucket = configService.get<string>('AWS_S3_BUCKET') || '';
+      this.s3 = new S3Client({
+        region: this.region,
+        credentials: {
+          accessKeyId:     configService.get<string>('AWS_ACCESS_KEY_ID') || '',
+          secretAccessKey: configService.get<string>('AWS_SECRET_ACCESS_KEY') || '',
+        },
+      });
+    }
   }
 
   async uploadFile(key: string, buffer: Buffer, mimeType: string): Promise<string> {
@@ -39,11 +53,15 @@ export class S3Service {
 
       await this.s3.send(command);
 
-      const publicUrl = `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
-      this.logger.log(`Uploaded file to S3: ${key}`);
+      const r2Endpoint = this.configService.get<string>('R2_ENDPOINT') || process.env.R2_ENDPOINT;
+      const publicUrl = r2Endpoint
+        ? `${r2Endpoint.replace(/\/$/, '')}/${this.bucket}/${key}`
+        : `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
+
+      this.logger.log(`Uploaded file to storage: ${key}`);
       return publicUrl;
-    } catch (error) {
-      this.logger.error(`Failed to upload file to S3: ${error.message}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to upload file to storage: ${error.message}`);
       throw new InternalServerErrorException('Failed to upload file to storage');
     }
   }
