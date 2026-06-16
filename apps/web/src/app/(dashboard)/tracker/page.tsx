@@ -384,11 +384,9 @@ function AddApplicationModal({ onClose }: { onClose: () => void }) {
 
 function KanbanCard({
   app,
-  _col,
   onDelete,
 }: {
   app: JobApplication;
-  col: ColumnConfig;
   onDelete: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -514,12 +512,10 @@ function KanbanColumn({
   col,
   applications,
   onDelete,
-  _activeId,
 }: {
   col: ColumnConfig;
   applications: JobApplication[];
   onDelete: (id: string) => void;
-  activeId: string | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
 
@@ -553,7 +549,7 @@ function KanbanColumn({
         }}
       >
         {applications.map(app => (
-          <KanbanCard key={app.id} app={app} col={col} onDelete={onDelete} />
+          <KanbanCard key={app.id} app={app} onDelete={onDelete} />
         ))}
         {applications.length === 0 && (
           <div
@@ -955,7 +951,6 @@ function TrackerContent() {
                   col={col}
                   applications={byStatus[col.id] ?? []}
                   onDelete={handleDelete}
-                  activeId={activeId}
                 />
               ))}
             </div>
