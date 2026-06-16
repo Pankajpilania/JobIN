@@ -6,7 +6,7 @@ export default function LandingPage() {
       background:'var(--surface)',color:'var(--text-1)'}}>
 
       {/* NAV */}
-      <nav style={{display:'flex',alignItems:'center',
+      <nav className="mobile-px-4" style={{display:'flex',alignItems:'center',
         justifyContent:'space-between',padding:'0 40px',
         height:'64px',borderBottom:'1px solid var(--border)',
         background:'rgba(255,255,255,0.95)',
@@ -28,7 +28,7 @@ export default function LandingPage() {
             JobIN
           </span>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
+        <div className="mobile-hide" style={{display:'flex',alignItems:'center',gap:'4px'}}>
           {['Features','AI Resume','Job Match','Pricing','Blog']
             .map(l => (
             <span key={l} style={{fontSize:'14px',fontWeight:500,
@@ -59,7 +59,7 @@ export default function LandingPage() {
       </nav>
 
       {/* HERO */}
-      <section style={{padding:'88px 40px 72px',
+      <section className="mobile-px-4 mobile-py-8" style={{padding:'88px 40px 72px',
         textAlign:'center',
         background:'linear-gradient(180deg,#F5F4FF 0%,#fff 100%)'}}>
         <div style={{display:'inline-flex',alignItems:'center',
@@ -140,7 +140,7 @@ export default function LandingPage() {
         </div>
 
         {/* STATS */}
-        <div style={{display:'flex',maxWidth:'600px',
+        <div className="hero-stats" style={{display:'flex',maxWidth:'600px',
           margin:'0 auto',background:'white',
           border:'1px solid var(--border)',
           borderRadius:'14px',overflow:'hidden',
@@ -151,7 +151,7 @@ export default function LandingPage() {
             {val:'80%',label:'Time saved'},
             {val:'8M+',label:'Live jobs'},
           ].map((s,i) => (
-            <div key={s.label} style={{flex:1,padding:'20px',
+            <div key={s.label} className="hero-stats-item" style={{flex:1,padding:'20px',
               textAlign:'center',
               borderRight: i<3 ? '1px solid var(--border)' : 'none'}}>
               <div style={{fontSize:'24px',fontWeight:800,
@@ -168,9 +168,9 @@ export default function LandingPage() {
       </section>
 
       {/* SEARCH BAR */}
-      <div style={{padding:'40px 40px 0',maxWidth:'860px',
+      <div className="mobile-px-4" style={{padding:'40px 40px 0',maxWidth:'860px',
         margin:'0 auto'}}>
-        <div style={{display:'flex',alignItems:'center',
+        <div className="search-bar" style={{display:'flex',alignItems:'center',
           gap:'8px',background:'white',
           border:'1.5px solid var(--border)',
           borderRadius:'14px',padding:'8px 8px 8px 20px',
@@ -184,7 +184,7 @@ export default function LandingPage() {
             style={{flex:1,border:'none',outline:'none',
               fontSize:'14px',color:'var(--text-1)',
               background:'transparent'}}/>
-          <div style={{width:'1px',height:'24px',
+          <div className="mobile-hide" style={{width:'1px',height:'24px',
             background:'var(--border)'}}/>
           <select style={{border:'none',outline:'none',
             fontSize:'13px',color:'var(--text-2)',
@@ -194,7 +194,7 @@ export default function LandingPage() {
             <option>Hybrid</option>
             <option>On-site</option>
           </select>
-          <div style={{width:'1px',height:'24px',
+          <div className="mobile-hide" style={{width:'1px',height:'24px',
             background:'var(--border)'}}/>
           <select style={{border:'none',outline:'none',
             fontSize:'13px',color:'var(--text-2)',
@@ -215,9 +215,9 @@ export default function LandingPage() {
       </div>
 
       {/* JOB CARDS */}
-      <section style={{padding:'40px 40px 0',
+      <section className="mobile-px-4" style={{padding:'40px 40px 0',
         maxWidth:'860px',margin:'0 auto'}}>
-        <div style={{display:'flex',gap:'0',
+        <div className="mobile-scroll-x" style={{display:'flex',gap:'0',
           borderBottom:'2px solid var(--border)',
           marginBottom:'20px'}}>
           {['Best matches','Recently posted',
@@ -251,7 +251,7 @@ export default function LandingPage() {
             tags:['Remote','New today','£65k–£85k'],
             match:82,time:'8 hours ago'},
         ].map(job => (
-          <div key={job.title} style={{display:'flex',
+          <div key={job.title} className="job-card" style={{display:'flex',
             alignItems:'flex-start',justifyContent:'space-between',
             gap:'16px',background:'white',
             border:'1px solid var(--border)',borderRadius:'14px',
@@ -304,7 +304,7 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
-            <div style={{display:'flex',flexDirection:'column',
+            <div className="job-card-actions" style={{display:'flex',flexDirection:'column',
               alignItems:'flex-end',gap:'8px',flexShrink:0}}>
               <span style={{fontSize:'12px',fontWeight:800,
                 padding:'4px 12px',borderRadius:'999px',
@@ -333,7 +333,7 @@ export default function LandingPage() {
       </section>
 
       {/* FEATURES */}
-      <section style={{padding:'88px 40px'}}>
+      <section className="mobile-px-4 mobile-py-8" style={{padding:'88px 40px'}}>
         <p style={{fontSize:'13px',fontWeight:700,
           color:'var(--brand)',textTransform:'uppercase',
           letterSpacing:'.08em',textAlign:'center',
@@ -351,7 +351,7 @@ export default function LandingPage() {
           From resume to offer letter — JobIN handles every 
           step of your job search with AI.
         </p>
-        <div style={{display:'grid',
+        <div className="mobile-grid-1" style={{display:'grid',
           gridTemplateColumns:'1fr 1fr',gap:'16px',
           maxWidth:'860px',margin:'0 auto'}}>
           <div style={{background:'var(--brand)',
@@ -405,7 +405,7 @@ export default function LandingPage() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section style={{padding:'88px 40px',
+      <section className="mobile-px-4 mobile-py-8" style={{padding:'88px 40px',
         background:'var(--surface-2)'}}>
         <p style={{fontSize:'13px',fontWeight:700,
           color:'var(--brand)',textTransform:'uppercase',
@@ -424,7 +424,7 @@ export default function LandingPage() {
           Set up takes under 2 minutes. Results start 
           immediately.
         </p>
-        <div style={{display:'grid',
+        <div className="mobile-grid-1" style={{display:'grid',
           gridTemplateColumns:'repeat(3,1fr)',
           gap:'20px',maxWidth:'860px',margin:'0 auto'}}>
           {[
@@ -459,7 +459,7 @@ export default function LandingPage() {
       </section>
 
       {/* TESTIMONIALS */}
-      <section style={{padding:'88px 40px'}}>
+      <section className="mobile-px-4 mobile-py-8" style={{padding:'88px 40px'}}>
         <p style={{fontSize:'13px',fontWeight:700,
           color:'var(--brand)',textTransform:'uppercase',
           letterSpacing:'.08em',textAlign:'center',
@@ -476,7 +476,7 @@ export default function LandingPage() {
           margin:'0 auto 56px',lineHeight:1.65}}>
           Real people. Real offers.
         </p>
-        <div style={{display:'grid',
+        <div className="mobile-grid-1" style={{display:'grid',
           gridTemplateColumns:'repeat(3,1fr)',
           gap:'16px',maxWidth:'860px',margin:'0 auto'}}>
           {[
@@ -530,7 +530,7 @@ export default function LandingPage() {
       </section>
 
       {/* PRICING */}
-      <section style={{padding:'88px 40px',
+      <section className="mobile-px-4 mobile-py-8" style={{padding:'88px 40px',
         background:'var(--surface-2)'}}>
         <p style={{fontSize:'13px',fontWeight:700,
           color:'var(--brand)',textTransform:'uppercase',
@@ -548,7 +548,7 @@ export default function LandingPage() {
           margin:'0 auto 56px',lineHeight:1.65}}>
           No credit card required. Cancel anytime.
         </p>
-        <div style={{display:'grid',
+        <div className="mobile-grid-1" style={{display:'grid',
           gridTemplateColumns:'repeat(3,1fr)',
           gap:'16px',maxWidth:'860px',margin:'0 auto'}}>
           {[
@@ -638,7 +638,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA BANNER */}
-      <div style={{margin:'0 40px 88px',
+      <div className="cta-banner" style={{margin:'0 40px 88px',
         background:'var(--brand)',borderRadius:'16px',
         padding:'52px 52px',display:'flex',
         alignItems:'center',justifyContent:'space-between',
@@ -667,9 +667,9 @@ export default function LandingPage() {
       </div>
 
       {/* FOOTER */}
-      <footer style={{padding:'48px 40px 28px',
+      <footer className="mobile-px-4" style={{padding:'48px 40px 28px',
         borderTop:'1px solid var(--border)'}}>
-        <div style={{display:'flex',
+        <div className="footer-links" style={{display:'flex',
           justifyContent:'space-between',
           gap:'40px',marginBottom:'40px',
           maxWidth:'860px',margin:'0 auto 40px'}}>
@@ -726,7 +726,7 @@ export default function LandingPage() {
             </div>
           ))}
         </div>
-        <div style={{display:'flex',
+        <div className="footer-copyright" style={{display:'flex',
           justifyContent:'space-between',
           alignItems:'center',
           paddingTop:'20px',

@@ -95,3 +95,110 @@ input, select, textarea {
 }
 
 * { transition: var(--transition); }
+
+/* ─── Mobile Responsiveness (max-width: 768px) ───────────────────────────── */
+@media (max-width: 768px) {
+  .mobile-hide {
+    display: none !important;
+  }
+
+  .mobile-px-4 {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .mobile-py-8 {
+    padding-top: 32px !important;
+    padding-bottom: 32px !important;
+  }
+
+  .mobile-grid-1 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mobile-scroll-x {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    display: flex !important;
+    width: 100% !important;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .mobile-scroll-x::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hero Stats Grid Override */
+  .hero-stats {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .hero-stats-item {
+    border-right: 1px solid var(--border) !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 16px 12px !important;
+  }
+  .hero-stats-item:nth-child(2n) {
+    border-right: none !important;
+  }
+  .hero-stats-item:nth-child(3),
+  .hero-stats-item:nth-child(4) {
+    border-bottom: none !important;
+  }
+
+  /* Search Bar Override */
+  .search-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 16px !important;
+    gap: 12px !important;
+  }
+  .search-bar input,
+  .search-bar select,
+  .search-bar button {
+    width: 100% !important;
+    height: 44px !important;
+    padding: 0 12px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    margin: 0 !important;
+  }
+
+  /* Job Cards Override */
+  .job-card {
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 16px !important;
+  }
+  .job-card-actions {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    border-top: 1px solid var(--border) !important;
+    padding-top: 16px !important;
+  }
+
+  /* CTA Banner Override */
+  .cta-banner {
+    margin: 0 16px 48px !important;
+    padding: 32px 24px !important;
+    flex-direction: column !important;
+    text-align: center !important;
+    gap: 24px !important;
+  }
+  .cta-banner button {
+    width: 100% !important;
+  }
+
+  /* Footer Override */
+  .footer-links {
+    flex-direction: column !important;
+    gap: 32px !important;
+  }
+  .footer-copyright {
+    flex-direction: column !important;
+    gap: 12px !important;
+    text-align: center !important;
+  }
+}
