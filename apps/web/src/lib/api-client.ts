@@ -31,7 +31,15 @@ async function request<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
+  } catch (fetchErr: any) {
+    throw new Error(
+      `Network request failed to ${API_BASE}${path}.\n` +
+      `Please ensure NEXT_PUBLIC_API_URL is configured correctly in production environment variables (e.g. pointing to your Render backend HTTPS URL instead of localhost) and CORS is configured on the backend. Details: ${fetchErr.message}`
+    );
+  }
 
   if (!res.ok) {
     const err: ApiError = await res.json().catch(() => ({

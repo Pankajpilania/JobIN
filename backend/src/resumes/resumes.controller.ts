@@ -39,7 +39,7 @@ export class ResumesController {
   @Post('upload')
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
-    FileInterceptor('file', {
+    FileInterceptor('resume', {
       storage: memoryStorage(),
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
@@ -48,10 +48,10 @@ export class ResumesController {
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['file', 'title'],
+      required: ['resume'],
       properties: {
-        file: { type: 'string', format: 'binary', description: 'PDF or DOCX file (max 10MB)' },
-        title: { type: 'string', description: 'Resume title' },
+        resume: { type: 'string', format: 'binary', description: 'PDF or DOCX file (max 10MB)' },
+        title: { type: 'string', description: 'Resume title (optional)' },
       },
     },
   })
@@ -61,9 +61,9 @@ export class ResumesController {
   async upload(
     @CurrentUser() user: any,
     @UploadedFile() file: Express.Multer.File,
-    @Body() dto: CreateResumeDto,
+    @Body() dto?: CreateResumeDto,
   ) {
-    return this.resumesService.upload(user.id, file, dto.title);
+    return this.resumesService.upload(user.id, file, dto?.title);
   }
 
   @Get()

@@ -14,14 +14,22 @@ async function request<T>(
   token:   string,
   options: RequestInit = {},
 ): Promise<T> {
-  const res = await fetch(`${API}/admin${path}`, {
-    ...options,
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...(options.headers as Record<string, string> ?? {}),
-    },
-  });
+  let res;
+  try {
+    res = await fetch(`${API}/admin${path}`, {
+      ...options,
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...(options.headers as Record<string, string> ?? {}),
+      },
+    });
+  } catch (fetchErr: any) {
+    throw new Error(
+      `Network request failed to ${API}/admin${path}.\n` +
+      `Please ensure NEXT_PUBLIC_API_URL is configured correctly in production environment variables (e.g. pointing to your Render backend HTTPS URL instead of localhost) and CORS is configured on the backend. Details: ${fetchErr.message}`
+    );
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));

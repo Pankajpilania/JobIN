@@ -236,7 +236,7 @@ export default function ResumeDetailPage() {
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {resume.s3Url && (
-            <a href={resume.s3Url} download target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+            <a href={resume.downloadUrl || resume.s3Url} download target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
               <Button variant="ghost" style={{ fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Download style={{ height: '14px', width: '14px' }} /> Download
               </Button>

@@ -73,10 +73,21 @@ export class ResumesService {
 
   async findAll(supabaseId: string) {
     const userId = await this.resolveUserId(supabaseId);
-    return this.prisma.resume.findMany({
+    const resumes = await this.prisma.resume.findMany({
       where: { userId }, orderBy: { createdAt: 'desc' },
-      select: { id: true, title: true, originalName: true, s3Url: true, fileSize: true, mimeType: true, atsScore: true, isDefault: true, analysisResult: true, createdAt: true, updatedAt: true },
+      select: { id: true, title: true, originalName: true, s3Key: true, s3Url: true, fileSize: true, mimeType: true, atsScore: true, isDefault: true, analysisResult: true, createdAt: true, updatedAt: true },
     });
+
+    return Promise.all(
+      resumes.map(async (resume) => {
+        try {
+          const downloadUrl = await this.s3.getPresignedUrl(resume.s3Key);
+          return { ...resume, downloadUrl };
+        } catch {
+          return { ...resume, downloadUrl: resume.s3Url };
+        }
+      }),
+    );
   }
 
   async findOne(supabaseId: string, resumeId: string) {

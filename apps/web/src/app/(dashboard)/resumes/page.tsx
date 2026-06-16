@@ -387,7 +387,7 @@ function ResumeCard({ resume }: { resume: Resume }) {
 
           {/* Download pdf/docx action buttons */}
           <a
-            href={resume.s3Url}
+            href={resume.downloadUrl || resume.s3Url}
             target="_blank"
             rel="noopener noreferrer"
             style={{ marginLeft: 'auto', textDecoration: 'none' }}

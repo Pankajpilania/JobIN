@@ -28,7 +28,7 @@ export class ResumesService {
   async upload(
     userId: string,
     file: Express.Multer.File,
-    title: string,
+    title?: string,
   ) {
     if (!file) {
       throw new BadRequestException('No file provided');
@@ -49,10 +49,12 @@ export class ResumesService {
 
     const s3Url = await this.s3.uploadFile(s3Key, file.buffer, file.mimetype);
 
+    const resolvedTitle = title || file.originalname.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim() || 'My Resume';
+
     const resume = await this.prisma.resume.create({
       data: {
         userId,
-        title,
+        title: resolvedTitle,
         originalName: file.originalname,
         s3Key,
         s3Url,
@@ -83,7 +85,16 @@ export class ResumesService {
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });
 
-    return resumes;
+    return Promise.all(
+      resumes.map(async (resume) => {
+        try {
+          const downloadUrl = await this.s3.getSignedUrl(resume.s3Key, 3600);
+          return { ...resume, downloadUrl };
+        } catch {
+          return { ...resume, downloadUrl: resume.s3Url };
+        }
+      }),
+    );
   }
 
   async findOne(userId: string, id: string) {

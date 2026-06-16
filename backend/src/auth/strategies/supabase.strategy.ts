@@ -4,6 +4,8 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 
+import { passportJwtSecret } from 'jwks-rsa';
+
 @Injectable()
 export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase-jwt') {
   private readonly logger = new Logger(SupabaseStrategy.name);
@@ -12,10 +14,38 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase-jwt')
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || configService.get<string>('NEXT_PUBLIC_SUPABASE_URL');
+    const symmetricSecret = configService.get<string>('app.supabaseJwtSecret') || 'change-me-in-production';
+
+    const jwksSecretProvider = supabaseUrl
+      ? passportJwtSecret({
+          cache: true,
+          rateLimit: true,
+          jwksRequestsPerMinute: 5,
+          jwksUri: `${supabaseUrl.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`,
+        })
+      : null;
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('app.supabaseJwtSecret') || 'change-me-in-production',
+      algorithms: ['HS256', 'ES256', 'RS256'],
+      secretOrKeyProvider: (request, rawJwtToken, done) => {
+        try {
+          const parts = rawJwtToken.split('.');
+          if (parts.length < 2) {
+            return done(new Error('Invalid token structure'));
+          }
+          const header = JSON.parse(Buffer.from(parts[0], 'base64').toString());
+          if (header.kid && jwksSecretProvider) {
+            jwksSecretProvider(request, rawJwtToken, done);
+          } else {
+            done(null, symmetricSecret);
+          }
+        } catch (err: any) {
+          done(err);
+        }
+      },
     });
   }
 
