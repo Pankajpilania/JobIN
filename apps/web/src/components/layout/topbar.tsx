@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Bell, Zap } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-user';
 import { Avatar } from '../ui/avatar';
@@ -8,10 +8,14 @@ import { Avatar } from '../ui/avatar';
 export const Topbar: React.FC = () => {
   const { data: user } = useCurrentUser();
 
-  // Deduct used credits from total, default to 50
-  const remainingCredits = user?.aiCredits
-    ? Math.max(0, user.aiCredits.totalCredits - user.aiCredits.usedCredits)
-    : 50;
+  const [remainingCredits, setRemainingCredits] = useState<number>(50);
+
+  useEffect(() => {
+    // Credits are fetched from the API separately
+    // Supabase auth User does not contain aiCredits
+    // TODO: fetch from GET /api/users/me/credits
+    setRemainingCredits(50);
+  }, []);
 
   const getInitials = (name?: string) => {
     if (!name) return 'U';
