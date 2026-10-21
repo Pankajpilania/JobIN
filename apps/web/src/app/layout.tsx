@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Titillium_Web } from 'next/font/google'
 import './globals.css'
 
 const inter = Inter({
@@ -9,9 +9,16 @@ const inter = Inter({
   variable: '--font-inter',
 })
 
+const titillium = Titillium_Web({
+  subsets: ['latin'],
+  weight: ['400', '600', '700'],
+  display: 'swap',
+  variable: '--font-titillium',
+})
+
 export const metadata: Metadata = {
   title: 'JobIN — Apply Smarter. Get Hired Faster.',
-  description: 'AI-powered job matching, resume tailoring, and one-click autofill. Land your dream job in less than 1 minute.',
+  description: 'Find relevant roles, tailor your application, and keep your job search moving with JobIN.',
 }
 
 import { QueryProvider } from '@/components/providers/query-provider'
@@ -22,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${titillium.variable}`}>
       <body className={inter.className}>
         <QueryProvider>
           {children}

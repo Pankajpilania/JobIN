@@ -251,9 +251,10 @@ export default function CoverLetterPage() {
               <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
                 {/* Resume selector */}
                 <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Source Resume CV *</label>
+                  <label htmlFor="sourceResume" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Source Resume CV *</label>
                   <div style={{ position: 'relative' }}>
                     <select
+                      id="sourceResume"
                       value={selectedResumeId}
                       onChange={e => setSelectedResumeId(e.target.value)}
                       style={{
@@ -283,8 +284,9 @@ export default function CoverLetterPage() {
 
                 {/* Job Title */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Job Title *</label>
+                  <label htmlFor="jobTitle" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Job Title *</label>
                   <input
+                    id="jobTitle"
                     type="text"
                     value={jobTitle}
                     onChange={e => setJobTitle(e.target.value)}
@@ -305,8 +307,9 @@ export default function CoverLetterPage() {
 
                 {/* Company Name */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name *</label>
+                  <label htmlFor="companyName" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name *</label>
                   <input
+                    id="companyName"
                     type="text"
                     value={companyName}
                     onChange={e => setCompanyName(e.target.value)}
@@ -327,8 +330,8 @@ export default function CoverLetterPage() {
               </div>
 
               {/* Style Selector */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Letter Style *</label>
+              <fieldset aria-labelledby="letterStyleLegend" style={{ border: 0, padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <legend id="letterStyleLegend" style={{ padding: 0, fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Letter Style *</legend>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
                   {VARIANTS.map(v => {
                     const active = variant === v.value;
@@ -336,6 +339,7 @@ export default function CoverLetterPage() {
                       <button
                         key={v.value}
                         type="button"
+                        aria-pressed={active}
                         onClick={() => setVariant(v.value)}
                         style={{
                           display: 'flex',
@@ -359,7 +363,7 @@ export default function CoverLetterPage() {
                     );
                   })}
                 </div>
-              </div>
+              </fieldset>
 
               {/* Conditional Hiring Manager Name */}
               <AnimatePresence>
@@ -370,10 +374,11 @@ export default function CoverLetterPage() {
                     exit={{ opacity: 0, height: 0 }}
                     style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
                   >
-                    <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <label htmlFor="hiringManagerName" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Hiring Manager Name *
                     </label>
                     <input
+                      id="hiringManagerName"
                       type="text"
                       value={hiringManagerName}
                       onChange={e => setHiringManagerName(e.target.value)}
@@ -396,10 +401,11 @@ export default function CoverLetterPage() {
 
               {/* Job Description Input */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <label htmlFor="jobDescription" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Job Description * <span style={{ textTransform: 'lowercase', fontWeight: 500, opacity: 0.6 }}>(paste the full posting text)</span>
                 </label>
                 <textarea
+                  id="jobDescription"
                   value={jobDescription}
                   onChange={e => setJobDescription(e.target.value)}
                   rows={8}
