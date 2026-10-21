@@ -1,5 +1,12 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailService } from '../../email/email.service';
@@ -14,14 +21,21 @@ export class SupabaseAuthGuard implements CanActivate {
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
   ) {
-    const supabaseUrl = this.config.get<string>('NEXT_PUBLIC_SUPABASE_URL') || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY') || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl =
+      this.config.get<string>('NEXT_PUBLIC_SUPABASE_URL') || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const apiKey =
+      this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY') ||
+      this.config.get<string>('NEXT_PUBLIC_SUPABASE_ANON_KEY') ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !serviceRoleKey) {
-      this.logger.error('Supabase configuration missing (NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY)');
+    if (!supabaseUrl || !apiKey) {
+      this.logger.error(
+        'Supabase configuration missing (NEXT_PUBLIC_SUPABASE_URL or Supabase API key)',
+      );
     }
 
-    this.supabase = createClient(supabaseUrl || '', serviceRoleKey || '');
+    this.supabase = createClient(supabaseUrl || '', apiKey || '');
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -32,7 +46,10 @@ export class SupabaseAuthGuard implements CanActivate {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error } = await this.supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error,
+    } = await this.supabase.auth.getUser(token);
     if (error || !user) {
       throw new UnauthorizedException('Invalid or expired Supabase token');
     }
@@ -47,7 +64,8 @@ export class SupabaseAuthGuard implements CanActivate {
 
     if (!dbUser) {
       const email = user.email || `${user.id}@unknown.jobin`;
-      const fullName = user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0];
+      const fullName =
+        user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0];
       const avatarUrl = user.user_metadata?.avatar_url || null;
 
       dbUser = await this.prisma.user.create({
@@ -67,6 +85,10 @@ export class SupabaseAuthGuard implements CanActivate {
       this.email.sendWelcome(dbUser.email, dbUser.fullName.split(' ')[0]).catch((err) => {
         this.logger.warn(`Failed to send welcome email: ${err.message}`);
       });
+    }
+
+    if (dbUser.status !== 'ACTIVE') {
+      throw new ForbiddenException('This account is not active');
     }
 
     // Attach user to request payload

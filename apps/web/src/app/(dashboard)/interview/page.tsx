@@ -5,8 +5,6 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import {
-  Mic,
-  MicOff,
   Send,
   Play,
   RotateCcw,
@@ -44,7 +42,6 @@ export default function InterviewPage() {
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const startSession = () => {
@@ -119,7 +116,6 @@ export default function InterviewPage() {
     setCompanyName('');
     setMessages([]);
     setUserInput('');
-    setIsRecording(false);
   };
 
   return (
@@ -131,6 +127,9 @@ export default function InterviewPage() {
         </h1>
         <p style={{ marginTop: '8px', color: 'var(--text-2)', fontSize: '14px', fontWeight: 500, margin: '8px 0 0 0' }}>
           Practice realistic role-specific mock interviews and get instant STAR format feedback.
+        </p>
+        <p role="note" style={{ margin: '8px 0 0 0', color: 'var(--text-3)', fontSize: '12px' }}>
+          Demo mode: questions and feedback are simulated. Answers are not recorded or saved.
         </p>
       </motion.div>
 
@@ -296,33 +295,13 @@ export default function InterviewPage() {
 
             {/* Input action bar */}
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button
-                onClick={() => setIsRecording(!isRecording)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: '1px solid',
-                  borderColor: isRecording ? '#ef4444' : 'var(--border)',
-                  backgroundColor: isRecording ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-                  color: isRecording ? '#ef4444' : 'var(--text-2)',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  transition: 'var(--transition)'
-                }}
-                title={isRecording ? 'Stop Recording' : 'Record Answer'}
-              >
-                {isRecording ? <MicOff style={{ height: '18px', width: '18px' }} /> : <Mic style={{ height: '18px', width: '18px' }} />}
-              </button>
-
               <input
                 type="text"
-                placeholder={isRecording ? 'Speaking... (recording audio)' : 'Type your answer here...'}
+                placeholder="Type your answer here..."
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
-                disabled={isRecording || submitting}
+                disabled={submitting}
+                aria-label="Interview answer"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSend();
                 }}
@@ -339,7 +318,12 @@ export default function InterviewPage() {
                 }}
               />
 
-              <Button onClick={handleSend} disabled={submitting || !userInput.trim()} style={{ padding: '10px', borderRadius: '8px', flexShrink: 0 }}>
+              <Button
+                onClick={handleSend}
+                disabled={submitting || !userInput.trim()}
+                aria-label="Send answer"
+                style={{ padding: '10px', borderRadius: '8px', flexShrink: 0 }}
+              >
                 <Send style={{ height: '16px', width: '16px' }} />
               </Button>
             </div>

@@ -34,11 +34,9 @@ async function request<T>(
   let res;
   try {
     res = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
-  } catch (fetchErr: any) {
-    throw new Error(
-      `Network request failed to ${API_BASE}${path}.\n` +
-      `Please ensure NEXT_PUBLIC_API_URL is configured correctly in production environment variables (e.g. pointing to your Render backend HTTPS URL instead of localhost) and CORS is configured on the backend. Details: ${fetchErr.message}`
-    );
+  } catch (fetchErr: unknown) {
+    console.error('API request failed', { path, error: fetchErr });
+    throw new Error('Unable to reach the server. Check the API connection and NEXT_PUBLIC_API_URL.');
   }
 
   if (!res.ok) {

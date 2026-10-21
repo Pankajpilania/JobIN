@@ -38,6 +38,8 @@ export async function middleware(request: NextRequest) {
 
   const isPublicRoute =
     request.nextUrl.pathname === '/' ||
+    request.nextUrl.pathname.startsWith('/auth/login') ||
+    request.nextUrl.pathname.startsWith('/auth/signup') ||
     request.nextUrl.pathname.startsWith('/sign-in') ||
     request.nextUrl.pathname.startsWith('/sign-up') ||
     request.nextUrl.pathname.startsWith('/admin-login') ||
@@ -46,7 +48,6 @@ export async function middleware(request: NextRequest) {
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
-    // Send admin visitors to the dedicated admin login, everyone else to sign-in
     if (request.nextUrl.pathname.startsWith('/admin')) {
       url.pathname = '/admin-login';
     } else {

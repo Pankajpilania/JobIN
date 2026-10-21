@@ -1,21 +1,29 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Search, Bell, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Search } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-user';
+import { useSessionProfile } from '@/hooks/use-session-profile';
 import { Avatar } from '../ui/avatar';
 
+const searchItems = [
+  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Resumes', href: '/resumes' },
+  { label: 'AI Tailor', href: '/tailor' },
+  { label: 'Cover Letter', href: '/cover-letter' },
+  { label: 'Job Tracker', href: '/tracker' },
+  { label: 'AI Copilot', href: '/interview' },
+  { label: 'Settings', href: '/settings' },
+];
+
 export const Topbar: React.FC = () => {
+  const router = useRouter();
   const { data: user } = useCurrentUser();
-
-  const [remainingCredits, setRemainingCredits] = useState<number>(50);
-
-  useEffect(() => {
-    // Credits are fetched from the API separately
-    // Supabase auth User does not contain aiCredits
-    // TODO: fetch from GET /api/users/me/credits
-    setRemainingCredits(50);
-  }, []);
+  const sessionProfile = useSessionProfile();
+  const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const getInitials = (name?: string) => {
     if (!name) return 'U';
@@ -25,6 +33,16 @@ export const Topbar: React.FC = () => {
       .join('')
       .slice(0, 2)
       .toUpperCase();
+  };
+
+  const searchResults = searchItems.filter((item) =>
+    item.label.toLowerCase().includes(search.trim().toLowerCase())
+  );
+
+  const navigateToSearchResult = (href: string) => {
+    setSearch('');
+    setSearchOpen(false);
+    router.push(href);
   };
 
   return (
@@ -43,93 +61,94 @@ export const Topbar: React.FC = () => {
       padding: '0 24px'
     }}>
       {/* Topbar Search */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        backgroundColor: 'var(--surface-2)',
-        border: '1px solid var(--border)',
-        borderRadius: '8px',
-        padding: '6px 12px',
-        width: '256px',
-        maxWidth: '100%'
-      }}>
-        <Search style={{ height: '16px', width: '16px', color: 'var(--text-3)' }} />
-        <input
-          type="text"
-          placeholder="Quick search..."
-          style={{
+      <div style={{ position: 'relative', width: '256px', maxWidth: '100%' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          backgroundColor: 'var(--surface-2)',
+          border: '1px solid var(--border)',
+          borderRadius: '8px',
+          padding: '6px 12px',
+        }}>
+          <Search style={{ height: '16px', width: '16px', color: 'var(--text-3)', flexShrink: 0 }} />
+          <input
+            type="search"
+            placeholder="Search pages..."
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setSearchOpen(true);
+            }}
+            onFocus={() => setSearchOpen(true)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                setSearchOpen(false);
+              } else if (event.key === 'Enter' && searchResults[0]) {
+                event.preventDefault();
+                navigateToSearchResult(searchResults[0].href);
+              }
+            }}
+            aria-label="Search dashboard pages"
+            style={{
             backgroundColor: 'transparent',
             border: 'none',
             outline: 'none',
             fontSize: '13px',
             color: 'var(--text-1)',
             width: '100%'
-          }}
-        />
+            }}
+          />
+        </div>
+        {searchOpen && searchResults.length > 0 && (
+          <nav
+            id="dashboard-search-results"
+            aria-label="Dashboard pages"
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              left: 0,
+              right: 0,
+              zIndex: 50,
+              padding: '4px',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              backgroundColor: 'var(--surface)',
+              boxShadow: 'var(--shadow-card)',
+              maxHeight: '320px',
+              overflowY: 'auto',
+            }}
+          >
+            {searchResults.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => {
+                  setSearch('');
+                  setSearchOpen(false);
+                }}
+                style={{
+                  display: 'block',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  color: 'var(--text-1)',
+                  fontSize: '13px',
+                  textDecoration: 'none',
+                }}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </div>
 
-      {/* Right controls: credits, notification bell, user avatar */}
+      {/* User avatar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        {/* Credits */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          borderRadius: '999px',
-          border: '1px solid rgba(79, 70, 229, 0.2)',
-          backgroundColor: 'var(--brand-light)',
-          padding: '6px 12px',
-          userSelect: 'none'
-        }}>
-          <Zap style={{ height: '14px', width: '14px', color: 'var(--brand)' }} />
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand)' }}>
-            {remainingCredits} Credits
-          </span>
-        </div>
-
-        {/* Notification Bell */}
-        <button
-          style={{
-            position: 'relative',
-            padding: '8px',
-            color: 'var(--text-3)',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            borderRadius: '50%',
-            transition: 'var(--transition)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          title="Notifications"
-          onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--surface-2)';
-            e.currentTarget.style.color = 'var(--text-1)';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = 'var(--text-3)';
-          }}
-        >
-          <Bell style={{ height: '16px', width: '16px' }} />
-          <span style={{
-            position: 'absolute',
-            top: '6px',
-            right: '6px',
-            height: '8px',
-            width: '8px',
-            borderRadius: '50%',
-            backgroundColor: 'var(--brand)'
-          }} />
-        </button>
-
-        {/* User Avatar */}
         <Avatar
-          src={user?.avatarUrl}
-          alt={user?.fullName || 'User'}
-          fallback={getInitials(user?.fullName)}
+          src={user?.avatarUrl || sessionProfile.avatarUrl}
+          alt={user?.fullName || sessionProfile.fullName || 'User'}
+          fallback={getInitials(user?.fullName || sessionProfile.fullName)}
           size="sm"
         />
       </div>

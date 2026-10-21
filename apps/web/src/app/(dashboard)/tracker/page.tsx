@@ -30,7 +30,7 @@ import {
   Trash2,
   ChevronDown,
 } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useAllApplications,
   useCreateApplication,
@@ -101,6 +101,9 @@ function AddApplicationModal({ onClose }: { onClose: () => void }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-application-title"
       style={{
         position: 'fixed',
         inset: 0,
@@ -127,10 +130,12 @@ function AddApplicationModal({ onClose }: { onClose: () => void }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', padding: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-1)' }}>
               <Briefcase style={{ height: '18px', width: '18px', color: 'var(--brand)' }} />
-              <h2 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>Add Application</h2>
+              <h2 id="add-application-title" style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>Add Application</h2>
             </div>
             <button
+              type="button"
               onClick={onClose}
+              aria-label="Close Add Application dialog"
               style={{
                 borderRadius: '6px',
                 padding: '6px',
@@ -785,9 +790,17 @@ function ListView({
 
 function TrackerContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [showAdd, setShowAdd] = useState(searchParams.get('add') === 'true');
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  const closeAddDialog = () => {
+    setShowAdd(false);
+    if (searchParams.get('add') === 'true') {
+      router.replace('/tracker', { scroll: false });
+    }
+  };
 
   const { data: applications = [], isLoading } = useAllApplications();
   const updateApp = useUpdateApplication();
@@ -990,7 +1003,7 @@ function TrackerContent() {
 
       {/* Add application modal */}
       <AnimatePresence>
-        {showAdd && <AddApplicationModal onClose={() => setShowAdd(false)} />}
+        {showAdd && <AddApplicationModal onClose={closeAddDialog} />}
       </AnimatePresence>
     </div>
   );
