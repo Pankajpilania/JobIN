@@ -2,11 +2,15 @@ services:
   - type: web
     name: jobin-api
     env: node
-    buildCommand: npm run build
-    startCommand: npm run start:prod
+    rootDir: .
+    buildCommand: npm ci && npm run db:generate --workspace=apps/api && npm run build --workspace=apps/api
+    startCommand: npm run start:prod --workspace=apps/api
+    healthCheckPath: /api/health
     autoDeploy: true
     envVars:
       - key: PORT
         value: 4000
       - key: NODE_ENV
         value: production
+      - key: CORS_ORIGIN
+        value: https://job-in-web.vercel.app
