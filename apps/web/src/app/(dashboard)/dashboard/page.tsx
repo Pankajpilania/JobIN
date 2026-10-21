@@ -22,8 +22,8 @@ import {
 } from 'lucide-react';
 import { useApplicationStats, useActivityFeed } from '@/hooks/use-applications';
 import { useResumes } from '@/hooks/use-resumes';
+import { useSessionProfile } from '@/hooks/use-session-profile';
 import type { ApplicationStatus, ActivityItem } from '@/types';
-import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -77,6 +77,8 @@ function DashboardStatCard({
   color,
   subText,
   delay,
+  loading,
+  error,
 }: {
   label: string;
   value: number;
@@ -85,6 +87,8 @@ function DashboardStatCard({
   color: { text: string; bg: string };
   subText?: string;
   delay: number;
+  loading?: boolean;
+  error?: boolean;
 }) {
   return (
     <motion.div
@@ -100,7 +104,7 @@ function DashboardStatCard({
               {label}
             </span>
             <p style={{ fontStyle: 'normal', fontSize: '28px', fontWeight: 800, margin: '4px 0 0 0', color: 'var(--text-1)', letterSpacing: '-1px' }}>
-              <AnimatedNumber value={value} suffix={suffix} />
+              {loading ? 'Loading…' : error ? '—' : <AnimatedNumber value={value} suffix={suffix} />}
             </p>
           </div>
           <div style={{
@@ -117,7 +121,11 @@ function DashboardStatCard({
             <Icon style={{ height: '20px', width: '20px' }} />
           </div>
         </div>
-        {subText && <p style={{ fontSize: '12px', color: 'var(--text-3)', fontWeight: 500, margin: 0 }}>{subText}</p>}
+        {(loading || error || subText) && (
+          <p style={{ fontSize: '12px', color: error ? '#b91c1c' : 'var(--text-3)', fontWeight: 500, margin: 0 }}>
+            {loading ? 'Loading dashboard data…' : error ? 'Data unavailable' : subText}
+          </p>
+        )}
       </Card>
     </motion.div>
   );
@@ -305,21 +313,15 @@ function PipelineBar({ byStatus }: { byStatus: Record<string, number> }) {
 
 export default function DashboardPage() {
   const { data: user } = useCurrentUser();
-  const { data: stats } = useApplicationStats();
-  const { data: activity } = useActivityFeed();
-  const { data: resumes } = useResumes();
+  const sessionProfile = useSessionProfile();
+  const statsQuery = useApplicationStats();
+  const activityQuery = useActivityFeed();
+  const resumesQuery = useResumes();
+  const { data: stats } = statsQuery;
+  const { data: activity } = activityQuery;
+  const { data: resumes } = resumesQuery;
 
-  const [sessionName, setSessionName] = useState('');
-  useEffect(() => {
-    createClient()
-      .auth.getUser()
-      .then(({ data }) => {
-        const meta = data?.user?.user_metadata;
-        setSessionName(meta?.full_name ?? meta?.name ?? '');
-      });
-  }, []);
-
-  const displayName = user?.fullName || sessionName;
+  const displayName = user?.fullName || sessionProfile.fullName;
   const firstName = displayName ? displayName.split(' ')[0] : 'candidate';
   const topResume = resumes?.find((r) => r.isDefault) ?? resumes?.[0];
   const atsScore = topResume?.atsScore ?? 0;
@@ -338,6 +340,17 @@ export default function DashboardPage() {
         </p>
       </motion.div>
 
+      {statsQuery.isError && !stats && (
+        <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>
+          Unable to load application statistics: {statsQuery.error.message}
+        </p>
+      )}
+      {resumesQuery.isError && !resumes && (
+        <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>
+          Unable to load resumes: {resumesQuery.error.message}
+        </p>
+      )}
+
       {/* Stat cards grid */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
         <DashboardStatCard
@@ -347,6 +360,8 @@ export default function DashboardPage() {
           value={stats?.total ?? 0}
           color={{ text: 'var(--brand)', bg: 'var(--brand-light)' }}
           subText={`${stats?.thisWeek ?? 0} applied this week`}
+          loading={statsQuery.isLoading && !stats}
+          error={statsQuery.isError && !stats}
         />
         <DashboardStatCard
           delay={0.1}
@@ -356,6 +371,8 @@ export default function DashboardPage() {
           suffix="%"
           color={{ text: 'var(--brand)', bg: 'var(--brand-light)' }}
           subText={stats?.totalApplied ? `${stats.totalApplied} total applied` : 'Apply to unlock stats'}
+          loading={statsQuery.isLoading && !stats}
+          error={statsQuery.isError && !stats}
         />
         <DashboardStatCard
           delay={0.15}
@@ -369,6 +386,8 @@ export default function DashboardPage() {
               ? `${stats?.byStatus?.['OFFER']} job offer(s)`
               : 'Keep pushing!'
           }
+          loading={statsQuery.isLoading && !stats}
+          error={statsQuery.isError && !stats}
         />
         <DashboardStatCard
           delay={0.2}
@@ -378,6 +397,8 @@ export default function DashboardPage() {
           suffix="/100"
           color={{ text: '#F59E0B', bg: '#FEF9C3' }}
           subText={atsScore > 0 ? (topResume?.title ?? 'Default CV') : 'Upload a CV first'}
+          loading={resumesQuery.isLoading && !resumes}
+          error={resumesQuery.isError && !resumes}
         />
       </div>
 
@@ -425,7 +446,15 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            {!activity || activity.length === 0 ? (
+            {activityQuery.isLoading && !activity ? (
+              <p role="status" style={{ color: 'var(--text-2)', margin: 0 }}>
+                Loading recent activity…
+              </p>
+            ) : activityQuery.isError && !activity ? (
+              <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>
+                Unable to load recent activity: {activityQuery.error.message}
+              </p>
+            ) : !activity || activity.length === 0 ? (
               <div style={{
                 display: 'flex',
                 flexDirection: 'column',
