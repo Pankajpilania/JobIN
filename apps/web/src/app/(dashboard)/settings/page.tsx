@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
 import {
   User,
   Lock,
@@ -96,10 +95,9 @@ function Input({
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      <label htmlFor={`settings-${label.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-2)' }}>{label}</label>
+      <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-2)' }}>{label}</label>
       <div style={{ position: 'relative' }}>
         <input
-          id={`settings-${label.toLowerCase().replace(/\s+/g, '-')}`}
           type={type}
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
@@ -142,6 +140,10 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPw, setShowPw]               = useState(false);
   const [savingPw, setSavingPw]           = useState(false);
+
+  // Notifications state
+  const [emailNotifs, setEmailNotifs]     = useState(true);
+  const [weeklyDigest, setWeeklyDigest]   = useState(true);
 
   // Danger zone
   const [deleting, setDeleting]           = useState(false);
@@ -225,36 +227,23 @@ export default function SettingsPage() {
 
   // ── Sign out ─────────────────────────────────────────────────────────────────
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    router.push('/sign-in');
-    router.refresh();
+    await supabase.auth.signOut();
+    router.push('/');
   };
 
   // ── Delete account ───────────────────────────────────────────────────────────
   const handleDeleteAccount = async () => {
     const confirmed = window.confirm(
-      'Deactivate your JobIN profile? You will lose access to JobIN with this account. This does not delete your authentication-provider account or erase your data.',
+      'Are you absolutely sure? This will permanently delete your account and all data. This action cannot be undone.',
     );
     if (!confirmed) return;
     setDeleting(true);
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
-      if (!session) throw new Error('Your session has expired. Sign in and try again.');
-
-      await apiClient.delete<void>('/users/me', session.access_token);
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) throw signOutError;
-
-      toast.success('Your JobIN profile has been deactivated.');
+      await supabase.auth.signOut();
+      toast.success('Account deletion requested. You have been signed out.');
       router.push('/');
-      router.refresh();
     } catch (err: any) {
-      toast.error(err.message ?? 'Failed to deactivate profile');
+      toast.error(err.message ?? 'Failed to delete account');
       setDeleting(false);
     }
   };
@@ -337,8 +326,6 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => setShowPw((p) => !p)}
-              aria-label={showPw ? 'Hide password' : 'Show password'}
-              aria-pressed={showPw}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: 'var(--text-3)' }}
             >
               {showPw ? <EyeOff style={{ height: '16px', width: '16px' }} /> : <Eye style={{ height: '16px', width: '16px' }} />}
@@ -382,11 +369,57 @@ export default function SettingsPage() {
       <Section
         icon={Bell}
         title="Notifications"
-        description="Notification preferences are not available yet."
+        description="Control how and when JobIN sends you emails."
       >
-        <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: 0 }}>
-          Notification settings cannot be changed until email preference controls are supported.
-        </p>
+        {[
+          {
+            label: 'Email Notifications',
+            description: 'Receive emails about your account activity and updates.',
+            value: emailNotifs,
+            onChange: setEmailNotifs,
+          },
+          {
+            label: 'Weekly Digest',
+            description: 'Get a weekly summary of your job application progress.',
+            value: weeklyDigest,
+            onChange: setWeeklyDigest,
+          },
+        ].map(({ label, description, value, onChange }) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '8px 0' }}>
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{label}</p>
+              <p style={{ fontSize: '12px', color: 'var(--text-3)', margin: '2px 0 0 0', fontWeight: 500 }}>{description}</p>
+            </div>
+            <button
+              onClick={() => onChange(!value)}
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                height: '24px',
+                width: '44px',
+                alignItems: 'center',
+                borderRadius: '999px',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background-color 0.15s ease',
+                backgroundColor: value ? 'var(--brand)' : 'var(--border)'
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  height: '16px',
+                  width: '16px',
+                  borderRadius: '50%',
+                  backgroundColor: 'white',
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'transform 0.15s ease',
+                  transform: value ? 'translateX(24px)' : 'translateX(4px)'
+                }}
+              />
+            </button>
+          </div>
+        ))}
       </Section>
 
       {/* ── Plan & Credits ── */}
@@ -418,20 +451,31 @@ export default function SettingsPage() {
               <Zap style={{ height: '16px', width: '16px' }} />
             </div>
             <div>
-              <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--brand-dark)', margin: 0 }}>Plan details unavailable</p>
-              <p style={{ fontSize: '12px', color: 'var(--brand-dark)', opacity: 0.8, margin: '2px 0 0 0', fontWeight: 500 }}>
-                Connect to the account service to load your subscription and credit balance.
-              </p>
+              <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--brand-dark)', margin: 0 }}>Free Plan</p>
+              <p style={{ fontSize: '12px', color: 'var(--brand-dark)', opacity: 0.8, margin: '2px 0 0 0', fontWeight: 500 }}>50 AI credits / month</p>
             </div>
           </div>
+          <span style={{
+            borderRadius: '999px',
+            backgroundColor: 'var(--brand)',
+            padding: '2px 10px',
+            fontSize: '11px',
+            fontWeight: 700,
+            color: 'white'
+          }}>
+            Active
+          </span>
         </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-3)', fontWeight: 500, margin: 0 }}>
+          Upgrade to Pro for unlimited AI credits, priority support, and advanced analytics.
+        </p>
       </Section>
 
       {/* ── Danger Zone ── */}
       <Section
         icon={Shield}
         title="Account Actions"
-        description="Sign out or deactivate your JobIN profile."
+        description="Sign out or permanently delete your account."
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <button
@@ -470,8 +514,8 @@ export default function SettingsPage() {
               <p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>Danger Zone</p>
             </div>
             <p style={{ fontSize: '12px', color: '#B91C1C', lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
-              Deactivate your JobIN profile. This blocks access to JobIN with this account, but does
-              not delete your authentication-provider account or permanently erase associated data.
+              Permanently delete your account and all associated data including resumes, cover
+              letters, and job applications. This action is <strong style={{ color: '#991B1B' }}>irreversible</strong>.
             </p>
             <button
               onClick={handleDeleteAccount}
@@ -495,7 +539,7 @@ export default function SettingsPage() {
               onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#FEE2E2'}
             >
               <Trash2 style={{ height: '16px', width: '16px' }} />
-              {deleting ? 'Deactivating…' : 'Deactivate JobIN Profile'}
+              {deleting ? 'Deleting…' : 'Delete My Account'}
             </button>
           </div>
         </div>

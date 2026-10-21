@@ -17,9 +17,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useCurrentUser } from '@/hooks/use-user';
-import { useSessionProfile } from '@/hooks/use-session-profile';
 import { Avatar } from '../ui/avatar';
-import { toast } from 'sonner';
 
 const supabase = createClient();
 
@@ -37,14 +35,9 @@ export const SidebarNav: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { data: user } = useCurrentUser();
-  const sessionProfile = useSessionProfile();
 
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    await supabase.auth.signOut();
     router.push('/');
     router.refresh();
   };
@@ -174,17 +167,17 @@ export const SidebarNav: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
             <Avatar
-              src={user?.avatarUrl || sessionProfile.avatarUrl}
-              alt={user?.fullName || sessionProfile.fullName || 'User'}
-              fallback={getInitials(user?.fullName || sessionProfile.fullName)}
+              src={user?.avatarUrl}
+              alt={user?.fullName || 'User'}
+              fallback={getInitials(user?.fullName)}
               size="sm"
             />
             <div style={{ minWidth: 0 }}>
               <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-1)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
-                {user?.fullName || sessionProfile.fullName || 'User'}
+                {user?.fullName || 'User'}
               </p>
               <p style={{ fontSize: '10px', color: 'var(--text-3)', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
-                {user?.email || sessionProfile.email}
+                {user?.email || ''}
               </p>
             </div>
           </div>
