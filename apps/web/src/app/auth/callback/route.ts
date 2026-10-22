@@ -4,7 +4,16 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/dashboard';
+  const requestedNext = searchParams.get('next') ?? '/dashboard';
+  let next = '/dashboard';
+  try {
+    const candidate = new URL(requestedNext, origin);
+    if (candidate.origin === origin) {
+      next = `${candidate.pathname}${candidate.search}${candidate.hash}`;
+    }
+  } catch {
+    // Use the dashboard as the safe default for malformed redirect targets.
+  }
   const providerError = searchParams.get('error');
 
   if (providerError) {

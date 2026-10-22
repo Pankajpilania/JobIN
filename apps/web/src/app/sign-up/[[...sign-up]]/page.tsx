@@ -10,8 +10,20 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
+function getSafeNextPath(value: string | null) {
+  if (!value) return '/dashboard';
+
+  try {
+    const url = new URL(value, window.location.origin);
+    if (url.origin !== window.location.origin) return '/dashboard';
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return '/dashboard';
+  }
+}
+
 export default function SignUpPage() {
-  const _router = useRouter();
+  const router = useRouter();
   const supabase = createClient();
 
   const [fullName, setFullName] = useState('');
@@ -30,20 +42,28 @@ export default function SignUpPage() {
     setSuccessMsg('');
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const next = getSafeNextPath(new URLSearchParams(window.location.search).get('next'));
+      const emailRedirectTo = new URL('/auth/callback', window.location.origin);
+      emailRedirectTo.searchParams.set('next', next);
+
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: emailRedirectTo.toString(),
         },
       });
 
       if (error) {
         setErrorMsg(error.message);
+      } else if (data.session) {
+        router.replace(next);
+        router.refresh();
       } else {
-        setSuccessMsg('Registration successful! Please check your email to confirm your account.');
+        setSuccessMsg('Check your inbox to confirm your account. Once confirmed, you’ll continue to your dashboard.');
         setEmail('');
         setPassword('');
         setFullName('');
@@ -60,7 +80,7 @@ export default function SignUpPage() {
     setErrorMsg('');
 
     try {
-      const next = new URLSearchParams(window.location.search).get('next') || '/dashboard';
+      const next = getSafeNextPath(new URLSearchParams(window.location.search).get('next'));
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
