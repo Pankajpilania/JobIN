@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import {
@@ -171,6 +171,21 @@ export default function ResumeDetailPage() {
   const { data: resume, isLoading } = useResume(params.id ?? null);
   const analyse   = useAnalyseResume();
   const [analysing, setAnalysing] = useState(false);
+  const [estimatedProgress, setEstimatedProgress] = useState(0);
+
+  useEffect(() => {
+    if (!analysing) {
+      setEstimatedProgress(0);
+      return;
+    }
+
+    setEstimatedProgress(8);
+    const timer = window.setInterval(() => {
+      setEstimatedProgress((progress) => Math.min(90, progress + Math.max(1, (90 - progress) * 0.06)));
+    }, 500);
+
+    return () => window.clearInterval(timer);
+  }, [analysing]);
 
   const analysis: ATSAnalysis | null = resume?.analysisResult ?? null;
 
@@ -300,8 +315,55 @@ export default function ResumeDetailPage() {
         </div>
       </motion.div>
 
-      {/* No analysis yet */}
-      {!analysis ? (
+      {/* Analysis progress / empty state */}
+      {!analysis && analysing ? (
+        <motion.div
+          role="status"
+          aria-live="polite"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+            borderRadius: '16px',
+            border: '1px solid var(--border)',
+            padding: '40px 24px',
+            textAlign: 'center',
+            backgroundColor: 'var(--surface)',
+          }}
+        >
+          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}>
+            <RefreshCw aria-hidden="true" style={{ height: '28px', width: '28px', color: 'var(--brand)' }} />
+          </motion.div>
+          <div>
+            <p style={{ fontSize: '16px', fontWeight: 750, color: 'var(--text-1)', margin: 0 }}>Analyzing your resume</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: '6px 0 0', lineHeight: 1.5 }}>
+              The ATS analyser is preparing your score, formatting checks, and keyword suggestions…
+            </p>
+          </div>
+          <div style={{ width: '100%', maxWidth: '420px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginBottom: '8px', fontSize: '12px', fontWeight: 650 }}>
+              <span style={{ color: 'var(--text-2)' }}>Estimated progress</span>
+              <span style={{ color: 'var(--brand)', fontVariantNumeric: 'tabular-nums' }}>{Math.floor(estimatedProgress)}%</span>
+            </div>
+            <div
+              role="progressbar"
+              aria-label="Estimated ATS analysis progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.floor(estimatedProgress)}
+              style={{ height: '8px', overflow: 'hidden', borderRadius: '999px', backgroundColor: 'var(--surface-2)', border: '1px solid var(--border)' }}
+            >
+              <div style={{ height: '100%', width: `${estimatedProgress}%`, borderRadius: 'inherit', backgroundColor: 'var(--brand)', transition: 'width 500ms ease-out' }} />
+            </div>
+            <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '8px 0 0', lineHeight: 1.5 }}>
+              This is an estimate while the ATS service works. The score will appear as soon as the analysis finishes.
+            </p>
+          </div>
+        </motion.div>
+      ) : !analysis ? (
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           style={{
