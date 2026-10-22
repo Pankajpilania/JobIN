@@ -16,7 +16,11 @@ async function bootstrap() {
 
   const config = app.get(ConfigService);
   const port = config.get<number>('PORT', 4000);
-  const corsOrigin = config.get<string>('CORS_ORIGIN', 'http://localhost:3000');
+  const corsOrigins = config
+    .get<string>('CORS_ORIGIN', 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
   // ─── Sentry Initialization ───────────────────────────────────────────────
   const sentryDsn = config.get<string>('SENTRY_DSN') || process.env.SENTRY_DSN;
@@ -33,7 +37,7 @@ async function bootstrap() {
 
   // ─── CORS ────────────────────────────────────────────────────────────────────
   app.enableCors({
-    origin: [corsOrigin, 'http://localhost:3000'],
+    origin: [...new Set([...corsOrigins, 'http://localhost:3000'])],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
