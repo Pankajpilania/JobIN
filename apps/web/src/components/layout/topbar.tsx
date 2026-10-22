@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search } from 'lucide-react';
+import { Menu, Search } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/use-user';
 import { useSessionProfile } from '@/hooks/use-session-profile';
 import { Avatar } from '../ui/avatar';
@@ -18,7 +18,12 @@ const searchItems = [
   { label: 'Settings', href: '/settings' },
 ];
 
-export const Topbar: React.FC = () => {
+interface TopbarProps {
+  isMobileNavOpen: boolean;
+  onMobileMenuClick: () => void;
+}
+
+export const Topbar: React.FC<TopbarProps> = ({ isMobileNavOpen, onMobileMenuClick }) => {
   const router = useRouter();
   const { data: user } = useCurrentUser();
   const sessionProfile = useSessionProfile();
@@ -46,7 +51,7 @@ export const Topbar: React.FC = () => {
   };
 
   return (
-    <header style={{
+    <header className="dashboard-topbar" style={{
       position: 'sticky',
       top: 0,
       zIndex: 40,
@@ -60,8 +65,17 @@ export const Topbar: React.FC = () => {
       backdropFilter: 'blur(8px)',
       padding: '0 24px'
     }}>
+      <button
+        type="button"
+        className="dashboard-menu-button"
+        aria-label="Open navigation menu"
+        aria-expanded={isMobileNavOpen}
+        onClick={onMobileMenuClick}
+      >
+        <Menu size={21} />
+      </button>
       {/* Topbar Search */}
-      <div style={{ position: 'relative', width: '256px', maxWidth: '100%' }}>
+      <div className="dashboard-search" style={{ position: 'relative', width: '256px', maxWidth: '100%' }}>
         <div style={{
           display: 'flex',
           alignItems: 'center',
