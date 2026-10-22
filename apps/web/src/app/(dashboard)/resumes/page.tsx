@@ -359,21 +359,23 @@ function ResumeCard({ resume }: { resume: Resume }) {
             </Link>
           )}
 
-          <Button
-            variant="ghost"
-            onClick={handleAnalyse}
-            disabled={analysing}
-            style={{ fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            {analysing ? (
-              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                <Zap style={{ height: '12px', width: '12px' }} />
-              </motion.div>
-            ) : (
-              <Zap style={{ height: '12px', width: '12px', color: 'var(--brand)' }} />
-            )}
-            {analysing ? 'Evaluating...' : hasAnalysis ? 'Re-evaluate' : 'Evaluate ATS'}
-          </Button>
+          {!hasAnalysis && (
+            <Button
+              variant="ghost"
+              onClick={handleAnalyse}
+              disabled={analysing}
+              style={{ fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              {analysing ? (
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                  <Zap style={{ height: '12px', width: '12px' }} />
+                </motion.div>
+              ) : (
+                <Zap style={{ height: '12px', width: '12px', color: 'var(--brand)' }} />
+              )}
+              {analysing ? 'Evaluating...' : 'Evaluate ATS'}
+            </Button>
+          )}
 
           {!resume.isDefault && (
             <Button

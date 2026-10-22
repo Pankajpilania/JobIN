@@ -35,6 +35,7 @@ export interface Resume {
 export interface AnalyseResult {
   resumeId: string; atsScore: number; analysis: ATSAnalysis;
   tokenUsage: { total: number; estimatedCostUsd: number };
+  cached?: boolean;
 }
 
 // ─── Resume Tailor (Sprint 3) ─────────────────────────────────────────────────

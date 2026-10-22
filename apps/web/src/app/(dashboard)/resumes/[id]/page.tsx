@@ -170,20 +170,20 @@ export default function ResumeDetailPage() {
   const router    = useRouter();
   const { data: resume, isLoading } = useResume(params.id ?? null);
   const analyse   = useAnalyseResume();
-  const [reanalysing, setReanalysing] = useState(false);
+  const [analysing, setAnalysing] = useState(false);
 
   const analysis: ATSAnalysis | null = resume?.analysisResult ?? null;
 
-  const handleReanalyse = async () => {
+  const handleAnalyse = async () => {
     if (!resume) return;
-    setReanalysing(true);
+    setAnalysing(true);
     try {
       await analyse.mutateAsync(resume.id);
-      toast.success('Re-analysis complete!');
+      toast.success('ATS analysis complete!');
     } catch (err: any) {
       toast.error(err.message ?? 'Analysis failed.');
     } finally {
-      setReanalysing(false);
+      setAnalysing(false);
     }
   };
 
@@ -242,20 +242,22 @@ export default function ResumeDetailPage() {
               </Button>
             </a>
           )}
-          <Button
-            onClick={handleReanalyse}
-            disabled={reanalysing}
-            style={{ fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            {reanalysing ? (
-              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                <RefreshCw style={{ height: '14px', width: '14px' }} />
-              </motion.div>
-            ) : (
-              <Zap style={{ height: '14px', width: '14px' }} />
-            )}
-            {reanalysing ? 'Analysing…' : analysis ? 'Re-analyse' : 'Run ATS Analysis'}
-          </Button>
+          {!analysis && (
+            <Button
+              onClick={handleAnalyse}
+              disabled={analysing}
+              style={{ fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              {analysing ? (
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                  <RefreshCw style={{ height: '14px', width: '14px' }} />
+                </motion.div>
+              ) : (
+                <Zap style={{ height: '14px', width: '14px' }} />
+              )}
+              {analysing ? 'Analysing…' : 'Run ATS Analysis'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -320,12 +322,12 @@ export default function ResumeDetailPage() {
             Run the GPT-4o ATS analyser to get your resume health score, formatting issues, and keyword suggestions.
           </p>
           <Button
-            onClick={handleReanalyse}
-            disabled={reanalysing}
+            onClick={handleAnalyse}
+            disabled={analysing}
             style={{ padding: '12px 24px', fontSize: '14px' }}
           >
             <Zap style={{ height: '16px', width: '16px' }} />
-            {reanalysing ? 'Analysing…' : 'Run ATS Analysis'}
+            {analysing ? 'Analysing…' : 'Run ATS Analysis'}
           </Button>
         </motion.div>
       ) : (
