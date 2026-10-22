@@ -26,10 +26,69 @@ export class BillingService {
   private async resolveUser(supabaseId: string) {
     const user = await this.prisma.user.findUnique({
       where:   { supabaseId },
-      include: { subscriptions: { include: { plan: true }, orderBy: { createdAt: 'desc' }, take: 1 } },
+      include: {
+        subscriptions: {
+          where: { status: 'ACTIVE' },
+          include: { plan: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
+  }
+
+  async getUsageSummary(supabaseId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseId },
+      include: {
+        subscriptions: {
+          where: { status: 'ACTIVE' },
+          include: { plan: { include: { features: { where: { featureKey: 'ai_credits_monthly' } } } } },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const subscription = user.subscriptions[0];
+    const periodStart = subscription?.currentPeriodStart ?? new Date(Date.UTC(
+      new Date().getUTCFullYear(),
+      new Date().getUTCMonth(),
+      1,
+    ));
+    const periodEnd = subscription?.currentPeriodEnd ?? new Date(Date.UTC(
+      new Date().getUTCFullYear(),
+      new Date().getUTCMonth() + 1,
+      1,
+    ));
+    const usage = await this.prisma.aIUsage.aggregate({
+      where: {
+        userId: user.id,
+        createdAt: { gte: periodStart, lt: periodEnd },
+      },
+      _count: { _all: true },
+      _sum: { totalTokens: true, estimatedCostUsd: true },
+    });
+
+    const allowanceValue = subscription?.plan.features[0]?.value ?? '50';
+    const parsedAllowance = Number.parseInt(allowanceValue, 10);
+    const creditsIncluded = Number.isFinite(parsedAllowance) ? parsedAllowance : 50;
+    const creditsUsed = usage._count._all;
+
+    return {
+      planName: subscription?.plan.name ?? 'FREE',
+      creditsUsed,
+      creditsIncluded: creditsIncluded < 0 ? null : creditsIncluded,
+      creditsRemaining: creditsIncluded < 0 ? null : Math.max(creditsIncluded - creditsUsed, 0),
+      totalTokens: usage._sum.totalTokens ?? 0,
+      estimatedCostUsd: usage._sum.estimatedCostUsd ?? 0,
+      periodStart,
+      periodEnd,
+      hasActiveSubscription: Boolean(subscription),
+    };
   }
 
   private priceId(interval: BillingInterval): string {

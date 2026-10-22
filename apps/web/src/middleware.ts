@@ -5,6 +5,17 @@ export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
+  const cookieMutations = new Map<
+    string,
+    { value: string; options?: CookieOptions }
+  >();
+
+  const refreshResponse = () => {
+    supabaseResponse = NextResponse.next({ request });
+    cookieMutations.forEach(({ value, options }, name) => {
+      supabaseResponse.cookies.set(name, value, options);
+    });
+  };
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,17 +27,13 @@ export async function middleware(request: NextRequest) {
         },
         set(name: string, value: string, options: CookieOptions) {
           request.cookies.set(name, value);
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          supabaseResponse.cookies.set(name, value, options);
+          cookieMutations.set(name, { value, options });
+          refreshResponse();
         },
         remove(name: string, options: CookieOptions) {
           request.cookies.set(name, '');
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          supabaseResponse.cookies.set(name, '', { ...options, maxAge: 0 });
+          cookieMutations.set(name, { value: '', options: { ...options, maxAge: 0 } });
+          refreshResponse();
         },
       },
     }
@@ -54,7 +61,11 @@ export async function middleware(request: NextRequest) {
       url.searchParams.set('next', request.nextUrl.pathname);
       url.pathname = '/sign-in';
     }
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    cookieMutations.forEach(({ value, options }, name) => {
+      redirectResponse.cookies.set(name, value, options);
+    });
+    return redirectResponse;
   }
 
   return supabaseResponse;

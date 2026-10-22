@@ -27,6 +27,7 @@ import type { ApplicationStatus, ActivityItem } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { PlanCreditsPanel } from '@/components/billing/plan-credits-panel';
 
 const STATUS_CONFIG: Record<ApplicationStatus, { label: string; variant: 'brand' | 'success' | 'neutral' }> = {
   SAVED:                { label: 'Saved',         variant: 'neutral' },
@@ -401,6 +402,8 @@ export default function DashboardPage() {
           error={resumesQuery.isError && !resumes}
         />
       </div>
+
+      <PlanCreditsPanel />
 
       {/* Pipeline breakdown */}
       {stats && stats.total > 0 && (
