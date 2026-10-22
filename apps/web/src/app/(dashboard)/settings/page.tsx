@@ -17,11 +17,11 @@ import {
   EyeOff,
   CheckCircle,
   AlertTriangle,
-  Zap,
   Mail,
   LogOut,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PlanCreditsPanel } from '@/components/billing/plan-credits-panel';
 
 const supabase = createClient();
 
@@ -389,43 +389,7 @@ export default function SettingsPage() {
         </p>
       </Section>
 
-      {/* ── Plan & Credits ── */}
-      <Section
-        icon={Zap}
-        title="Plan & Credits"
-        description="Your current subscription and AI credit usage."
-      >
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderRadius: '10px',
-          border: '1px solid rgba(79, 70, 229, 0.2)',
-          backgroundColor: 'var(--brand-light)',
-          padding: '12px 16px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              display: 'flex',
-              height: '32px',
-              width: '32px',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '6px',
-              backgroundColor: 'rgba(79, 70, 229, 0.15)',
-              color: 'var(--brand)'
-            }}>
-              <Zap style={{ height: '16px', width: '16px' }} />
-            </div>
-            <div>
-              <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--brand-dark)', margin: 0 }}>Plan details unavailable</p>
-              <p style={{ fontSize: '12px', color: 'var(--brand-dark)', opacity: 0.8, margin: '2px 0 0 0', fontWeight: 500 }}>
-                Connect to the account service to load your subscription and credit balance.
-              </p>
-            </div>
-          </div>
-        </div>
-      </Section>
+      <PlanCreditsPanel />
 
       {/* ── Danger Zone ── */}
       <Section

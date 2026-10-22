@@ -1,5 +1,5 @@
 import {
-  Controller, Post, Body, Req, Headers, UseGuards,
+  Controller, Post, Get, Body, Req, Headers, UseGuards,
   HttpCode, HttpStatus, RawBodyRequest,
 } from '@nestjs/common';
 import { Request } from 'express';
@@ -13,6 +13,17 @@ import { CurrentUser, type SupabaseUserPayload } from '../common/decorators/curr
 @Controller('billing')
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
+
+  // ─── GET /api/billing/usage ────────────────────────────────────────────────
+  @Get('usage')
+  @UseGuards(SupabaseAuthGuard)
+  @ApiBearerAuth('SupabaseJWT')
+  @ApiOperation({
+    summary: 'Get the current plan and AI credit usage for the signed-in user',
+  })
+  getUsage(@CurrentUser() user: SupabaseUserPayload) {
+    return this.billingService.getUsageSummary(user.id);
+  }
 
   // ─── POST /api/billing/create-checkout-session ────────────────────────────
   // Requires Supabase JWT

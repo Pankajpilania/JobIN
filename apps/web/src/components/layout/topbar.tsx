@@ -159,12 +159,19 @@ export const Topbar: React.FC<TopbarProps> = ({ isMobileNavOpen, onMobileMenuCli
 
       {/* User avatar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <Avatar
-          src={user?.avatarUrl || sessionProfile.avatarUrl}
-          alt={user?.fullName || sessionProfile.fullName || 'User'}
-          fallback={getInitials(user?.fullName || sessionProfile.fullName)}
-          size="sm"
-        />
+        <Link
+          href="/settings"
+          aria-label="Open profile settings"
+          title="Profile settings"
+          style={{ display: 'inline-flex', borderRadius: '999px', outlineOffset: '3px' }}
+        >
+          <Avatar
+            src={user?.avatarUrl || sessionProfile.avatarUrl}
+            alt={user?.fullName || sessionProfile.fullName || 'User'}
+            fallback={getInitials(user?.fullName || sessionProfile.fullName)}
+            size="sm"
+          />
+        </Link>
       </div>
     </header>
   );
