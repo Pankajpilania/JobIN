@@ -14,6 +14,7 @@ import {
   Pen,
   LogOut,
   ChevronRight,
+  X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useCurrentUser } from '@/hooks/use-user';
@@ -33,7 +34,12 @@ const navItems = [
   { href: '/settings',      label: 'Settings',       icon: Settings                         },
 ];
 
-export const SidebarNav: React.FC = () => {
+interface SidebarNavProps {
+  isMobileOpen: boolean;
+  onMobileClose: () => void;
+}
+
+export const SidebarNav: React.FC<SidebarNavProps> = ({ isMobileOpen, onMobileClose }) => {
   const pathname = usePathname();
   const router = useRouter();
   const { data: user } = useCurrentUser();
@@ -60,7 +66,11 @@ export const SidebarNav: React.FC = () => {
   };
 
   return (
-    <aside style={{
+    <aside
+      className={`dashboard-sidebar${isMobileOpen ? ' is-open' : ''}`}
+      aria-label="Main navigation"
+      aria-hidden={!isMobileOpen && undefined}
+      style={{
       display: 'flex',
       flexDirection: 'column',
       height: '100vh',
@@ -105,6 +115,14 @@ export const SidebarNav: React.FC = () => {
             JobIN
           </span>
         </Link>
+        <button
+          type="button"
+          className="dashboard-sidebar-close"
+          aria-label="Close navigation menu"
+          onClick={onMobileClose}
+        >
+          <X size={20} />
+        </button>
       </div>
 
       {/* Nav items */}
@@ -120,7 +138,7 @@ export const SidebarNav: React.FC = () => {
         {navItems.map(({ href, label, icon: Icon, badge }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (
-            <Link key={href} href={href} style={{ textDecoration: 'none' }}>
+            <Link key={href} href={href} onClick={onMobileClose} style={{ textDecoration: 'none' }}>
               <motion.div
                 whileHover={{ x: 2 }}
                 whileTap={{ scale: 0.98 }}

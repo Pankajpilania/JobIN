@@ -8,6 +8,7 @@ import { Topbar } from '@/components/layout/topbar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -34,15 +35,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', backgroundColor: 'var(--surface)', color: 'var(--text-1)' }}>
+    <div className="dashboard-shell" style={{ display: 'flex', height: '100vh', overflow: 'hidden', backgroundColor: 'var(--surface)', color: 'var(--text-1)' }}>
       {/* Sidebar nav */}
-      <SidebarNav />
+      <SidebarNav isMobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
+      {mobileNavOpen && (
+        <button
+          aria-label="Close navigation menu"
+          className="dashboard-sidebar-backdrop"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
 
       {/* Topbar + Content area */}
-      <div style={{ display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-        <Topbar />
+      <div className="dashboard-main-column" style={{ display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
+        <Topbar
+          isMobileNavOpen={mobileNavOpen}
+          onMobileMenuClick={() => setMobileNavOpen(true)}
+        />
         
-        <main style={{ flex: 1, overflowY: 'auto', padding: '32px', backgroundColor: 'var(--surface-2)' }}>
+        <main className="dashboard-main" style={{ flex: 1, overflowY: 'auto', padding: '32px', backgroundColor: 'var(--surface-2)' }}>
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}

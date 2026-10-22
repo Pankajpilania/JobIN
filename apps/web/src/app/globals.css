@@ -563,3 +563,116 @@ button, a, input, select { transition: var(--transition); }
 .process-steps article:nth-child(2), .price-card:nth-child(2) { transition-delay: 70ms; }
 .process-steps article:nth-child(3), .price-card:nth-child(3) { transition-delay: 140ms; }
 @media (prefers-reduced-motion: reduce) { .motion-ready [data-reveal]:not(.is-visible) { opacity: 1; transform: none; } }
+
+.dashboard-sidebar-close,
+.dashboard-menu-button,
+.dashboard-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  html,
+  body {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  h1 {
+    font-size: 34px;
+    letter-spacing: -1px;
+  }
+
+  h2 {
+    font-size: 28px;
+    letter-spacing: -0.75px;
+  }
+
+  .dashboard-shell {
+    width: 100%;
+    height: 100dvh !important;
+  }
+
+  .dashboard-sidebar {
+    position: fixed !important;
+    z-index: 61;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(280px, 85vw) !important;
+    height: 100dvh !important;
+    transform: translateX(-105%);
+    transition: transform 180ms ease;
+    box-shadow: var(--shadow-card);
+  }
+
+  .dashboard-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .dashboard-sidebar-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin-left: auto;
+    border: 0;
+    border-radius: 8px;
+    color: var(--text-2);
+    background: transparent;
+  }
+
+  .dashboard-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: rgba(15, 14, 26, 0.45);
+  }
+
+  .dashboard-main-column {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dashboard-topbar {
+    height: 56px !important;
+    min-height: 56px;
+    gap: 12px !important;
+    padding: 0 16px !important;
+  }
+
+  .dashboard-menu-button {
+    display: inline-flex;
+    flex: 0 0 36px;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-2);
+    background: var(--surface);
+  }
+
+  .dashboard-search {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dashboard-main {
+    min-width: 0;
+    padding: 20px 16px !important;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
