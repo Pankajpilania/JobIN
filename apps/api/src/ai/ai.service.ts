@@ -24,7 +24,7 @@ function buildUsage(
 ): AIUsageRecord {
   const isPaid = process.env.GEMINI_PAID_TIER === 'true';
   const estimatedCost = isPaid
-    ? (inputTokens / 1_000_000 * 0.075) + (outputTokens / 1_000_000 * 0.30)
+    ? (inputTokens / 1_000_000) * 0.075 + (outputTokens / 1_000_000) * 0.3
     : 0;
 
   return {
@@ -82,6 +82,7 @@ Return ONLY valid JSON:
         model: this.modelName,
         generationConfig: {
           responseMimeType: 'application/json',
+          temperature: 0,
         },
       });
 
@@ -91,14 +92,14 @@ Return ONLY valid JSON:
       const parsed = JSON.parse(text) as Partial<ATSAnalysisResult>;
 
       const analysisResult: ATSAnalysisResult = {
-        healthScore:        Number(parsed.healthScore ?? 50),
-        grade:              gradeFromScore(Number(parsed.healthScore ?? 50)),
-        summary:            parsed.summary             ?? 'Analysis complete.',
-        formattingIssues:   parsed.formattingIssues    ?? [],
-        keywordSuggestions: parsed.keywordSuggestions  ?? [],
-        missingSections:    parsed.missingSections      ?? [],
-        strengths:          parsed.strengths            ?? [],
-        improvements:       parsed.improvements         ?? [],
+        healthScore: Number(parsed.healthScore ?? 50),
+        grade: gradeFromScore(Number(parsed.healthScore ?? 50)),
+        summary: parsed.summary ?? 'Analysis complete.',
+        formattingIssues: parsed.formattingIssues ?? [],
+        keywordSuggestions: parsed.keywordSuggestions ?? [],
+        missingSections: parsed.missingSections ?? [],
+        strengths: parsed.strengths ?? [],
+        improvements: parsed.improvements ?? [],
       };
 
       const usageMetadata = result.response.usageMetadata;
@@ -109,14 +110,16 @@ Return ONLY valid JSON:
         this.modelName,
       );
 
-      this.logger.log(`ATS analysis — score=${analysisResult.healthScore} tokens=${usage.totalTokens} cost=$${usage.estimatedCostUsd} tier=${usage.tier}`);
+      this.logger.log(
+        `ATS analysis — score=${analysisResult.healthScore} tokens=${usage.totalTokens} cost=$${usage.estimatedCostUsd} tier=${usage.tier}`,
+      );
       return { result: analysisResult, usage };
     } catch (err) {
       this.logger.error(
         `ATS analysis failed:\n` +
-        `  Message: ${err.message}\n` +
-        `  Status: ${err.status ?? err.statusCode ?? 'unknown'}\n` +
-        `  Error details: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`
+          `  Message: ${err.message}\n` +
+          `  Status: ${err.status ?? err.statusCode ?? 'unknown'}\n` +
+          `  Error details: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`,
       );
       throw new InternalServerErrorException(`AI analysis failed: ${err.message}`);
     }
@@ -176,12 +179,12 @@ ${resumeText.slice(0, 6_000)}`;
       const parsed = JSON.parse(text) as Partial<TailorResult>;
 
       const tailorResult: TailorResult = {
-        tailoredText:    parsed.tailoredText    ?? resumeText,
+        tailoredText: parsed.tailoredText ?? resumeText,
         missingKeywords: parsed.missingKeywords ?? [],
-        keywordDensity:  parsed.keywordDensity  ?? {},
-        scoreBefore:     Number(parsed.scoreBefore ?? 0),
-        scoreAfter:      Number(parsed.scoreAfter  ?? 0),
-        changesApplied:  parsed.changesApplied   ?? [],
+        keywordDensity: parsed.keywordDensity ?? {},
+        scoreBefore: Number(parsed.scoreBefore ?? 0),
+        scoreAfter: Number(parsed.scoreAfter ?? 0),
+        changesApplied: parsed.changesApplied ?? [],
       };
 
       const usageMetadata = result.response.usageMetadata;
@@ -192,7 +195,9 @@ ${resumeText.slice(0, 6_000)}`;
         this.modelName,
       );
 
-      this.logger.log(`Tailoring — ${tailorResult.scoreBefore}→${tailorResult.scoreAfter} tokens=${usage.totalTokens} cost=$${usage.estimatedCostUsd} tier=${usage.tier}`);
+      this.logger.log(
+        `Tailoring — ${tailorResult.scoreBefore}→${tailorResult.scoreAfter} tokens=${usage.totalTokens} cost=$${usage.estimatedCostUsd} tier=${usage.tier}`,
+      );
       return { result: tailorResult, usage };
     } catch (err) {
       this.logger.error(`Resume tailoring failed: ${err.message}`, err.stack);
@@ -206,12 +211,15 @@ ${resumeText.slice(0, 6_000)}`;
     content: string;
     usage: AIUsageRecord;
   }> {
-    const { resumeText, jobTitle, companyName, jobDescription, variant, hiringManagerName } = params;
+    const { resumeText, jobTitle, companyName, jobDescription, variant, hiringManagerName } =
+      params;
 
     const variantInstructions: Record<string, string> = {
-      STANDARD:       'Write a professional cover letter of 350-400 words.',
-      CONCISE:        'Write a concise, punchy cover letter of MAXIMUM 250 words. Every sentence must earn its place.',
-      DETAILED:       'Write a comprehensive cover letter of 500-600 words that thoroughly addresses the role requirements.',
+      STANDARD: 'Write a professional cover letter of 350-400 words.',
+      CONCISE:
+        'Write a concise, punchy cover letter of MAXIMUM 250 words. Every sentence must earn its place.',
+      DETAILED:
+        'Write a comprehensive cover letter of 500-600 words that thoroughly addresses the role requirements.',
       HIRING_MANAGER: `Write a cover letter addressed directly to ${hiringManagerName ?? 'the Hiring Manager'} by name. Use "Dear ${hiringManagerName ?? 'Hiring Manager'}," as the greeting. 350-400 words.`,
     };
 
@@ -253,7 +261,9 @@ ${resumeText.slice(0, 4_000)}`;
         this.modelName,
       );
 
-      this.logger.log(`Cover letter (${variant}) — ${content.split(/\s+/).length} words tokens=${usage.totalTokens} cost=$${usage.estimatedCostUsd} tier=${usage.tier}`);
+      this.logger.log(
+        `Cover letter (${variant}) — ${content.split(/\s+/).length} words tokens=${usage.totalTokens} cost=$${usage.estimatedCostUsd} tier=${usage.tier}`,
+      );
       return { content, usage };
     } catch (err) {
       this.logger.error(`Cover letter generation failed: ${err.message}`, err.stack);
