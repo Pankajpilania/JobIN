@@ -15,6 +15,7 @@ import { JobTrackerModule } from './job-tracker/job-tracker.module';
 import { BillingModule } from './billing/billing.module';
 import { AdminModule } from './admin/admin.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { InterviewModule } from './interview/interview.module';
 
 @Module({
   imports: [
@@ -35,8 +36,9 @@ import { DashboardModule } from './dashboard/dashboard.module';
     ResumesModule,       // Sprint 2
     CoverLettersModule,  // Sprint 3
     JobTrackerModule,    // Sprint 4
-    BillingModule,       // Sprint 4 — Stripe
     DashboardModule,
+    InterviewModule,
+    BillingModule,       // Sprint 4 — Stripe
     AdminModule,         // Sprint 6 — Admin Portal
   ],
 })

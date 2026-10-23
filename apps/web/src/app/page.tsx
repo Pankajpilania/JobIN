@@ -37,9 +37,9 @@ const ALL_JOBS: Job[] = [
 ]
 
 const PLANS = [
-  { plan: 'Free', price: '£0', desc: 'Explore the tools and get organised.', cta: 'Get started free', popular: false, features: ['5 resume analyses/mo', '5 cover letters/mo', 'Basic match score', '10 job saves'] },
-  { plan: 'Premium', price: '£15', desc: 'For a focused, active job search.', cta: 'Start Premium', popular: true, features: ['Unlimited resume tailoring', 'Unlimited cover letters', 'Advanced ATS analysis', 'Kanban job tracker', '100 autofill apps/mo'] },
-  { plan: 'Pro', price: '£29', desc: 'More support for every application.', cta: 'Start Pro', popular: false, features: ['Everything in Premium', 'Unlimited autofill', 'AI interview coach', 'Insider referrals', 'Priority AI processing'] },
+  { plan: 'Free', price: '£0', desc: 'Explore the tools and get organised.', cta: 'Get started free', popular: false, features: ['20 AI credits per month', '5 resume analyses/mo', '5 cover letters/mo', 'Basic match score', '10 job saves'] },
+  { plan: 'Pro', price: '£15', desc: 'For a focused, active job search.', cta: 'Start Pro', popular: true, features: ['100 AI credits per month', 'Unlimited resume tailoring', 'Unlimited cover letters', 'Advanced ATS analysis', 'Kanban job tracker', '100 autofill apps/mo'] },
+  { plan: 'Pro Max', price: '£29', desc: 'More support for every application.', cta: 'Start Pro Max', popular: false, features: ['500 AI credits per month', 'Everything in Pro', 'Unlimited autofill', 'AI interview coach', 'Insider referrals', 'Priority AI processing'] },
 ]
 
 const FEATURES = [
@@ -201,7 +201,7 @@ export default function LandingPage() {
         <div className="pricing-grid">{PLANS.map((plan) => <article className={`price-card ${plan.popular ? 'price-card-featured' : ''}`} data-reveal key={plan.plan}>
           {plan.popular && <span className="popular-label">Most popular</span>}
           <span className="plan-name">{plan.plan}</span><div className="plan-price"><strong>{plan.price}</strong><span>/mo</span></div><p className="plan-desc">{plan.desc}</p>
-          <Link href="/auth/signup" className={`button ${plan.popular ? 'button-dark' : 'button-outline'}`}>{plan.cta} <ArrowRight size={15} /></Link>
+          <Link href={`/upgrade?plan=${plan.plan === 'Pro Max' ? 'PRO' : 'PREMIUM'}`} className={`button ${plan.popular ? 'button-dark' : 'button-outline'}`}>{plan.cta} <ArrowRight size={15} /></Link>
           <ul>{plan.features.map((feature) => <li key={feature}><Check size={15} />{feature}</li>)}</ul>
         </article>)}</div>
         <p className="price-footnote">Plan limits and features are subject to change. Sign up to see current details.</p>

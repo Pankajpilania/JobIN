@@ -32,6 +32,7 @@ model User {
   subscriptions   Subscription[]
   supportTickets  SupportTicket[]
   roles           UserRole[]
+  manualPayments  ManualPaymentRequest[]
 
   @@index([supabaseId])
   @@index([email])
@@ -93,6 +94,7 @@ model Plan {
   updatedAt     DateTime       @updatedAt
   features      PlanFeature[]
   subscriptions Subscription[]
+  manualPayments ManualPaymentRequest[]
 }
 
 /// Key-value feature flags per plan. e.g. { featureKey: "resume_versions", value: "5" }
@@ -124,6 +126,24 @@ model Subscription {
 
   @@index([userId])
   @@index([status])
+}
+
+model ManualPaymentRequest {
+  id                  String   @id @default(uuid())
+  userId              String
+  planId              String
+  currency            String
+  amount              Float
+  transactionReference String
+  status              String   @default("PENDING")
+  createdAt           DateTime @default(now())
+  reviewedAt          DateTime?
+  reviewedBy          String?
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                Plan     @relation(fields: [planId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
 }
 
 /// Payment intent record — one per successful invoice payment
@@ -300,6 +320,7 @@ model AIUsage {
   totalTokens      Int
   estimatedCostUsd Float
   tier             String?  @default("free")
+  creditUnits      Int      @default(1)
   createdAt        DateTime @default(now())
   resume           Resume?  @relation(fields: [resumeId], references: [id])
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)

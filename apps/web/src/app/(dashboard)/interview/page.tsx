@@ -1,374 +1,223 @@
 'use client';
 
-import React from 'react';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import {
-  Send,
-  Play,
-  RotateCcw,
-  Sparkles,
-  TrendingUp,
-  RefreshCw,
-} from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { ArrowRight, Loader2, Play, RotateCcw, Send, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { useAuth } from '@/hooks/use-auth';
+import { useResumes } from '@/hooks/use-resumes';
+import { apiClient } from '@/lib/api-client';
 
-interface FeedbackScore {
-  starAlignment: number; // 0-100
-  clarity: number; // 0-100
-  sentiment: 'Positive' | 'Neutral' | 'Constructive';
+interface AnswerEvaluation {
+  score: number;
   evaluation: string;
+  strengths: string[];
+  improvements: string[];
 }
 
-interface ChatMessage {
-  role: 'assistant' | 'user';
-  text: string;
-  feedback?: FeedbackScore;
+interface InterviewMessage {
+  question: string;
+  answer?: string;
+  evaluation?: AnswerEvaluation;
 }
-
-const mockQuestions = [
-  'Tell me about a time you resolved a major conflict within a development team. What was the situation and the result?',
-  'Describe a situation where you had to quickly adapt to a brand-new technology stacks or frameworks to deliver a key product feature.',
-  'How do you manage deadlines and prioritize competing requirements under tight launch time constraints?',
-];
 
 export default function InterviewPage() {
+  const { getToken, isSignedIn } = useAuth();
+  const { data: resumes } = useResumes();
   const [sessionStarted, setSessionStarted] = useState(false);
   const [roleTitle, setRoleTitle] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [resumeId, setResumeId] = useState('');
+  const [messages, setMessages] = useState<InterviewMessage[]>([]);
   const [userInput, setUserInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
 
-  const startSession = () => {
-    if (!roleTitle || !companyName) {
-      toast.error('Please enter a target role and company name');
-      return;
-    }
-    setSessionStarted(true);
-    setMessages([
-      {
-        role: 'assistant',
-        text: `Hi there! Welcome to your mock interview session for the ${roleTitle} role at ${companyName}. Let's start with our first question: ${mockQuestions[0]}`,
-      },
-    ]);
-    setCurrentQuestionIdx(0);
+  const requestQuestion = async (previousQuestions: string[]) => {
+    const token = await getToken();
+    if (!token) throw new Error('Your session has expired. Please sign in again.');
+    const result = await apiClient.post<{ question: string; creditsRemaining: number | null }>(
+      '/interview/question',
+      { resumeId, roleTitle, companyName, previousQuestions },
+      token,
+    );
+    setCreditsRemaining(result.creditsRemaining);
+    setMessages((current) => [...current, { question: result.question }]);
   };
 
-  const handleSend = () => {
-    if (!userInput.trim()) return;
-
-    const userMsg = userInput;
-    setUserInput('');
-
-    // Append user message
-    const updatedMessages = [...messages, { role: 'user', text: userMsg } as ChatMessage];
-    setMessages(updatedMessages);
+  const startSession = async () => {
+    if (!roleTitle.trim() || !companyName.trim() || !resumeId) {
+      toast.error('Choose a resume and enter a target role and company.');
+      return;
+    }
     setSubmitting(true);
-
-    // Mock AI response & feedback evaluation after delay
-    setTimeout(() => {
-      const nextIdx = currentQuestionIdx + 1;
-      const hasMore = nextIdx < mockQuestions.length;
-
-      // Evaluate the user's answer for mock STAR feedback
-      const clarityScore = Math.floor(Math.random() * 20) + 75; // 75-95
-      const starScore = Math.floor(Math.random() * 25) + 70; // 70-95
-      const mockFeedback: FeedbackScore = {
-        starAlignment: starScore,
-        clarity: clarityScore,
-        sentiment: starScore > 85 ? 'Positive' : 'Neutral',
-        evaluation: `Good STAR breakdown! Situation and Task were clear. Try expanding slightly more on the specific Actions you took to solve the conflict.`,
-      };
-
-      // Update the user's message with mock feedback
-      updatedMessages[updatedMessages.length - 1].feedback = mockFeedback;
-
-      if (hasMore) {
-        setMessages([
-          ...updatedMessages,
-          {
-            role: 'assistant',
-            text: `Perfect. Let's move on to the next question: ${mockQuestions[nextIdx]}`,
-          },
-        ]);
-        setCurrentQuestionIdx(nextIdx);
-      } else {
-        setMessages([
-          ...updatedMessages,
-          {
-            role: 'assistant',
-            text: `Thank you! That completes our mock interview session. You did a great job aligning your answers to the core competencies. Review your feedback details below.`,
-          },
-        ]);
-      }
+    try {
+      await requestQuestion([]);
+      setSessionStarted(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not start the interview.');
+    } finally {
       setSubmitting(false);
-    }, 1500);
+    }
+  };
+
+  const handleSend = async () => {
+    const answer = userInput.trim();
+    const current = messages[messages.length - 1];
+    if (!answer || !current || current.answer) return;
+
+    setSubmitting(true);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('Your session has expired. Please sign in again.');
+      const evaluation = await apiClient.post<AnswerEvaluation>(
+        '/interview/evaluate',
+        { resumeId, roleTitle, companyName, question: current.question, answer },
+        token,
+      );
+      setMessages((items) => items.map((item, index) =>
+        index === items.length - 1 ? { ...item, answer, evaluation } : item,
+      ));
+      setUserInput('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not evaluate the answer.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const generateNextQuestion = async () => {
+    setSubmitting(true);
+    try {
+      await requestQuestion(messages.map((message) => message.question));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not generate the next question.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const resetSession = () => {
     setSessionStarted(false);
-    setRoleTitle('');
-    setCompanyName('');
     setMessages([]);
     setUserInput('');
   };
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    borderRadius: '8px',
+    border: '1px solid var(--border)',
+    backgroundColor: 'var(--surface-2)',
+    padding: '10px 12px',
+    fontSize: '14px',
+    color: 'var(--text-1)',
+    outline: 'none',
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '800px', margin: '0 auto', minHeight: '100vh', paddingBottom: '48px' }}>
-      {/* Header */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxWidth: '900px', margin: '0 auto', paddingBottom: '48px' }}>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <h1 style={{ fontSize: '32px', fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-1.2px' }}>
           AI Interview <span style={{ color: 'var(--brand)' }}>Coach</span>
         </h1>
-        <p style={{ marginTop: '8px', color: 'var(--text-2)', fontSize: '14px', fontWeight: 500, margin: '8px 0 0 0' }}>
-          Practice realistic role-specific mock interviews and get instant STAR format feedback.
-        </p>
-        <p role="note" style={{ margin: '8px 0 0 0', color: 'var(--text-3)', fontSize: '12px' }}>
-          Demo mode: questions and feedback are simulated. Answers are not recorded or saved.
+        <p style={{ margin: '8px 0 0', color: 'var(--text-2)', fontSize: '14px' }}>
+          Get personalized questions from your resume and target role, then receive an AI evaluation for every answer.
         </p>
       </motion.div>
 
       {!sessionStarted ? (
-        /* Setup Form Card */
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <Card hoverEffect={false} style={{ padding: '32px', maxWidth: '512px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
-              <div style={{
-                margin: '0 auto',
-                display: 'flex',
-                height: '48px',
-                width: '48px',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '10px',
-                backgroundColor: 'var(--brand-light)',
-                color: 'var(--brand)',
-                border: '1px solid rgba(79, 70, 229, 0.2)'
-              }}>
-                <Sparkles style={{ height: '24px', width: '24px' }} />
+        <Card hoverEffect={false} style={{ padding: '28px', maxWidth: '560px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ textAlign: 'center' }}>
+            <Sparkles style={{ color: 'var(--brand)', width: 28, height: 28, margin: '0 auto' }} />
+            <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '10px 0 4px', color: 'var(--text-1)' }}>Set up your practice</h2>
+            <p style={{ fontSize: '12px', color: 'var(--text-3)', margin: 0 }}>Each generated question uses one AI credit. Answer evaluations are included.</p>
+          </div>
+          <label style={{ display: 'grid', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-2)' }}>
+            Resume
+            <select value={resumeId} onChange={(event) => setResumeId(event.target.value)} style={inputStyle}>
+              <option value="">Select a resume</option>
+              {resumes?.map((resume) => <option key={resume.id} value={resume.id}>{resume.title}</option>)}
+            </select>
+          </label>
+          <label style={{ display: 'grid', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-2)' }}>
+            Target role
+            <input value={roleTitle} onChange={(event) => setRoleTitle(event.target.value)} placeholder="e.g. Senior Product Designer" style={inputStyle} />
+          </label>
+          <label style={{ display: 'grid', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-2)' }}>
+            Target company
+            <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="e.g. Acme" style={inputStyle} />
+          </label>
+          <Button onClick={startSession} disabled={submitting || !isSignedIn || !resumes?.length} style={{ width: '100%', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+            {submitting ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+            {submitting ? 'Generating your first question…' : 'Start interview · 1 AI credit'}
+          </Button>
+          {!resumes?.length && <p style={{ color: 'var(--text-3)', fontSize: '12px', margin: 0, textAlign: 'center' }}>Upload a resume before starting a personalized interview.</p>}
+        </Card>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(220px, 1fr)', gap: '20px', alignItems: 'start' }}>
+          <Card hoverEffect={false} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            {messages.map((message, index) => (
+              <div key={`${index}-${message.question}`} style={{ display: 'grid', gap: '10px' }}>
+                <div style={{ padding: '14px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  <p style={{ color: 'var(--brand)', fontSize: '10px', fontWeight: 800, margin: '0 0 6px' }}>QUESTION {index + 1}</p>
+                  <p style={{ margin: 0, color: 'var(--text-1)', lineHeight: 1.6 }}>{message.question}</p>
+                </div>
+                {message.answer && (
+                  <div style={{ padding: '14px', borderRadius: '10px', background: 'var(--brand)', color: 'white' }}>
+                    <p style={{ fontSize: '10px', fontWeight: 800, margin: '0 0 6px' }}>YOUR ANSWER</p>
+                    <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{message.answer}</p>
+                  </div>
+                )}
+                {message.evaluation && (
+                  <div style={{ padding: '14px', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center' }}>
+                      <strong style={{ color: 'var(--text-1)' }}>AI answer evaluation</strong>
+                      <Badge variant="brand">{message.evaluation.score}/10</Badge>
+                    </div>
+                    <p style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: 1.6 }}>{message.evaluation.evaluation}</p>
+                    {!!message.evaluation.strengths.length && <p style={{ fontSize: '12px', color: 'var(--text-2)' }}><strong>Strengths:</strong> {message.evaluation.strengths.join(' · ')}</p>}
+                    {!!message.evaluation.improvements.length && <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: 0 }}><strong>Improve:</strong> {message.evaluation.improvements.join(' · ')}</p>}
+                  </div>
+                )}
               </div>
-              <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-1)', margin: '8px 0 0 0' }}>Set Up Your Interview</h2>
-              <p style={{ fontSize: '12px', color: 'var(--text-3)', fontWeight: 600, margin: 0 }}>
-                Configure your target role and company to generate tailored interview questions.
-              </p>
-            </div>
+            ))}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Target Role Title</label>
-                <input
-                  type="text"
-                  value={roleTitle}
-                  onChange={(e) => setRoleTitle(e.target.value)}
-                  placeholder="e.g. Senior React Developer"
-                  style={{
-                    width: '100%',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border)',
-                    backgroundColor: 'var(--surface-2)',
-                    padding: '10px 12px',
-                    fontSize: '14px',
-                    color: 'var(--text-1)',
-                    outline: 'none',
-                    fontWeight: 500
-                  }}
+            {submitting && <p role="status" style={{ fontSize: '12px', color: 'var(--text-3)', margin: 0 }}>The AI coach is preparing your response…</p>}
+            {messages[messages.length - 1]?.answer ? (
+              <Button onClick={generateNextQuestion} disabled={submitting || creditsRemaining === 0} style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                Generate next question{creditsRemaining === null ? '' : ' · 1 AI credit'}
+              </Button>
+            ) : (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <textarea
+                  value={userInput}
+                  onChange={(event) => setUserInput(event.target.value)}
+                  disabled={submitting}
+                  aria-label="Interview answer"
+                  placeholder="Write your answer…"
+                  rows={4}
+                  style={{ ...inputStyle, resize: 'vertical' }}
                 />
+                <Button onClick={handleSend} disabled={submitting || !userInput.trim()} aria-label="Submit answer">
+                  {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                </Button>
               </div>
+            )}
+          </Card>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Target Company</label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="e.g. Stripe"
-                  style={{
-                    width: '100%',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border)',
-                    backgroundColor: 'var(--surface-2)',
-                    padding: '10px 12px',
-                    fontSize: '14px',
-                    color: 'var(--text-1)',
-                    outline: 'none',
-                    fontWeight: 500
-                  }}
-                />
-              </div>
-            </div>
-
-            <Button onClick={startSession} style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              <Play style={{ height: '16px', width: '16px', fill: 'currentColor' }} /> Start Practice Session
+          <Card hoverEffect={false} style={{ padding: '20px', display: 'grid', gap: '12px' }}>
+            <strong style={{ color: 'var(--text-1)' }}>Session details</strong>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-2)' }}>{roleTitle} at {companyName}</p>
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-3)' }}>{messages.length} question{messages.length === 1 ? '' : 's'} generated</p>
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-3)' }}>{creditsRemaining === null ? 'Credits remaining: unlimited' : `Credits remaining: ${creditsRemaining ?? '—'}`}</p>
+            <Button variant="ghost" onClick={resetSession} style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+              <RotateCcw size={14} /> End practice
             </Button>
           </Card>
-        </motion.div>
-      ) : (
-        /* Chat Session Interface */
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'stretch' }}>
-          
-          {/* Chat main block */}
-          <div style={{
-            flex: '2 1 500px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            height: '580px',
-            backgroundColor: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '12px',
-            padding: '20px'
-          }}>
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingRight: '8px' }}>
-              {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                    alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
-                  }}
-                >
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-3)', userSelect: 'none' }}>
-                    <span>{msg.role === 'assistant' ? 'COACH' : 'YOU'}</span>
-                  </div>
-                  
-                  <div
-                    style={{
-                      maxWidth: '85%',
-                      borderRadius: '10px',
-                      padding: '12px 16px',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      lineHeight: 1.5,
-                      backgroundColor: msg.role === 'user' ? 'var(--brand)' : 'var(--surface-2)',
-                      color: msg.role === 'user' ? 'white' : 'var(--text-1)',
-                      border: msg.role === 'user' ? 'none' : '1px solid var(--border)'
-                    }}
-                  >
-                    {msg.text}
-                  </div>
-
-                  {/* Feedback display on user message */}
-                  {msg.feedback && (
-                    <div style={{
-                      width: '85%',
-                      marginTop: '6px',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border)',
-                      backgroundColor: 'rgba(248, 249, 255, 0.6)',
-                      padding: '12px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                      userSelect: 'none'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700 }}>
-                        <span style={{ color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <TrendingUp style={{ height: '14px', width: '14px' }} /> STAR Feedback
-                        </span>
-                        <Badge variant="brand" style={{ fontSize: '10px', padding: '0px 6px' }}>
-                          {msg.feedback.starAlignment}% Score
-                        </Badge>
-                      </div>
-                      <p style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.5, margin: 0 }}>
-                        {msg.feedback.evaluation}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {submitting && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-3)', fontWeight: 700, fontSize: '12px', userSelect: 'none' }}>
-                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                    <RefreshCw style={{ height: '12px', width: '12px' }} />
-                  </motion.div>
-                  Analyzing response format details...
-                </div>
-              )}
-            </div>
-
-            {/* Input action bar */}
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <input
-                type="text"
-                placeholder="Type your answer here..."
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                disabled={submitting}
-                aria-label="Interview answer"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSend();
-                }}
-                style={{
-                  flex: 1,
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                  backgroundColor: 'var(--surface-2)',
-                  padding: '10px 12px',
-                  fontSize: '14px',
-                  color: 'var(--text-1)',
-                  outline: 'none',
-                  fontWeight: 500
-                }}
-              />
-
-              <Button
-                onClick={handleSend}
-                disabled={submitting || !userInput.trim()}
-                aria-label="Send answer"
-                style={{ padding: '10px', borderRadius: '8px', flexShrink: 0 }}
-              >
-                <Send style={{ height: '16px', width: '16px' }} />
-              </Button>
-            </div>
-          </div>
-
-          {/* Right Column: session metrics & options */}
-          <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '16px', userSelect: 'none' }}>
-            <Card hoverEffect={false} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <h3 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-3)', letterSpacing: '0.05em', margin: 0 }}>Session Stats</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600 }}>
-                  <span style={{ color: 'var(--text-2)' }}>Progress</span>
-                  <span style={{ color: 'var(--text-1)', fontWeight: 700 }}>
-                    {Math.min(currentQuestionIdx + 1, mockQuestions.length)} / {mockQuestions.length}
-                  </span>
-                </div>
-                <div style={{ height: '8px', width: '100%', borderRadius: '999px', backgroundColor: 'var(--surface-2)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      backgroundColor: 'var(--brand)',
-                      height: '100%',
-                      borderRadius: '999px',
-                      transition: 'all 0.3s ease',
-                      width: `${((currentQuestionIdx + 1) / mockQuestions.length) * 100}%`
-                    }}
-                  />
-                </div>
-              </div>
-            </Card>
-
-            <Card hoverEffect={false} style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '24px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <h3 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-3)', letterSpacing: '0.05em', margin: 0 }}>Role Details</h3>
-                <div>
-                  <p style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{roleTitle}</p>
-                  <p style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: 500, marginTop: '2px', margin: '2px 0 0 0' }}>{companyName}</p>
-                </div>
-              </div>
-
-              <Button variant="ghost" onClick={resetSession} style={{ width: '100%', fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <RotateCcw style={{ height: '14px', width: '14px' }} /> Restart Coach
-              </Button>
-            </Card>
-          </div>
-
         </div>
       )}
     </div>

@@ -6,7 +6,7 @@ import React from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { LogOut, BarChart2, Users, CreditCard, DollarSign, Bot, AlertCircle, ChevronRight } from 'lucide-react';
+import { LogOut, BarChart2, Users, CreditCard, DollarSign, Bot, AlertCircle, ChevronRight, ReceiptText } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -18,6 +18,7 @@ const NAV = [
   { href: '/admin/users',        label: 'Users',        icon: Users      },
   { href: '/admin/subscriptions',label: 'Subscriptions',icon: CreditCard },
   { href: '/admin/billing',      label: 'Billing',      icon: DollarSign },
+  { href: '/admin/payment-requests', label: 'Payment requests', icon: ReceiptText },
   { href: '/admin/ai-usage',     label: 'AI Usage',     icon: Bot        },
   { href: '/admin/tickets',      label: 'Support',      icon: AlertCircle },
 ];

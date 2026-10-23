@@ -12,6 +12,7 @@ import {
   Settings,
   Wand2,
   Pen,
+  CreditCard,
   LogOut,
   ChevronRight,
   X,
@@ -32,6 +33,7 @@ const navItems = [
   { href: '/tracker',       label: 'Job Tracker',    icon: Briefcase                        },
   { href: '/interview',     label: 'AI Copilot',     icon: MessageSquare, badge: 'BETA'     },
   { href: '/settings',      label: 'Settings',       icon: Settings                         },
+  { href: '/upgrade',       label: 'Upgrade plan',   icon: CreditCard                       },
 ];
 
 interface SidebarNavProps {
@@ -190,7 +192,12 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ isMobileOpen, onMobileCl
         backgroundColor: 'rgba(248, 249, 255, 0.3)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          <Link
+            href="/settings"
+            onClick={onMobileClose}
+            aria-label="Open profile settings"
+            style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1, textDecoration: 'none' }}
+          >
             <Avatar
               src={user?.avatarUrl || sessionProfile.avatarUrl}
               alt={user?.fullName || sessionProfile.fullName || 'User'}
@@ -205,7 +212,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ isMobileOpen, onMobileCl
                 {user?.email || sessionProfile.email}
               </p>
             </div>
-          </div>
+          </Link>
           <button
             onClick={handleSignOut}
             title="Sign out"
