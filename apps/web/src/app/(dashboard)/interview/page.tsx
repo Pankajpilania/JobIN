@@ -41,7 +41,7 @@ export default function InterviewPage() {
     if (!token) throw new Error('Your session has expired. Please sign in again.');
     const result = await apiClient.post<{ question: string; creditsRemaining: number | null }>(
       '/interview/question',
-      { resumeId, roleTitle, companyName, previousQuestions },
+      { resumeId, roleTitle, companyName, previousQuestions: previousQuestions.slice(-20) },
       token,
     );
     setCreditsRemaining(result.creditsRemaining);
@@ -154,6 +154,11 @@ export default function InterviewPage() {
             {submitting ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
             {submitting ? 'Generating your first question…' : 'Start interview · 1 AI credit'}
           </Button>
+          {submitting && (
+            <p role="status" style={{ color: 'var(--text-3)', fontSize: '12px', margin: 0, textAlign: 'center' }}>
+              Generating a personalized question from your resume. This can take a few seconds.
+            </p>
+          )}
           {!resumes?.length && <p style={{ color: 'var(--text-3)', fontSize: '12px', margin: 0, textAlign: 'center' }}>Upload a resume before starting a personalized interview.</p>}
         </Card>
       ) : (
@@ -192,18 +197,30 @@ export default function InterviewPage() {
                 Generate next question{creditsRemaining === null ? '' : ' · 1 AI credit'}
               </Button>
             ) : (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <textarea
-                  value={userInput}
-                  onChange={(event) => setUserInput(event.target.value)}
-                  disabled={submitting}
-                  aria-label="Interview answer"
-                  placeholder="Write your answer…"
-                  rows={4}
-                  style={{ ...inputStyle, resize: 'vertical' }}
-                />
-                <Button onClick={handleSend} disabled={submitting || !userInput.trim()} aria-label="Submit answer">
-                  {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              <div style={{ display: 'grid', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <textarea
+                    value={userInput}
+                    onChange={(event) => setUserInput(event.target.value)}
+                    disabled={submitting}
+                    aria-label="Interview answer"
+                    placeholder="Write your answer…"
+                    rows={4}
+                    style={{ ...inputStyle, resize: 'vertical' }}
+                  />
+                  <Button onClick={handleSend} disabled={submitting || !userInput.trim()} aria-label="Submit answer">
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={generateNextQuestion}
+                  disabled={submitting || creditsRemaining === 0}
+                  style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}
+                >
+                  {submitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                  Skip question and continue
                 </Button>
               </div>
             )}
