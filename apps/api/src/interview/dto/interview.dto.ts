@@ -19,7 +19,6 @@ export class GenerateInterviewQuestionDto {
   @IsArray()
   @ArrayMaxSize(20)
   @IsString({ each: true })
-  @MaxLength(300, { each: true })
   previousQuestions?: string[];
 }
 

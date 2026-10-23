@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { ArrowUpRight, CreditCard, Loader2, RefreshCw, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
@@ -20,6 +21,7 @@ interface PlanCreditsPanelProps {
 }
 
 export function PlanCreditsPanel({ source }: PlanCreditsPanelProps) {
+  const router = useRouter();
   const { getToken, isReady, isSignedIn, userId } = useAuth();
   const [openingBilling, setOpeningBilling] = useState(false);
   const usageQuery = useQuery<BillingUsage>({
@@ -32,16 +34,20 @@ export function PlanCreditsPanel({ source }: PlanCreditsPanelProps) {
       return apiClient.get<BillingUsage>('/billing/usage', token);
     },
   });
+  const usage = source ? source.data : usageQuery.data;
 
   const openBilling = async () => {
     setOpeningBilling(true);
+    if (!usage?.hasActiveSubscription) {
+      router.push('/upgrade');
+      return;
+    }
+
     try {
       const token = await getToken();
       if (!token) throw new Error('Your session has expired. Please sign in again.');
 
-      const result = usageQuery.data?.hasActiveSubscription
-        ? await apiClient.post<{ url: string }>('/billing/portal', {}, token)
-        : await apiClient.post<{ url: string }>('/billing/create-checkout-session', { interval: 'MONTHLY' }, token);
+      const result = await apiClient.post<{ url: string }>('/billing/portal', {}, token);
 
       if (!result.url) throw new Error('Billing did not return a secure checkout link.');
       window.location.assign(result.url);
@@ -51,7 +57,6 @@ export function PlanCreditsPanel({ source }: PlanCreditsPanelProps) {
     }
   };
 
-  const usage = source ? source.data : usageQuery.data;
   const isLoading = source ? source.isLoading : !isReady || (isSignedIn && usageQuery.isLoading);
   const error = source?.error ?? (usageQuery.isError ? usageQuery.error.message : undefined);
   const retry = source?.retry ?? (() => { void usageQuery.refetch(); });
