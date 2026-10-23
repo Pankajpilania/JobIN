@@ -145,10 +145,18 @@ Rules:
 3. Prioritize matching required qualifications over preferred
 4. Rephrase factually — NEVER fabricate achievements or numbers
 5. Preserve all factual content: dates, companies, technologies mentioned
+6. Return a clean, ATS-friendly, single-column resume in plain text. Do not use Markdown, tables, columns, decorative symbols, or a cover-page title.
+7. Use this section order when the source contains relevant information: candidate name; target/professional title; contact details; PROFESSIONAL SUMMARY; TECHNICAL SKILLS; PROFESSIONAL EXPERIENCE; EDUCATION; CERTIFICATIONS; ADDITIONAL INFORMATION. Include selected projects beneath the relevant employer when present in the source.
+8. Keep the candidate name, contact details, employers, locations, job titles, dates, qualifications, and certifications factual and unchanged. Never fill gaps with guesses or placeholders.
+9. Put each section heading on its own line in uppercase. Keep the header to the candidate name, professional title, and up to two lines of existing contact details. Do not repeat the name or add an objective.
+10. In TECHNICAL SKILLS, put each existing skill category on its own line using "Category: skills".
+11. In PROFESSIONAL EXPERIENCE, use one employer line as "Employer | Location", the next line as "Job Title | Dates", then any factual client/context line and one achievement per line prefixed with "• ". Use "Selected Projects at Employer" as a subheading when applicable, with each project on a separate bullet.
+12. Put each education entry on its own line; retain its degree, institution, location, and date. Keep certifications and additional information as concise, factual lines.
+13. Preserve the source's original section order and bullet structure when it differs materially from this suggested structure; do not flatten the resume into paragraphs.
 
 Return ONLY valid JSON:
 {
-  "tailoredText": "<complete rewritten resume as plain text>",
+  "tailoredText": "<complete structured resume as plain text, one item per line>",
   "missingKeywords": ["<keyword in JD but absent from original resume>"],
   "keywordDensity": {"<keyword>": <count in tailored text>},
   "scoreBefore": <estimated ATS score of original 0-100>,
@@ -202,6 +210,104 @@ ${resumeText.slice(0, 6_000)}`;
     } catch (err) {
       this.logger.error(`Resume tailoring failed: ${err.message}`, err.stack);
       throw new InternalServerErrorException('Resume tailoring failed. Please try again.');
+    }
+  }
+
+  async generateInterviewQuestion(params: {
+    resumeText: string;
+    roleTitle: string;
+    companyName: string;
+    previousQuestions: string[];
+  }): Promise<{ question: string; usage: AIUsageRecord }> {
+    const model = this.genAI.getGenerativeModel({
+      model: this.modelName,
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const prompt = `You are an expert interview coach. Generate exactly one fresh, realistic interview question tailored to the candidate's resume and target role at the target company. The question should test a relevant skill or experience, avoid generic questions, and not repeat any prior question. Do not invent confidential company information. Return only JSON: {"question":"..."}.
+
+Target role: ${params.roleTitle}
+Target company: ${params.companyName}
+Candidate resume:
+${params.resumeText.slice(0, 8000)}
+Previous questions:
+${JSON.stringify(params.previousQuestions.slice(-20))}`;
+
+    try {
+      const result = await model.generateContent(prompt);
+      const parsed = JSON.parse(result.response.text()) as { question?: unknown };
+      if (typeof parsed.question !== 'string' || !parsed.question.trim()) {
+        throw new Error('AI returned an empty interview question');
+      }
+      const metadata = result.response.usageMetadata;
+      return {
+        question: parsed.question.trim(),
+        usage: buildUsage(
+          metadata?.promptTokenCount ?? 0,
+          metadata?.candidatesTokenCount ?? 0,
+          'interview_question',
+          this.modelName,
+        ),
+      };
+    } catch (err) {
+      this.logger.error(`Interview question generation failed: ${err.message}`, err.stack);
+      throw new InternalServerErrorException('Could not generate an interview question. Please try again.');
+    }
+  }
+
+  async evaluateInterviewAnswer(params: {
+    resumeText: string;
+    roleTitle: string;
+    companyName: string;
+    question: string;
+    answer: string;
+  }): Promise<{
+    score: number;
+    evaluation: string;
+    strengths: string[];
+    improvements: string[];
+    usage: AIUsageRecord;
+  }> {
+    const model = this.genAI.getGenerativeModel({
+      model: this.modelName,
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const prompt = `Evaluate this candidate's interview answer fairly and specifically for the target role. Score the answer from 1 to 10 (integer), considering relevance, evidence, clarity, and impact. Use resume facts as context, do not penalize an honest answer for not repeating resume wording. Give concise actionable feedback. Return only JSON: {"score":1,"evaluation":"...","strengths":["..."],"improvements":["..."]}.
+
+Target role: ${params.roleTitle}
+Target company: ${params.companyName}
+Resume context:
+${params.resumeText.slice(0, 6000)}
+Interview question: ${params.question.slice(0, 2000)}
+Candidate answer: ${params.answer.slice(0, 6000)}`;
+
+    try {
+      const result = await model.generateContent(prompt);
+      const parsed = JSON.parse(result.response.text()) as {
+        score?: unknown;
+        evaluation?: unknown;
+        strengths?: unknown;
+        improvements?: unknown;
+      };
+      const numericScore = Number(parsed.score);
+      if (!Number.isFinite(numericScore) || typeof parsed.evaluation !== 'string') {
+        throw new Error('AI returned an invalid interview evaluation');
+      }
+      const metadata = result.response.usageMetadata;
+      return {
+        score: Math.max(1, Math.min(10, Math.round(numericScore))),
+        evaluation: parsed.evaluation,
+        strengths: Array.isArray(parsed.strengths) ? parsed.strengths.filter((item): item is string => typeof item === 'string') : [],
+        improvements: Array.isArray(parsed.improvements) ? parsed.improvements.filter((item): item is string => typeof item === 'string') : [],
+        usage: buildUsage(
+          metadata?.promptTokenCount ?? 0,
+          metadata?.candidatesTokenCount ?? 0,
+          'interview_answer_evaluation',
+          this.modelName,
+        ),
+      };
+    } catch (err) {
+      this.logger.error(`Interview answer evaluation failed: ${err.message}`, err.stack);
+      throw new InternalServerErrorException('Could not evaluate your answer. Please try again.');
     }
   }
 

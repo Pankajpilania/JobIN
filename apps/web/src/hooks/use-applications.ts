@@ -73,6 +73,7 @@ export function useCreateApplication() {
       qc.invalidateQueries({ queryKey: ['applications'] });
       qc.invalidateQueries({ queryKey: ['application-stats'] });
       qc.invalidateQueries({ queryKey: ['activity-feed'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-summary'] });
     },
   });
 }
@@ -91,6 +92,7 @@ export function useUpdateApplication() {
       qc.invalidateQueries({ queryKey: ['applications'] });
       qc.invalidateQueries({ queryKey: ['application-stats'] });
       qc.invalidateQueries({ queryKey: ['activity-feed'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-summary'] });
     },
   });
 }
@@ -109,6 +111,7 @@ export function useDeleteApplication() {
       qc.invalidateQueries({ queryKey: ['applications'] });
       qc.invalidateQueries({ queryKey: ['application-stats'] });
       qc.invalidateQueries({ queryKey: ['activity-feed'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-summary'] });
     },
   });
 }

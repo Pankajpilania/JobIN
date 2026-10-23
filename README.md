@@ -102,6 +102,21 @@ npm run dev
 
 For deploying the application to live production environments (Vercel, Render, etc.), please refer to the comprehensive [Production Deployment Guide](deployment_guide.md).
 
+### Manual plan payments
+
+The upgrade page accepts UPI payment references in INR and bank-transfer references in GBP. Amounts are INR 1,599 / GBP 15 for Pro and INR 2,999 / GBP 29 for Pro Max. A finance administrator must verify each reference before the subscription is activated.
+
+Monthly AI credit allowances are 20 for Free, 100 for Pro, and 500 for Pro Max. Apply the `20261023_update_monthly_ai_credit_limits` Prisma migration to update existing plan records.
+
+The supplied QR images are served from `apps/web/public/payments/inr-payment.jpeg` and `apps/web/public/payments/gbp-payment.jpeg`. To replace them, configure the public image URLs with `NEXT_PUBLIC_INR_PAYMENT_QR_URL` and `NEXT_PUBLIC_GBP_BANK_QR_URL`. Optional GBP transfer instructions can be shown using `NEXT_PUBLIC_GBP_BANK_DETAILS`. These values are displayed to customers; do not put secrets in them.
+
+Apply the new payment-request and AI-credit schema with the repository's Prisma migration deployment command before deploying the API:
+
+```bash
+npm run db:migrate:deploy --workspace=apps/api
+npm run db:generate --workspace=apps/api
+```
+
 ## 📚 Architectural Documentation
 
 JobIN includes a full suite of technical specifications and architectural plans. You can find these in the `/docs` folder:

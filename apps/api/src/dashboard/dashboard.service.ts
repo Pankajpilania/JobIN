@@ -71,8 +71,7 @@ export class DashboardService {
     const [usage, allowanceRow] = await Promise.all([
       this.prisma.aIUsage.aggregate({
         where: { userId: user.id, createdAt: { gte: periodStart, lt: periodEnd } },
-        _count: { _all: true },
-        _sum: { totalTokens: true, estimatedCostUsd: true },
+        _sum: { creditUnits: true, totalTokens: true, estimatedCostUsd: true },
       }),
       subscription
         ? Promise.resolve(subscription.plan.features[0]?.value)
@@ -82,9 +81,9 @@ export class DashboardService {
           }).then((feature) => feature?.value),
     ]);
 
-    const parsedAllowance = Number.parseInt(allowanceRow ?? '50', 10);
-    const creditsIncluded = Number.isFinite(parsedAllowance) ? parsedAllowance : 50;
-    const creditsUsed = usage._count._all;
+    const parsedAllowance = Number.parseInt(allowanceRow ?? '20', 10);
+    const creditsIncluded = Number.isFinite(parsedAllowance) ? parsedAllowance : 20;
+    const creditsUsed = usage._sum.creditUnits ?? 0;
 
     return {
       user: { fullName: user.fullName },

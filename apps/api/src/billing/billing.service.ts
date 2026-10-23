@@ -1,5 +1,5 @@
 import {
-  Injectable, Logger, NotFoundException,
+  Injectable, Logger, NotFoundException, ConflictException,
   BadRequestException, InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -69,14 +69,13 @@ export class BillingService {
         userId: user.id,
         createdAt: { gte: periodStart, lt: periodEnd },
       },
-      _count: { _all: true },
-      _sum: { totalTokens: true, estimatedCostUsd: true },
+      _sum: { creditUnits: true, totalTokens: true, estimatedCostUsd: true },
     });
 
-    const allowanceValue = subscription?.plan.features[0]?.value ?? '50';
+    const allowanceValue = subscription?.plan.features[0]?.value ?? '20';
     const parsedAllowance = Number.parseInt(allowanceValue, 10);
-    const creditsIncluded = Number.isFinite(parsedAllowance) ? parsedAllowance : 50;
-    const creditsUsed = usage._count._all;
+    const creditsIncluded = Number.isFinite(parsedAllowance) ? parsedAllowance : 20;
+    const creditsUsed = usage._sum.creditUnits ?? 0;
 
     return {
       planName: subscription?.plan.name ?? 'FREE',
@@ -95,6 +94,102 @@ export class BillingService {
     return interval === BillingInterval.MONTHLY
       ? this.config.get<string>('STRIPE_PRICE_PREMIUM_MONTHLY', '')
       : this.config.get<string>('STRIPE_PRICE_PREMIUM_YEARLY', '');
+  }
+
+  async createManualPaymentRequest(
+    supabaseId: string,
+    dto: { plan: 'PREMIUM' | 'PRO'; currency: 'GBP' | 'INR'; transactionReference: string },
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new NotFoundException('User not found.');
+
+    const plan = await this.prisma.plan.findUnique({ where: { name: dto.plan } });
+    if (!plan?.isActive) throw new NotFoundException('The selected plan is not available.');
+
+    const amountByPlan: Record<'PREMIUM' | 'PRO', Record<'GBP' | 'INR', number>> = {
+      PREMIUM: { GBP: 15, INR: 1599 },
+      PRO: { GBP: 29, INR: 2999 },
+    };
+    const pending = await this.prisma.manualPaymentRequest.findFirst({
+      where: { userId: user.id, status: 'PENDING' },
+      select: { id: true },
+    });
+    if (pending) {
+      throw new ConflictException('You already have a payment awaiting review.');
+    }
+
+    return this.prisma.manualPaymentRequest.create({
+      data: {
+        userId: user.id,
+        planId: plan.id,
+        currency: dto.currency,
+        amount: amountByPlan[dto.plan][dto.currency],
+        transactionReference: dto.transactionReference.trim(),
+      },
+      select: { id: true, status: true, createdAt: true },
+    });
+  }
+
+  async listMyManualPaymentRequests(supabaseId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseId },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundException('User not found.');
+    return this.prisma.manualPaymentRequest.findMany({
+      where: { userId: user.id },
+      include: { plan: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+  }
+
+  async listManualPaymentRequests(status = 'PENDING') {
+    return this.prisma.manualPaymentRequest.findMany({
+      where: status ? { status } : undefined,
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+        plan: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+  }
+
+  async reviewManualPaymentRequest(requestId: string, adminId: string, approve: boolean) {
+    return this.prisma.$transaction(async (transaction) => {
+      const request = await transaction.manualPaymentRequest.findUnique({
+        where: { id: requestId },
+      });
+      if (!request) throw new NotFoundException('Payment request not found.');
+      if (request.status !== 'PENDING') {
+        throw new ConflictException('This payment request has already been reviewed.');
+      }
+
+      const now = new Date();
+      const updated = await transaction.manualPaymentRequest.update({
+        where: { id: requestId },
+        data: {
+          status: approve ? 'APPROVED' : 'REJECTED',
+          reviewedAt: now,
+          reviewedBy: adminId,
+        },
+      });
+
+      if (approve) {
+        await transaction.subscription.create({
+          data: {
+            userId: request.userId,
+            planId: request.planId,
+            status: 'ACTIVE',
+            stripeSubscriptionId: `manual-${request.id}`,
+            currentPeriodStart: now,
+            currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          },
+        });
+      }
+      return updated;
+    });
   }
 
   // ─── Checkout session ─────────────────────────────────────────────────────

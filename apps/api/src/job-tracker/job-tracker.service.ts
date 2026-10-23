@@ -131,16 +131,20 @@ export class JobTrackerService {
 
   async getStats(supabaseId: string) {
     const userId = await this.resolveUserId(supabaseId);
-
-    const all = await this.prisma.jobApplication.findMany({
-      where:  { userId },
-      select: { status: true, createdAt: true, updatedAt: true },
-    });
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [statusRows, thisWeek] = await Promise.all([
+      this.prisma.jobApplication.groupBy({
+        by: ['status'],
+        where: { userId },
+        _count: { _all: true },
+      }),
+      this.prisma.jobApplication.count({
+        where: { userId, createdAt: { gte: weekAgo } },
+      }),
+    ]);
 
     const byStatus: Record<string, number> = {};
-    for (const app of all) {
-      byStatus[app.status] = (byStatus[app.status] ?? 0) + 1;
-    }
+    for (const row of statusRows) byStatus[row.status] = row._count._all;
 
     const applied = byStatus['APPLIED'] ?? 0;
     const totalApplied = applied +
@@ -162,12 +166,10 @@ export class JobTrackerService {
       ? Math.round(offers / totalApplied * 100)
       : 0;
 
-    // This week's applications
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const thisWeek = all.filter(a => new Date(a.createdAt) >= weekAgo).length;
+    const total = statusRows.reduce((sum, row) => sum + row._count._all, 0);
 
     return {
-      total:         all.length,
+      total,
       totalApplied,
       byStatus,
       interviewRate,

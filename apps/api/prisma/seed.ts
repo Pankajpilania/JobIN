@@ -56,7 +56,7 @@ async function main() {
       priceMonthly: 0,
       priceYearly: 0,
       features: [
-        { featureKey: 'ai_credits_monthly', value: '50'  },
+        { featureKey: 'ai_credits_monthly', value: '20'  },
         { featureKey: 'resume_uploads',     value: '2'   },
         { featureKey: 'tracker_entries',    value: '25'  },
       ],
@@ -67,7 +67,7 @@ async function main() {
       priceMonthly: 15,
       priceYearly: 144,
       features: [
-        { featureKey: 'ai_credits_monthly', value: '300' },
+        { featureKey: 'ai_credits_monthly', value: '100' },
         { featureKey: 'resume_uploads',     value: '10'  },
         { featureKey: 'tracker_entries',    value: '200' },
       ],
@@ -78,7 +78,7 @@ async function main() {
       priceMonthly: 29,
       priceYearly: 276,
       features: [
-        { featureKey: 'ai_credits_monthly', value: '1000' },
+        { featureKey: 'ai_credits_monthly', value: '500' },
         { featureKey: 'resume_uploads',     value: '50'   },
         { featureKey: 'tracker_entries',    value: '-1'   }, // unlimited
       ],

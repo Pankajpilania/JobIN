@@ -14,6 +14,7 @@ import {
   HeadingLevel,
   AlignmentType,
   BorderStyle,
+  TabStopType,
   convertInchesToTwip,
 } from 'docx';
 
@@ -81,7 +82,17 @@ function isLikelyName(line: string): boolean {
 }
 
 function isLikelyContact(line: string): boolean {
-  return line.length <= 160 && (/@|https?:\/\/|\+?\d[\d\s().-]{7,}/i.test(line));
+  return line.length <= 160 && (/@|https?:\/\/|linkedin\.com|github\.com|\+?\d[\d\s().-]{7,}/i.test(line));
+}
+
+function splitResumePair(line: string): [string, string] | null {
+  const match = line.match(/^(.{1,100}?)\s+\|\s+(.{1,100})$/);
+  return match ? [match[1].trim(), match[2].trim()] : null;
+}
+
+function splitLabeledLine(line: string): [string, string] | null {
+  const match = line.match(/^([^:]{2,32}):\s*(.+)$/);
+  return match ? [match[1].trim(), match[2].trim()] : null;
 }
 
 function latexEscape(value: string): string {
@@ -173,31 +184,64 @@ export class ExportService {
       doc.on('error', reject);
 
       let start = 0;
+      let inSkills = false;
       if (lines.length && isLikelyName(lines[0])) {
-        doc.font('Helvetica-Bold').fontSize(18).fillColor('#111111').text(lines[0], { align: 'center' });
+        doc.font('Times-Bold').fontSize(17).fillColor('#111111').text(lines[0], { align: 'center' });
         start = 1;
-        if (lines[start] && isLikelyContact(lines[start])) {
-          doc.moveDown(0.15).font('Helvetica').fontSize(9).text(lines[start], { align: 'center' });
+        if (lines[start] && !isLikelyContact(lines[start]) && !isSectionHeading(lines[start])) {
+          doc.moveDown(0.1).font('Times-Bold').fontSize(10).text(lines[start], { align: 'center' });
           start += 1;
         }
-        doc.moveDown(0.5);
+        while (lines[start] && isLikelyContact(lines[start])) {
+          doc.moveDown(0.1).font('Times-Roman').fontSize(9).text(lines[start], { align: 'center' });
+          start += 1;
+        }
+        doc.moveDown(0.25);
       } else {
-        doc.font('Helvetica-Bold').fontSize(16).fillColor('#111111').text(options.title, { align: 'center' });
-        doc.moveDown(0.5);
+        doc.font('Times-Bold').fontSize(16).fillColor('#111111').text(options.title, { align: 'center' });
+        doc.moveDown(0.25);
       }
 
       for (const line of lines.slice(start)) {
         if (isSectionHeading(line)) {
-          doc.moveDown(0.45).font('Helvetica-Bold').fontSize(11).fillColor('#111111').text(line.replace(/:$/, ''));
-          doc.moveDown(0.1);
+          inSkills = /skills/i.test(line);
+          doc.moveDown(0.3).font('Times-Bold').fontSize(10).fillColor('#111111')
+            .text(line.replace(/:$/, '').toUpperCase());
+          const y = doc.y + 1;
+          doc.moveTo(doc.page.margins.left, y)
+            .lineTo(doc.page.width - doc.page.margins.right, y)
+            .lineWidth(0.6)
+            .stroke();
+          doc.moveDown(0.15);
         } else if (isBullet(line)) {
-          doc.font('Helvetica').fontSize(9.5).fillColor('#111111').text(`- ${bulletText(line)}`, {
-            indent: 10,
-            hanging: 10,
-            lineGap: 1.5,
+          doc.font('Times-Roman').fontSize(9.5).fillColor('#111111').text(`- ${bulletText(line)}`, {
+            indent: 12,
+            hanging: 9,
+            lineGap: 1,
           });
         } else {
-          doc.font('Helvetica').fontSize(9.5).fillColor('#111111').text(line, { lineGap: 1.5 });
+          const pair = splitResumePair(line);
+          if (pair) {
+            const y = doc.y;
+            const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+            const leftWidth = width * 0.68;
+            doc.font('Times-Bold').fontSize(9.5).fillColor('#111111')
+              .text(pair[0], doc.page.margins.left, y, { width: leftWidth });
+            const bottom = doc.y;
+            doc.font('Times-Roman').fontSize(9).text(pair[1], doc.page.width - doc.page.margins.right - width * 0.32, y, {
+              width: width * 0.32,
+              align: 'right',
+            });
+            doc.y = Math.max(bottom, doc.y) + 1;
+          } else {
+            const label = inSkills ? splitLabeledLine(line) : null;
+            if (label) {
+              doc.font('Times-Bold').fontSize(9.5).fillColor('#111111').text(`${label[0]}: `, { continued: true });
+              doc.font('Times-Roman').text(label[1], { lineGap: 1 });
+            } else {
+              doc.font('Times-Roman').fontSize(9.5).fillColor('#111111').text(line, { lineGap: 1 });
+            }
+          }
         }
       }
 
@@ -219,17 +263,21 @@ export class ExportService {
       '\\setlength{\\parindent}{0pt}',
       '\\setlength{\\parskip}{3pt}',
       '\\setlist[itemize]{leftmargin=1.25em,itemsep=1pt,topsep=2pt}',
-      '\\titleformat{\\section}{\\large\\bfseries}{}{0pt}{}',
-      '\\titlespacing*{\\section}{0pt}{8pt}{3pt}',
+      '\\titleformat{\\section}{\\normalsize\\bfseries}{}{0pt}{}[\\titlerule]',
+      '\\titlespacing*{\\section}{0pt}{6pt}{2pt}',
       '\\begin{document}',
     ];
 
     let start = 0;
     if (lines.length && isLikelyName(lines[0])) {
-      output.push(`{\\centering\\LARGE\\bfseries ${latexEscape(lines[0])}\\par}`);
+      output.push(`{\\centering\\Large\\bfseries ${latexEscape(lines[0])}\\par}`);
       start = 1;
-      if (lines[start] && isLikelyContact(lines[start])) {
-        output.push(`{\\centering ${latexEscape(lines[start])}\\par}`);
+      if (lines[start] && !isLikelyContact(lines[start]) && !isSectionHeading(lines[start])) {
+        output.push(`{\\centering\\bfseries ${latexEscape(lines[start])}\\par}`);
+        start += 1;
+      }
+      while (lines[start] && isLikelyContact(lines[start])) {
+        output.push(`{\\centering\\small ${latexEscape(lines[start])}\\par}`);
         start += 1;
       }
       output.push('\\vspace{4pt}');
@@ -239,6 +287,7 @@ export class ExportService {
     }
 
     let inList = false;
+    let inSkills = false;
     for (const line of lines.slice(start)) {
       if (isBullet(line)) {
         if (!inList) {
@@ -252,9 +301,18 @@ export class ExportService {
           inList = false;
         }
         if (isSectionHeading(line)) {
+          inSkills = /skills/i.test(line);
           output.push(`\\section*{${latexEscape(line.replace(/:$/, ''))}}`);
         } else {
-          output.push(`${latexEscape(line)}\\par`);
+          const pair = splitResumePair(line);
+          const label = inSkills ? splitLabeledLine(line) : null;
+          if (pair) {
+            output.push(`\\textbf{${latexEscape(pair[0])}}\\hfill ${latexEscape(pair[1])}\\par`);
+          } else if (label) {
+            output.push(`\\textbf{${latexEscape(label[0])}:} ${latexEscape(label[1])}\\par`);
+          } else {
+            output.push(`${latexEscape(line)}\\par`);
+          }
         }
       }
     }
@@ -362,11 +420,19 @@ export class ExportService {
         spacing: { after: 80 },
       }));
       start = 1;
-      if (lines[start] && isLikelyContact(lines[start])) {
+      if (lines[start] && !isLikelyContact(lines[start]) && !isSectionHeading(lines[start])) {
         children.push(new Paragraph({
-          children: [new TextRun({ text: lines[start], size: 18, font: 'Arial' })],
+          children: [new TextRun({ text: lines[start], bold: true, size: 20, font: 'Arial' })],
           alignment: AlignmentType.CENTER,
-          spacing: { after: 180 },
+          spacing: { after: 60 },
+        }));
+        start += 1;
+      }
+      while (lines[start] && isLikelyContact(lines[start])) {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: lines[start], size: 17, font: 'Arial' })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 40 },
         }));
         start += 1;
       }
@@ -378,24 +444,43 @@ export class ExportService {
       }));
     }
 
+    let inSkills = false;
     for (const line of lines.slice(start)) {
       if (isSectionHeading(line)) {
+        inSkills = /skills/i.test(line);
         children.push(new Paragraph({
           heading: HeadingLevel.HEADING_2,
-          children: [new TextRun({ text: line.replace(/:$/, ''), bold: true, size: 22, font: 'Arial' })],
-          spacing: { before: 180, after: 40 },
+          children: [new TextRun({ text: line.replace(/:$/, '').toUpperCase(), bold: true, size: 20, font: 'Arial' })],
+          spacing: { before: 140, after: 35 },
+          border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '111111' } },
         }));
       } else if (isBullet(line)) {
         children.push(new Paragraph({
           bullet: { level: 0 },
-          children: [new TextRun({ text: bulletText(line), size: 19, font: 'Arial' })],
-          spacing: { after: 30 },
+          children: [new TextRun({ text: bulletText(line), size: 18, font: 'Arial' })],
+          spacing: { after: 25 },
           indent: { left: convertInchesToTwip(0.25) },
         }));
       } else {
+        const pair = splitResumePair(line);
+        const label = inSkills ? splitLabeledLine(line) : null;
         children.push(new Paragraph({
-          children: [new TextRun({ text: line, size: 19, font: 'Arial' })],
-          spacing: { after: 45 },
+          children: pair
+            ? [
+                new TextRun({ text: pair[0], bold: true, size: 18, font: 'Arial' }),
+                new TextRun({ text: '\t' }),
+                new TextRun({ text: pair[1], size: 18, font: 'Arial' }),
+              ]
+            : label
+              ? [
+                  new TextRun({ text: `${label[0]}: `, bold: true, size: 18, font: 'Arial' }),
+                  new TextRun({ text: label[1], size: 18, font: 'Arial' }),
+                ]
+              : [new TextRun({ text: line, size: 18, font: 'Arial' })],
+          ...(pair ? {
+            tabStops: [{ type: TabStopType.RIGHT, position: convertInchesToTwip(6.8) }],
+          } : {}),
+          spacing: { after: 35 },
         }));
       }
     }

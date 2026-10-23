@@ -172,7 +172,7 @@ export default function SignUpPage() {
               Your AI job search <span style={{ color: 'var(--brand)', fontWeight: 800 }}>starts here.</span>
             </h1>
             <p style={{ fontSize: '14px', color: 'var(--text-2)', maxWidth: '448px', lineHeight: '1.625' }}>
-              Create your free account and get 50 AI credits instantly. Tailor your first resume, generate a cover letter, and start tracking applications today.
+              Create your free account and get 20 AI credits every month. Tailor your first resume, generate a cover letter, and start tracking applications today.
             </p>
           </div>
 
@@ -180,7 +180,7 @@ export default function SignUpPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)' }}>What you get for free</p>
             {[
-              '50 AI credits to start',
+              '20 AI credits per month',
               'Resume upload & ATS scoring',
               'Job application tracker',
               'AI cover letter generator',
