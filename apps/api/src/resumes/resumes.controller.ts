@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete, Param, Body, UseGuards,
-  UseInterceptors, UploadedFile, HttpCode, HttpStatus, ParseUUIDPipe, Res,
+  UseInterceptors, UploadedFile, HttpCode, HttpStatus, ParseUUIDPipe, Res, Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -115,9 +115,10 @@ export class ResumesController {
   async exportPdf(
     @CurrentUser() user: SupabaseUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('versionId') versionId: string | undefined,
     @Res() res: Response,
   ) {
-    const { buffer, filename } = await this.resumesService.exportPdf(user.id, id);
+    const { buffer, filename } = await this.resumesService.exportPdf(user.id, id, versionId);
     res.set({
       'Content-Type':        'application/pdf',
       'Content-Disposition': `attachment; filename="${filename}"`,
@@ -134,14 +135,33 @@ export class ResumesController {
   async exportDocx(
     @CurrentUser() user: SupabaseUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('versionId') versionId: string | undefined,
     @Res() res: Response,
   ) {
-    const { buffer, filename } = await this.resumesService.exportDocx(user.id, id);
+    const { buffer, filename } = await this.resumesService.exportDocx(user.id, id, versionId);
     res.set({
       'Content-Type':        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Content-Length':      String(buffer.length),
     });
     res.send(buffer);
+  }
+
+  @Get(':id/export/latex')
+  @ApiParam({ name: 'id', description: 'Resume UUID' })
+  @ApiOperation({ summary: 'Download the tailored resume as ATS-friendly LaTeX source' })
+  async exportLatex(
+    @CurrentUser() user: SupabaseUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('versionId') versionId: string | undefined,
+    @Res() res: Response,
+  ) {
+    const { source, filename } = await this.resumesService.exportLatex(user.id, id, versionId);
+    res.set({
+      'Content-Type': 'application/x-tex; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': String(Buffer.byteLength(source, 'utf8')),
+    });
+    res.send(source);
   }
 }

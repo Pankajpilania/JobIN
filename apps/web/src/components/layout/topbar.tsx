@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Menu, Search } from 'lucide-react';
-import { useCurrentUser } from '@/hooks/use-user';
 import { useSessionProfile } from '@/hooks/use-session-profile';
 import { Avatar } from '../ui/avatar';
 
@@ -25,7 +24,6 @@ interface TopbarProps {
 
 export const Topbar: React.FC<TopbarProps> = ({ isMobileNavOpen, onMobileMenuClick }) => {
   const router = useRouter();
-  const { data: user } = useCurrentUser();
   const sessionProfile = useSessionProfile();
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -166,9 +164,9 @@ export const Topbar: React.FC<TopbarProps> = ({ isMobileNavOpen, onMobileMenuCli
           style={{ display: 'inline-flex', borderRadius: '999px', outlineOffset: '3px' }}
         >
           <Avatar
-            src={user?.avatarUrl || sessionProfile.avatarUrl}
-            alt={user?.fullName || sessionProfile.fullName || 'User'}
-            fallback={getInitials(user?.fullName || sessionProfile.fullName)}
+            src={sessionProfile.avatarUrl}
+            alt={sessionProfile.fullName || 'User'}
+            fallback={getInitials(sessionProfile.fullName)}
             size="sm"
           />
         </Link>

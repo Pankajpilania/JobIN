@@ -8,25 +8,23 @@ import { useAuth } from '@/hooks/use-auth';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import type { BillingUsage } from '@/types';
 
-interface BillingUsage {
-  planName: string;
-  creditsUsed: number;
-  creditsIncluded: number | null;
-  creditsRemaining: number | null;
-  totalTokens: number;
-  estimatedCostUsd: number;
-  periodStart: string;
-  periodEnd: string;
-  hasActiveSubscription: boolean;
+interface PlanCreditsPanelProps {
+  source?: {
+    data?: BillingUsage;
+    isLoading: boolean;
+    error?: string;
+    retry: () => void;
+  };
 }
 
-export function PlanCreditsPanel() {
-  const { getToken, isSignedIn } = useAuth();
+export function PlanCreditsPanel({ source }: PlanCreditsPanelProps) {
+  const { getToken, isReady, isSignedIn, userId } = useAuth();
   const [openingBilling, setOpeningBilling] = useState(false);
   const usageQuery = useQuery<BillingUsage>({
-    queryKey: ['billing-usage'],
-    enabled: isSignedIn,
+    queryKey: ['billing-usage', userId],
+    enabled: !source && isReady && isSignedIn,
     staleTime: 60_000,
     queryFn: async () => {
       const token = await getToken();
@@ -53,7 +51,10 @@ export function PlanCreditsPanel() {
     }
   };
 
-  const usage = usageQuery.data;
+  const usage = source ? source.data : usageQuery.data;
+  const isLoading = source ? source.isLoading : !isReady || (isSignedIn && usageQuery.isLoading);
+  const error = source?.error ?? (usageQuery.isError ? usageQuery.error.message : undefined);
+  const retry = source?.retry ?? (() => { void usageQuery.refetch(); });
   const limit = usage?.creditsIncluded;
   const usedPercentage = usage && limit && limit > 0
     ? Math.min((usage.creditsUsed / limit) * 100, 100)
@@ -71,10 +72,10 @@ export function PlanCreditsPanel() {
             Your plan and AI requests used during the current billing period.
           </p>
         </div>
-        {usageQuery.isError && (
+        {error && (
           <button
             type="button"
-            onClick={() => usageQuery.refetch()}
+            onClick={retry}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: 0, background: 'transparent', color: 'var(--brand)', cursor: 'pointer', font: 'inherit', fontSize: '12px', fontWeight: 700 }}
           >
             <RefreshCw aria-hidden="true" size={14} /> Retry
@@ -82,13 +83,13 @@ export function PlanCreditsPanel() {
         )}
       </div>
 
-      {usageQuery.isLoading || !isSignedIn ? (
+      {isLoading ? (
         <p role="status" style={{ margin: 0, color: 'var(--text-2)', fontSize: '13px' }}>
           Loading plan and AI credit usage…
         </p>
-      ) : usageQuery.isError ? (
+      ) : error ? (
         <p role="alert" style={{ margin: 0, color: '#b91c1c', fontSize: '13px' }}>
-          Could not load plan and AI credit usage: {usageQuery.error.message}
+          Could not load plan and AI credit usage: {error}
         </p>
       ) : usage ? (
         <>
@@ -137,8 +138,8 @@ export function PlanCreditsPanel() {
             <Button
               type="button"
               onClick={openBilling}
-              disabled={openingBilling || usageQuery.isFetching}
-              style={{ opacity: openingBilling || usageQuery.isFetching ? 0.7 : 1 }}
+              disabled={openingBilling || isLoading}
+              style={{ opacity: openingBilling || isLoading ? 0.7 : 1 }}
             >
               {openingBilling ? <Loader2 aria-hidden="true" size={16} className="animate-spin" /> : null}
               {openingBilling ? 'Opening…' : usage.hasActiveSubscription ? 'Manage plan' : 'Upgrade to Premium'}

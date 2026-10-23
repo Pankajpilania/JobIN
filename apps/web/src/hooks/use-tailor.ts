@@ -24,6 +24,8 @@ export function useTailorResume() {
     onSuccess: (_, { resumeId }) => {
       qc.invalidateQueries({ queryKey: ['resumes', resumeId] });
       qc.invalidateQueries({ queryKey: ['versions', resumeId] });
+      qc.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      qc.invalidateQueries({ queryKey: ['billing-usage'] });
     },
   });
 }

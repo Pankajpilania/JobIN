@@ -46,7 +46,11 @@ export function useGenerateCoverLetter() {
       const token = await getToken();
       return apiClient.post<CoverLetter>('/cover-letters/generate', payload, token ?? undefined);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['cover-letters'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cover-letters'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      qc.invalidateQueries({ queryKey: ['billing-usage'] });
+    },
   });
 }
 
