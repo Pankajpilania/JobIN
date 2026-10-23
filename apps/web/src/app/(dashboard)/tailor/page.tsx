@@ -10,11 +10,10 @@ import {
 } from 'lucide-react';
 import { useResumes } from '@/hooks/use-resumes';
 import { useTailorResume } from '@/hooks/use-tailor';
-import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { apiClient } from '@/lib/api-client';
 import type { TailorResult } from '@/types';
 import { Button } from '@/components/ui/button';
-
-const _supabase = createClient();
 
 // ─── Score delta bar ──────────────────────────────────────────────────────────
 
@@ -123,12 +122,14 @@ function HighlightedText({ text, keywords }: { text: string; keywords: string[] 
 export default function TailorPage() {
   const { data: resumes } = useResumes();
   const tailor = useTailorResume();
+  const { getToken } = useAuth();
 
   const [selectedResumeId, setSelectedResumeId] = useState('');
   const [jobDescription,   setJobDescription]   = useState('');
   const [jobTitle,         setJobTitle]          = useState('');
   const [companyName,      setCompanyName]       = useState('');
   const [result,           setResult]            = useState<TailorResult | null>(null);
+  const [exporting,        setExporting]          = useState<'pdf' | 'docx' | 'latex' | null>(null);
   const [activeTab,        setActiveTab]         = useState<'tailored' | 'original'>('tailored');
   const [loading,          setLoading]           = useState(false);
 
@@ -164,52 +165,31 @@ export default function TailorPage() {
     navigator.clipboard.writeText(result.tailoredText).then(() => toast.success('Copied to clipboard!'));
   };
 
-  const exportPdf = async () => {
+  const downloadExport = async (format: 'pdf' | 'docx' | 'latex') => {
     if (!selectedResumeId || !result) return;
     try {
-      toast.loading('Preparing PDF download...', { id: 'export-pdf' });
-      const printWindow = window.open('', '', 'width=800,height=600');
-      if (!printWindow) throw new Error('Popup blocked. Please allow popups to export PDF.');
-      
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Tailored_Resume_${selectedResumeId}</title>
-            <style>
-              body { font-family: 'Inter', sans-serif; padding: 40px; line-height: 1.6; color: #111; max-width: 800px; margin: 0 auto; white-space: pre-wrap; }
-            </style>
-          </head>
-          <body>${result.tailoredText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.focus();
-      // Small delay to ensure styles and content are loaded before printing
-      setTimeout(() => {
-        printWindow.print();
-        toast.success('PDF print dialog opened!', { id: 'export-pdf' });
-      }, 250);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to export PDF', { id: 'export-pdf' });
-    }
-  };
-
-  const exportDocx = async () => {
-    if (!selectedResumeId || !result) return;
-    try {
-      toast.loading('Preparing text download...', { id: 'export-docx' });
-      const blob = new Blob([result.tailoredText], { type: 'text/plain;charset=utf-8' });
+      setExporting(format);
+      const labels = { pdf: 'PDF', docx: 'Word document', latex: 'LaTeX source' };
+      toast.loading(`Preparing ${labels[format]} download...`, { id: 'resume-export' });
+      const token = await getToken();
+      const query = new URLSearchParams({ versionId: result.versionId });
+      const { blob, filename } = await apiClient.download(
+        `/resumes/${selectedResumeId}/export/${format}?${query.toString()}`,
+        token ?? undefined,
+      );
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Tailored_Resume_${selectedResumeId}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success('Text file downloaded!', { id: 'export-docx' });
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename || `Tailored_Resume.${format === 'latex' ? 'tex' : format}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      toast.success(`${labels[format]} downloaded`, { id: 'resume-export' });
     } catch (err: any) {
-      toast.error(err.message || 'Failed to download file', { id: 'export-docx' });
+      toast.error(err.message || 'Failed to download resume', { id: 'resume-export' });
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -435,11 +415,14 @@ export default function TailorPage() {
                   <Button variant="ghost" onClick={copyToClipboard} style={{ fontSize: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Copy style={{ height: '14px', width: '14px' }} /> Copy Text
                   </Button>
-                  <button onClick={exportPdf} style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px', border: '1px solid #FCA5A5', backgroundColor: '#FEF2F2', padding: '8px 14px', fontSize: '12px', fontWeight: 600, color: '#EF4444', cursor: 'pointer', transition: 'var(--transition)' }}>
-                    <Download style={{ height: '14px', width: '14px' }} /> PDF
+                  <button disabled={Boolean(exporting)} onClick={() => downloadExport('pdf')} style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px', border: '1px solid #FCA5A5', backgroundColor: '#FEF2F2', padding: '8px 14px', fontSize: '12px', fontWeight: 600, color: '#EF4444', cursor: exporting ? 'wait' : 'pointer', opacity: exporting ? 0.65 : 1, transition: 'var(--transition)' }}>
+                    <Download style={{ height: '14px', width: '14px' }} /> {exporting === 'pdf' ? 'Preparing…' : 'PDF'}
                   </button>
-                  <button onClick={exportDocx} style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px', border: '1px solid #93C5FD', backgroundColor: '#EFF6FF', padding: '8px 14px', fontSize: '12px', fontWeight: 600, color: '#3B82F6', cursor: 'pointer', transition: 'var(--transition)' }}>
-                    <Download style={{ height: '14px', width: '14px' }} /> DOCX
+                  <button disabled={Boolean(exporting)} onClick={() => downloadExport('docx')} style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px', border: '1px solid #93C5FD', backgroundColor: '#EFF6FF', padding: '8px 14px', fontSize: '12px', fontWeight: 600, color: '#3B82F6', cursor: exporting ? 'wait' : 'pointer', opacity: exporting ? 0.65 : 1, transition: 'var(--transition)' }}>
+                    <Download style={{ height: '14px', width: '14px' }} /> {exporting === 'docx' ? 'Preparing…' : 'Word'}
+                  </button>
+                  <button disabled={Boolean(exporting)} onClick={() => downloadExport('latex')} style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--surface)', padding: '8px 14px', fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', cursor: exporting ? 'wait' : 'pointer', opacity: exporting ? 0.65 : 1, transition: 'var(--transition)' }}>
+                    <Download style={{ height: '14px', width: '14px' }} /> {exporting === 'latex' ? 'Preparing…' : 'LaTeX'}
                   </button>
                 </div>
               </div>

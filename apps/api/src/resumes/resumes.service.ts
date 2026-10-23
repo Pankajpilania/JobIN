@@ -292,33 +292,44 @@ export class ResumesService {
   async exportPdf(
     supabaseId: string,
     resumeId: string,
+    versionId?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
-    const userId = await this.resolveUserId(supabaseId);
-    const resume = await this.assertOwnership(resumeId, userId);
-
-    // Use latest tailored version if available, else parsedText
-    const latest = await this.prisma.resumeVersion.findFirst({
-      where: { resumeId },
-      orderBy: { versionNum: 'desc' },
-    });
-    const content = latest?.tailoredContent ?? (await this.getResumeText(resume));
-    const buffer = await this.exporter.generatePdf({ title: resume.title, content });
+    const { resume, content } = await this.getExportContent(supabaseId, resumeId, versionId);
+    const buffer = await this.exporter.generatePdf({ title: resume.title, content, atsFriendly: true });
     return { buffer, filename: this.exporter.toFilename(resume.title, 'pdf') };
   }
 
   async exportDocx(
     supabaseId: string,
     resumeId: string,
+    versionId?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
+    const { resume, content } = await this.getExportContent(supabaseId, resumeId, versionId);
+    const buffer = await this.exporter.generateDocx({ title: resume.title, content, atsFriendly: true });
+    return { buffer, filename: this.exporter.toFilename(resume.title, 'docx') };
+  }
+
+  async exportLatex(supabaseId: string, resumeId: string, versionId?: string) {
+    const { resume, content } = await this.getExportContent(supabaseId, resumeId, versionId);
+    return {
+      source: this.exporter.generateLatex({ title: resume.title, content, atsFriendly: true }),
+      filename: this.exporter.toFilename(resume.title, 'tex'),
+    };
+  }
+
+  private async getExportContent(supabaseId: string, resumeId: string, versionId?: string) {
     const userId = await this.resolveUserId(supabaseId);
     const resume = await this.assertOwnership(resumeId, userId);
-    const latest = await this.prisma.resumeVersion.findFirst({
-      where: { resumeId },
-      orderBy: { versionNum: 'desc' },
-    });
-    const content = latest?.tailoredContent ?? (await this.getResumeText(resume));
-    const buffer = await this.exporter.generateDocx({ title: resume.title, content });
-    return { buffer, filename: this.exporter.toFilename(resume.title, 'docx') };
+    const version = versionId
+      ? await this.prisma.resumeVersion.findFirst({ where: { id: versionId, resumeId } })
+      : await this.prisma.resumeVersion.findFirst({
+          where: { resumeId },
+          orderBy: { versionNum: 'desc' },
+        });
+
+    if (versionId && !version) throw new NotFoundException(`Resume version ${versionId} not found`);
+    const content = version?.tailoredContent ?? (await this.getResumeText(resume));
+    return { resume, content };
   }
 
   // ─── List versions ────────────────────────────────────────────────────────

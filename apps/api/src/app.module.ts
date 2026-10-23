@@ -14,6 +14,7 @@ import { CoverLettersModule } from './cover-letters/cover-letters.module';
 import { JobTrackerModule } from './job-tracker/job-tracker.module';
 import { BillingModule } from './billing/billing.module';
 import { AdminModule } from './admin/admin.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { AdminModule } from './admin/admin.module';
     CoverLettersModule,  // Sprint 3
     JobTrackerModule,    // Sprint 4
     BillingModule,       // Sprint 4 — Stripe
+    DashboardModule,
     AdminModule,         // Sprint 6 — Admin Portal
   ],
 })

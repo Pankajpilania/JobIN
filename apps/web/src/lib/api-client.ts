@@ -54,6 +54,33 @@ async function request<T>(
   return res.json();
 }
 
+async function download(path: string, token?: string) {
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { method: 'GET', headers, cache: 'no-store' });
+  } catch (fetchErr: unknown) {
+    console.error('API download failed', { path, error: fetchErr });
+    throw new Error('Unable to reach the server. Check the API connection and NEXT_PUBLIC_API_URL.');
+  }
+
+  if (!res.ok) {
+    const err: ApiError = await res.json().catch(() => ({
+      statusCode: res.status,
+      message: res.statusText || 'Download failed',
+      timestamp: new Date().toISOString(),
+      path,
+    }));
+    throw new HttpError(err);
+  }
+
+  const disposition = res.headers.get('content-disposition') ?? '';
+  const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+  return { blob: await res.blob(), filename };
+}
+
 export const apiClient = {
   get: <T>(path: string, token?: string) =>
     request<T>(path, { method: 'GET', token }),
@@ -74,6 +101,8 @@ export const apiClient = {
 
   delete: <T>(path: string, token?: string) =>
     request<T>(path, { method: 'DELETE', token }),
+
+  download,
 };
 
 export { HttpError };

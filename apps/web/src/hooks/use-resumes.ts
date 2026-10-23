@@ -64,6 +64,8 @@ export function useAnalyseResume() {
     onSuccess: (_, resumeId) => {
       qc.invalidateQueries({ queryKey: ['resumes'] });
       qc.invalidateQueries({ queryKey: ['resumes', resumeId] });
+      qc.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      qc.invalidateQueries({ queryKey: ['billing-usage'] });
     },
   });
 }

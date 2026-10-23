@@ -94,6 +94,26 @@ export interface ActivityItem {
   status: ApplicationStatus; updatedAt: string; appliedDate?: string; location?: string;
 }
 
+export interface BillingUsage {
+  planName: string;
+  creditsUsed: number;
+  creditsIncluded: number | null;
+  creditsRemaining: number | null;
+  totalTokens: number;
+  estimatedCostUsd: number;
+  periodStart: string;
+  periodEnd: string;
+  hasActiveSubscription: boolean;
+}
+
+export interface DashboardSummary {
+  user: { fullName: string };
+  stats: ApplicationStats;
+  activity: ActivityItem[];
+  resume: Pick<Resume, 'title' | 'atsScore' | 'isDefault'> | null;
+  billing: BillingUsage;
+}
+
 export interface CreateApplicationPayload {
   jobTitle: string; companyName: string; location?: string; jobUrl?: string;
   salary?: string; status?: ApplicationStatus; appliedDate?: string;

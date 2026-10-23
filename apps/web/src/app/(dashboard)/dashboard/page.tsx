@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { useCurrentUser } from '@/hooks/use-user';
 import {
   Send,
   TrendingUp,
@@ -20,8 +19,7 @@ import {
   BarChart2,
   ArrowUpRight,
 } from 'lucide-react';
-import { useApplicationStats, useActivityFeed } from '@/hooks/use-applications';
-import { useResumes } from '@/hooks/use-resumes';
+import { useDashboardSummary } from '@/hooks/use-dashboard';
 import { useSessionProfile } from '@/hooks/use-session-profile';
 import type { ApplicationStatus, ActivityItem } from '@/types';
 import { Card } from '@/components/ui/card';
@@ -313,18 +311,15 @@ function PipelineBar({ byStatus }: { byStatus: Record<string, number> }) {
 }
 
 export default function DashboardPage() {
-  const { data: user } = useCurrentUser();
   const sessionProfile = useSessionProfile();
-  const statsQuery = useApplicationStats();
-  const activityQuery = useActivityFeed();
-  const resumesQuery = useResumes();
-  const { data: stats } = statsQuery;
-  const { data: activity } = activityQuery;
-  const { data: resumes } = resumesQuery;
+  const dashboardQuery = useDashboardSummary();
+  const summary = dashboardQuery.data;
+  const stats = summary?.stats;
+  const activity = summary?.activity;
 
-  const displayName = user?.fullName || sessionProfile.fullName;
+  const displayName = summary?.user.fullName || sessionProfile.fullName;
   const firstName = displayName ? displayName.split(' ')[0] : 'candidate';
-  const topResume = resumes?.find((r) => r.isDefault) ?? resumes?.[0];
+  const topResume = summary?.resume;
   const atsScore = topResume?.atsScore ?? 0;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -341,14 +336,9 @@ export default function DashboardPage() {
         </p>
       </motion.div>
 
-      {statsQuery.isError && !stats && (
+      {dashboardQuery.isError && !summary && (
         <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>
-          Unable to load application statistics: {statsQuery.error.message}
-        </p>
-      )}
-      {resumesQuery.isError && !resumes && (
-        <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>
-          Unable to load resumes: {resumesQuery.error.message}
+          Unable to load dashboard data: {dashboardQuery.error.message}
         </p>
       )}
 
@@ -361,8 +351,8 @@ export default function DashboardPage() {
           value={stats?.total ?? 0}
           color={{ text: 'var(--brand)', bg: 'var(--brand-light)' }}
           subText={`${stats?.thisWeek ?? 0} applied this week`}
-          loading={statsQuery.isLoading && !stats}
-          error={statsQuery.isError && !stats}
+          loading={dashboardQuery.isLoading && !summary}
+          error={dashboardQuery.isError && !summary}
         />
         <DashboardStatCard
           delay={0.1}
@@ -372,8 +362,8 @@ export default function DashboardPage() {
           suffix="%"
           color={{ text: 'var(--brand)', bg: 'var(--brand-light)' }}
           subText={stats?.totalApplied ? `${stats.totalApplied} total applied` : 'Apply to unlock stats'}
-          loading={statsQuery.isLoading && !stats}
-          error={statsQuery.isError && !stats}
+          loading={dashboardQuery.isLoading && !summary}
+          error={dashboardQuery.isError && !summary}
         />
         <DashboardStatCard
           delay={0.15}
@@ -387,8 +377,8 @@ export default function DashboardPage() {
               ? `${stats?.byStatus?.['OFFER']} job offer(s)`
               : 'Keep pushing!'
           }
-          loading={statsQuery.isLoading && !stats}
-          error={statsQuery.isError && !stats}
+          loading={dashboardQuery.isLoading && !summary}
+          error={dashboardQuery.isError && !summary}
         />
         <DashboardStatCard
           delay={0.2}
@@ -398,12 +388,17 @@ export default function DashboardPage() {
           suffix="/100"
           color={{ text: '#F59E0B', bg: '#FEF9C3' }}
           subText={atsScore > 0 ? (topResume?.title ?? 'Default CV') : 'Upload a CV first'}
-          loading={resumesQuery.isLoading && !resumes}
-          error={resumesQuery.isError && !resumes}
+          loading={dashboardQuery.isLoading && !summary}
+          error={dashboardQuery.isError && !summary}
         />
       </div>
 
-      <PlanCreditsPanel />
+      <PlanCreditsPanel source={{
+        data: summary?.billing,
+        isLoading: dashboardQuery.isLoading && !summary,
+        error: dashboardQuery.isError && !summary ? dashboardQuery.error.message : undefined,
+        retry: () => { void dashboardQuery.refetch(); },
+      }} />
 
       {/* Pipeline breakdown */}
       {stats && stats.total > 0 && (
@@ -449,13 +444,13 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            {activityQuery.isLoading && !activity ? (
+            {dashboardQuery.isLoading && !activity ? (
               <p role="status" style={{ color: 'var(--text-2)', margin: 0 }}>
                 Loading recent activity…
               </p>
-            ) : activityQuery.isError && !activity ? (
+            ) : dashboardQuery.isError && !activity ? (
               <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>
-                Unable to load recent activity: {activityQuery.error.message}
+                Unable to load recent activity: {dashboardQuery.error.message}
               </p>
             ) : !activity || activity.length === 0 ? (
               <div style={{
