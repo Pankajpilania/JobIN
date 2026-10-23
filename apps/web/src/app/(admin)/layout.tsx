@@ -6,7 +6,8 @@ import React from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { LogOut, BarChart2, Users, CreditCard, DollarSign, Bot, AlertCircle, ChevronRight, ReceiptText } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
+import { LogOut, BarChart2, Users, CreditCard, DollarSign, Bot, AlertCircle, ChevronRight, ReceiptText, Settings2 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -19,6 +20,7 @@ const NAV = [
   { href: '/admin/subscriptions',label: 'Subscriptions',icon: CreditCard },
   { href: '/admin/billing',      label: 'Billing',      icon: DollarSign },
   { href: '/admin/payment-requests', label: 'Payment requests', icon: ReceiptText },
+  { href: '/admin/payment-settings', label: 'Payment settings', icon: Settings2 },
   { href: '/admin/ai-usage',     label: 'AI Usage',     icon: Bot        },
   { href: '/admin/tickets',      label: 'Support',      icon: AlertCircle },
 ];
@@ -27,6 +29,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null | undefined>(undefined);
+  const [adminVerified, setAdminVerified] = useState(false);
+  const [adminError, setAdminError] = useState('');
 
   // Check Supabase session directly — do NOT rely on backend /users/me
   useEffect(() => {
@@ -45,6 +49,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.replace('/sign-in?next=/admin');
     }
   }, [supabaseUser, router]);
+
+  useEffect(() => {
+    if (!supabaseUser) return;
+    let active = true;
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+        if (!session?.access_token) throw new Error('Your session has expired. Please sign in again.');
+        await apiClient.get<{ allowed: boolean }>('/admin/access', session.access_token);
+        if (active) setAdminVerified(true);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setAdminError(error instanceof Error ? error.message : 'Could not verify admin access.');
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [supabaseUser]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -66,7 +89,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   // Show loading spinner while we wait for Supabase session
-  if (supabaseUser === undefined) {
+  if (supabaseUser === undefined || supabaseUser === null || (!adminVerified && !adminError)) {
     return (
       <div style={{ display: 'flex', height: '100vh', backgroundColor: 'var(--surface)', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{
@@ -82,6 +105,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             to { transform: rotate(360deg); }
           }
         `}} />
+      </div>
+    );
+  }
+
+  if (adminError) {
+    return (
+      <div style={{ display: 'grid', minHeight: '100vh', placeContent: 'center', gap: 12, padding: 24, textAlign: 'center' }}>
+        <h1 style={{ color: 'var(--text-1)', margin: 0 }}>Admin access required</h1>
+        <p style={{ color: 'var(--text-2)', margin: 0 }}>{adminError}</p>
+        <p style={{ color: 'var(--text-3)', margin: 0 }}>
+          Ask an administrator to grant your account an admin role, then sign out and back in.
+        </p>
+        <button onClick={handleSignOut} style={{ justifySelf: 'center' }}>Sign out</button>
       </div>
     );
   }

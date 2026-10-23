@@ -7,6 +7,7 @@ import type {
   GenerateCoverLetterParams,
   AIUsageRecord,
 } from './interfaces/ai.interfaces';
+import { parseTailorResult } from './resume-format';
 
 function gradeFromScore(score: number): ATSAnalysisResult['grade'] {
   if (score >= 90) return 'A';
@@ -145,14 +146,16 @@ Rules:
 3. Prioritize matching required qualifications over preferred
 4. Rephrase factually — NEVER fabricate achievements or numbers
 5. Preserve all factual content: dates, companies, technologies mentioned
-6. Return a clean, ATS-friendly, single-column resume in plain text. Do not use Markdown, tables, columns, decorative symbols, or a cover-page title.
+6. Return a clean, ATS-friendly, single-column resume in plain text. Do not use Markdown, tables, columns, decorative symbols, or a cover-page title. Preserve supplied email addresses, phone numbers, and URLs exactly.
 7. Use this section order when the source contains relevant information: candidate name; target/professional title; contact details; PROFESSIONAL SUMMARY; TECHNICAL SKILLS; PROFESSIONAL EXPERIENCE; EDUCATION; CERTIFICATIONS; ADDITIONAL INFORMATION. Include selected projects beneath the relevant employer when present in the source.
 8. Keep the candidate name, contact details, employers, locations, job titles, dates, qualifications, and certifications factual and unchanged. Never fill gaps with guesses or placeholders.
 9. Put each section heading on its own line in uppercase. Keep the header to the candidate name, professional title, and up to two lines of existing contact details. Do not repeat the name or add an objective.
 10. In TECHNICAL SKILLS, put each existing skill category on its own line using "Category: skills".
-11. In PROFESSIONAL EXPERIENCE, use one employer line as "Employer | Location", the next line as "Job Title | Dates", then any factual client/context line and one achievement per line prefixed with "• ". Use "Selected Projects at Employer" as a subheading when applicable, with each project on a separate bullet.
+11. In PROFESSIONAL EXPERIENCE, put each employer and location on one line as "Employer | Location", then the job title and dates on the next line as "Job Title | Dates". Put any factual client/context line after those, followed by one achievement per line prefixed with "• ". Use "Selected Projects at Employer" as a subheading when applicable, with each project on a separate bullet.
 12. Put each education entry on its own line; retain its degree, institution, location, and date. Keep certifications and additional information as concise, factual lines.
 13. Preserve the source's original section order and bullet structure when it differs materially from this suggested structure; do not flatten the resume into paragraphs.
+14. Formatting is part of the output: put each heading, skill category, employer, role, education entry, and achievement on its own line. Use a single blank line between sections, standard uppercase section headings, and the exact " | " separator for paired details. Never join adjacent fields into a paragraph or use tabs, tables, columns, Markdown, or decorative rules.
+15. Keep all claims traceable to the original resume. Do not present a missing job requirement as a candidate skill; report unsupported job requirements in missingKeywords instead.
 
 Return ONLY valid JSON:
 {
@@ -184,16 +187,7 @@ ${resumeText.slice(0, 6_000)}`;
       const prompt = `System Instructions:\n${systemPrompt}\n\n${userPrompt}`;
       const result = await model.generateContent(prompt);
       const text = result.response.text();
-      const parsed = JSON.parse(text) as Partial<TailorResult>;
-
-      const tailorResult: TailorResult = {
-        tailoredText: parsed.tailoredText ?? resumeText,
-        missingKeywords: parsed.missingKeywords ?? [],
-        keywordDensity: parsed.keywordDensity ?? {},
-        scoreBefore: Number(parsed.scoreBefore ?? 0),
-        scoreAfter: Number(parsed.scoreAfter ?? 0),
-        changesApplied: parsed.changesApplied ?? [],
-      };
+      const tailorResult = parseTailorResult(JSON.parse(text) as unknown);
 
       const usageMetadata = result.response.usageMetadata;
       const usage = buildUsage(

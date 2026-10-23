@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Post, Body, Param, Query,
+  Controller, Get, Patch, Post, Body, Param, Query, BadRequestException,
   UseGuards, Req, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -8,7 +8,7 @@ import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
 import { AdminRoleGuard, RequireAdminRole } from './guards/admin-role.guard';
 import {
   ListUsersDto, AdminUpdateUserDto,
-  SendNotificationDto, ListSubscriptionsDto,
+  SendNotificationDto, ListSubscriptionsDto, UpdateManualPaymentSettingsDto,
 } from './dto/admin.dto';
 
 @ApiTags('Admin')
@@ -18,11 +18,43 @@ import {
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
+  @Get('access')
+  @ApiOperation({ summary: 'Confirm the signed-in user has an admin role' })
+  checkAccess() {
+    return { allowed: true };
+  }
+
   // ─── GET /admin/metrics ────────────────────────────────────────────────────
   @Get('metrics')
   @ApiOperation({ summary: 'Platform-wide metrics dashboard' })
   getMetrics() {
     return this.adminService.getMetrics();
+  }
+
+  @Get('payment-settings')
+  @RequireAdminRole('FINANCE_ADMIN')
+  @ApiOperation({ summary: 'Get public manual-payment settings and regional prices' })
+  getPaymentSettings() {
+    return this.adminService.getManualPaymentSettings();
+  }
+
+  @Patch('payment-settings/:currency')
+  @HttpCode(HttpStatus.OK)
+  @RequireAdminRole('FINANCE_ADMIN')
+  @ApiOperation({ summary: 'Update payment method details and regional plan prices' })
+  updatePaymentSettings(
+    @Param('currency') currency: string,
+    @Body() dto: UpdateManualPaymentSettingsDto,
+    @Req() req: any,
+  ) {
+    if (currency !== dto.currency) {
+      throw new BadRequestException('Currency in URL and request body must match.');
+    }
+    return this.adminService.updateManualPaymentSettings(
+      req.adminUser?.id ?? 'system',
+      dto,
+      req.ip,
+    );
   }
 
   // ─── GET /admin/users ──────────────────────────────────────────────────────

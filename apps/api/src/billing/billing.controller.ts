@@ -45,6 +45,12 @@ export class BillingController {
     return this.billingService.getUsageSummary(user.id);
   }
 
+  @Get('manual-payment-settings')
+  @ApiOperation({ summary: 'Get the current public manual payment options and plan prices' })
+  getManualPaymentSettings() {
+    return this.billingService.getManualPaymentSettings();
+  }
+
   @Post('manual-payment-requests')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(SupabaseAuthGuard)

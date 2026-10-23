@@ -1,4 +1,15 @@
-import { IsEnum, IsOptional, IsString, IsInt, Min, Max, IsEmail } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsInt,
+  Min,
+  Max,
+  IsEmail,
+  IsNumber,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -43,6 +54,38 @@ export class AdminUpdateUserDto {
 
   @ApiPropertyOptional() @IsOptional() @IsString()
   note?: string;
+}
+
+export class UpdateManualPaymentSettingsDto {
+  @IsEnum(['INR', 'GBP'])
+  currency!: 'INR' | 'GBP';
+
+  @IsString()
+  @MaxLength(80)
+  methodLabel!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  paymentDetails?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  @Matches(/^(https:\/\/[^\s]+|\/[^\s]*)?$/i, {
+    message: 'QR URL must be an HTTPS URL or a root-relative path',
+  })
+  qrUrl?: string;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(1000000)
+  premiumAmount!: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(1000000)
+  proAmount!: number;
 }
 
 // ─── Send notification / email campaign ──────────────────────────────────────

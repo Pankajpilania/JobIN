@@ -90,6 +90,32 @@ export class BillingService {
     };
   }
 
+  async getManualPaymentSettings() {
+    const stored = await this.prisma.manualPaymentSettings.findMany();
+    const byCurrency = new Map(stored.map((setting) => [setting.currency, setting]));
+    return (['INR', 'GBP'] as const).map((currency) => {
+      const setting = byCurrency.get(currency);
+      const isInr = currency === 'INR';
+      return {
+        currency,
+        methodLabel: setting?.methodLabel ?? (isInr ? 'INR · UPI' : 'GBP · Bank transfer'),
+        paymentDetails:
+          setting?.paymentDetails ??
+          (isInr ? '' : this.config.get<string>('NEXT_PUBLIC_GBP_BANK_DETAILS', '')),
+        qrUrl:
+          setting?.qrUrl ??
+          this.config.get<string>(
+            isInr ? 'NEXT_PUBLIC_INR_PAYMENT_QR_URL' : 'NEXT_PUBLIC_GBP_BANK_QR_URL',
+            isInr ? '/payments/inr-payment.jpeg' : '/payments/gbp-payment.jpeg',
+          ),
+        amounts: {
+          PREMIUM: setting?.premiumAmount ?? (isInr ? 1599 : 15),
+          PRO: setting?.proAmount ?? (isInr ? 2999 : 29),
+        },
+      };
+    });
+  }
+
   private priceId(interval: BillingInterval): string {
     return interval === BillingInterval.MONTHLY
       ? this.config.get<string>('STRIPE_PRICE_PREMIUM_MONTHLY', '')
@@ -106,10 +132,13 @@ export class BillingService {
     const plan = await this.prisma.plan.findUnique({ where: { name: dto.plan } });
     if (!plan?.isActive) throw new NotFoundException('The selected plan is not available.');
 
-    const amountByPlan: Record<'PREMIUM' | 'PRO', Record<'GBP' | 'INR', number>> = {
-      PREMIUM: { GBP: 15, INR: 1599 },
-      PRO: { GBP: 29, INR: 2999 },
-    };
+    const paymentSettings = await this.prisma.manualPaymentSettings.findUnique({
+      where: { currency: dto.currency },
+    });
+    const amount =
+      dto.plan === 'PREMIUM'
+        ? (paymentSettings?.premiumAmount ?? (dto.currency === 'INR' ? 1599 : 15))
+        : (paymentSettings?.proAmount ?? (dto.currency === 'INR' ? 2999 : 29));
     const pending = await this.prisma.manualPaymentRequest.findFirst({
       where: { userId: user.id, status: 'PENDING' },
       select: { id: true },
@@ -123,7 +152,7 @@ export class BillingService {
         userId: user.id,
         planId: plan.id,
         currency: dto.currency,
-        amount: amountByPlan[dto.plan][dto.currency],
+        amount,
         transactionReference: dto.transactionReference.trim(),
       },
       select: { id: true, status: true, createdAt: true },
@@ -177,7 +206,11 @@ export class BillingService {
       });
 
       if (approve) {
-        await transaction.subscription.create({
+        await transaction.subscription.updateMany({
+          where: { userId: request.userId, status: 'ACTIVE' },
+          data: { status: 'CANCELLED' },
+        });
+        const subscription = await transaction.subscription.create({
           data: {
             userId: request.userId,
             planId: request.planId,
@@ -185,6 +218,15 @@ export class BillingService {
             stripeSubscriptionId: `manual-${request.id}`,
             currentPeriodStart: now,
             currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          },
+        });
+        await transaction.payment.create({
+          data: {
+            subscriptionId: subscription.id,
+            stripeIntentId: `manual-${request.id}`,
+            amount: request.amount,
+            currency: request.currency,
+            status: 'succeeded',
           },
         });
       }

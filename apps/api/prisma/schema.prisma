@@ -146,6 +146,16 @@ model ManualPaymentRequest {
   @@index([userId, createdAt])
 }
 
+model ManualPaymentSettings {
+  currency       String   @id
+  methodLabel    String
+  paymentDetails String   @default("")
+  qrUrl          String   @default("")
+  premiumAmount  Float
+  proAmount      Float
+  updatedAt      DateTime @updatedAt
+}
+
 /// Payment intent record — one per successful invoice payment
 model Payment {
   id             String       @id @default(uuid())

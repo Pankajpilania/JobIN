@@ -1,7 +1,15 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
-import type { ListUsersDto, AdminUpdateUserDto, SendNotificationDto, ListSubscriptionsDto } from './dto/admin.dto';
+import type {
+  ListUsersDto,
+  AdminUpdateUserDto,
+  SendNotificationDto,
+  ListSubscriptionsDto,
+  UpdateManualPaymentSettingsDto,
+} from './dto/admin.dto';
 
 @Injectable()
 export class AdminService {
@@ -10,6 +18,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly email:  EmailService,
+    private readonly config: ConfigService,
   ) {}
 
   // ─── Audit logging ────────────────────────────────────────────────────────
@@ -50,6 +59,8 @@ export class AdminService {
       activeUsers,
       newUsersMonth,
       suspendedUsers,
+      paidUsers,
+      freeUsers,
       totalResumes,
       totalApplications,
       totalAIRequests,
@@ -62,6 +73,22 @@ export class AdminService {
       this.prisma.user.count({ where: { status: 'ACTIVE', lastLoginAt: { gte: ago30 } } }),
       this.prisma.user.count({ where: { createdAt: { gte: ago30 } } }),
       this.prisma.user.count({ where: { status: 'SUSPENDED' } }),
+      this.prisma.user.count({
+        where: {
+          status: 'ACTIVE',
+          subscriptions: {
+            some: { status: 'ACTIVE', plan: { name: { not: 'FREE' } } },
+          },
+        },
+      }),
+      this.prisma.user.count({
+        where: {
+          status: 'ACTIVE',
+          subscriptions: {
+            none: { status: 'ACTIVE', plan: { name: { not: 'FREE' } } },
+          },
+        },
+      }),
       this.prisma.resume.count(),
       this.prisma.jobApplication.count(),
       this.prisma.aIUsage.count(),
@@ -107,6 +134,8 @@ export class AdminService {
       activeUsers,
       newUsersMonth,
       suspendedUsers,
+      paidUsers,
+      freeUsers,
       totalResumes,
       totalApplications,
       totalAIRequests,
@@ -147,7 +176,12 @@ export class AdminService {
         orderBy,
         include: {
           roles:         { include: { role: true } },
-          subscriptions: { include: { plan: true }, where: { status: 'ACTIVE' }, take: 1 },
+          subscriptions: {
+            include: { plan: true },
+            where: { status: 'ACTIVE' },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
           _count:        { select: { resumes: true, jobApplications: true, aiUsage: true } },
         },
       }),
@@ -161,7 +195,23 @@ export class AdminService {
   }
 
   async getUserActivity(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const [user, plans] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          subscriptions: {
+            where: { status: 'ACTIVE' },
+            include: { plan: true },
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+      }),
+      this.prisma.plan.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, priceMonthly: true, currency: true },
+        orderBy: { priceMonthly: 'asc' },
+      }),
+    ]);
     if (!user) throw new NotFoundException('User not found');
 
     const [resumes, aiUsage, applications, auditLogs] = await Promise.all([
@@ -174,7 +224,16 @@ export class AdminService {
     const totalTokens  = aiUsage.reduce((s, u) => s + u.totalTokens,      0);
     const totalCostUsd = aiUsage.reduce((s, u) => s + u.estimatedCostUsd, 0);
 
-    return { user, resumes, aiUsage, applications, auditLogs, totalTokens, totalCostUsd: Math.round(totalCostUsd * 100) / 100 };
+    return {
+      user,
+      plans,
+      resumes,
+      aiUsage,
+      applications,
+      auditLogs,
+      totalTokens,
+      totalCostUsd: Math.round(totalCostUsd * 100) / 100,
+    };
   }
 
   async updateUser(adminId: string, userId: string, dto: AdminUpdateUserDto, ipAddress?: string) {
@@ -184,14 +243,44 @@ export class AdminService {
     });
     if (!user) throw new NotFoundException('User not found');
 
-    const beforeState = { status: user.status, roles: user.roles.map(r => r.role.name) };
+    const beforeState = {
+      status: user.status,
+      roles: user.roles.map((r) => r.role.name),
+    };
 
-    // Status change
     if (dto.status) {
-      await this.prisma.user.update({ where: { id: userId }, data: { status: dto.status as any } });
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { status: dto.status as any },
+      });
     }
 
-    // Grant AI credits
+    if (dto.planId) {
+      const plan = await this.prisma.plan.findFirst({
+        where: { id: dto.planId, isActive: true },
+      });
+      if (!plan) throw new NotFoundException('Active plan not found');
+      const now = new Date();
+      const end = new Date(now);
+      end.setDate(end.getDate() + 30);
+      await this.prisma.$transaction(async (transaction) => {
+        await transaction.subscription.updateMany({
+          where: { userId, status: 'ACTIVE' },
+          data: { status: 'CANCELLED' },
+        });
+        await transaction.subscription.create({
+          data: {
+            userId,
+            planId: plan.id,
+            status: 'ACTIVE',
+            stripeSubscriptionId: `admin-${randomUUID()}`,
+            currentPeriodStart: now,
+            currentPeriodEnd: end,
+          },
+        });
+      });
+    }
+
     if (dto.grantCredits !== undefined && dto.grantCredits > 0) {
       await this.prisma.aICredits.upsert({
         where:  { userId },
@@ -200,7 +289,6 @@ export class AdminService {
       });
     }
 
-    // Assign role
     if (dto.role) {
       const role = await this.prisma.role.findFirst({ where: { name: dto.role } });
       if (role) {
@@ -212,7 +300,12 @@ export class AdminService {
       }
     }
 
-    const afterState = { status: dto.status ?? user.status, grantedCredits: dto.grantCredits, assignedRole: dto.role };
+    const afterState = {
+      status: dto.status ?? user.status,
+      planId: dto.planId,
+      grantedCredits: dto.grantCredits,
+      assignedRole: dto.role,
+    };
 
     await this.audit(adminId, 'ADMIN_UPDATE_USER', 'User', userId, beforeState, afterState, { note: dto.note }, ipAddress);
 
@@ -220,6 +313,71 @@ export class AdminService {
       where:   { id: userId },
       include: { roles: { include: { role: true } }, subscriptions: { include: { plan: true } } },
     });
+  }
+
+  async getManualPaymentSettings() {
+    const stored = await this.prisma.manualPaymentSettings.findMany();
+    const byCurrency = new Map(stored.map((setting) => [setting.currency, setting]));
+    return (['INR', 'GBP'] as const).map((currency) => {
+      const setting = byCurrency.get(currency);
+      const isInr = currency === 'INR';
+      return {
+        currency,
+        methodLabel: setting?.methodLabel ?? (isInr ? 'INR · UPI' : 'GBP · Bank transfer'),
+        paymentDetails:
+          setting?.paymentDetails ??
+          (isInr ? '' : this.config.get<string>('NEXT_PUBLIC_GBP_BANK_DETAILS', '')),
+        qrUrl:
+          setting?.qrUrl ??
+          this.config.get<string>(
+            isInr ? 'NEXT_PUBLIC_INR_PAYMENT_QR_URL' : 'NEXT_PUBLIC_GBP_BANK_QR_URL',
+            isInr ? '/payments/inr-payment.jpeg' : '/payments/gbp-payment.jpeg',
+          ),
+        amounts: {
+          PREMIUM: setting?.premiumAmount ?? (isInr ? 1599 : 15),
+          PRO: setting?.proAmount ?? (isInr ? 2999 : 29),
+        },
+      };
+    });
+  }
+
+  async updateManualPaymentSettings(
+    adminId: string,
+    dto: UpdateManualPaymentSettingsDto,
+    ipAddress?: string,
+  ) {
+    const existing = await this.prisma.manualPaymentSettings.findUnique({
+      where: { currency: dto.currency },
+    });
+    const updated = await this.prisma.manualPaymentSettings.upsert({
+      where: { currency: dto.currency },
+      create: {
+        currency: dto.currency,
+        methodLabel: dto.methodLabel.trim(),
+        paymentDetails: dto.paymentDetails?.trim() ?? '',
+        qrUrl: dto.qrUrl?.trim() ?? '',
+        premiumAmount: dto.premiumAmount,
+        proAmount: dto.proAmount,
+      },
+      update: {
+        methodLabel: dto.methodLabel.trim(),
+        paymentDetails: dto.paymentDetails?.trim() ?? '',
+        qrUrl: dto.qrUrl?.trim() ?? '',
+        premiumAmount: dto.premiumAmount,
+        proAmount: dto.proAmount,
+      },
+    });
+    await this.audit(
+      adminId,
+      'ADMIN_UPDATE_MANUAL_PAYMENT_SETTINGS',
+      'ManualPaymentSettings',
+      dto.currency,
+      existing ?? undefined,
+      updated,
+      undefined,
+      ipAddress,
+    );
+    return updated;
   }
 
   // ─── Subscriptions ────────────────────────────────────────────────────────

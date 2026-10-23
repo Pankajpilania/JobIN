@@ -99,7 +99,7 @@ export default function AdminPaymentRequestsPage() {
                   <td style={{ padding: 12 }}>{new Date(request.createdAt).toLocaleString()}</td>
                   <td style={{ padding: 12, display: 'flex', gap: 8 }}>
                     <Button disabled={processing === request.id} onClick={() => review(request.id, 'approve')}>Approve</Button>
-                    <Button variant="ghost" disabled={processing === request.id} onClick={() => review(request.id, 'reject')}>Reject</Button>
+                    <Button variant="ghost" disabled={processing === request.id} onClick={() => review(request.id, 'reject')}>Decline</Button>
                     <Badge variant="neutral">{request.status}</Badge>
                   </td>
                 </tr>

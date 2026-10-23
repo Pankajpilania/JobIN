@@ -14,10 +14,13 @@ import { useAuth } from '@/hooks/use-auth';
 type PlanCode = 'PREMIUM' | 'PRO';
 type CurrencyCode = 'INR' | 'GBP';
 
-const planPrices: Record<PlanCode, Record<CurrencyCode, number>> = {
-  PREMIUM: { INR: 1599, GBP: 15 },
-  PRO: { INR: 2999, GBP: 29 },
-};
+interface ManualPaymentOption {
+  currency: CurrencyCode;
+  methodLabel: string;
+  paymentDetails: string;
+  qrUrl: string;
+  amounts: Record<PlanCode, number>;
+}
 
 export default function UpgradePage() {
   const router = useRouter();
@@ -29,6 +32,27 @@ export default function UpgradePage() {
   const [transactionReference, setTransactionReference] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [paymentOptions, setPaymentOptions] = useState<ManualPaymentOption[]>([]);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    apiClient.get<ManualPaymentOption[]>('/billing/manual-payment-settings')
+      .then((options) => {
+        if (active) setPaymentOptions(options);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          toast.error(error instanceof Error ? error.message : 'Could not load payment options.');
+        }
+      })
+      .finally(() => {
+        if (active) setSettingsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!submitted) return;
@@ -36,11 +60,11 @@ export default function UpgradePage() {
     return () => window.clearTimeout(timeout);
   }, [router, submitted]);
 
-  const qrUrl = currency === 'INR'
-    ? process.env.NEXT_PUBLIC_INR_PAYMENT_QR_URL || '/payments/inr-payment.jpeg'
-    : process.env.NEXT_PUBLIC_GBP_BANK_QR_URL || '/payments/gbp-payment.jpeg';
-  const bankDetails = process.env.NEXT_PUBLIC_GBP_BANK_DETAILS;
-  const paymentMethodConfigured = Boolean(qrUrl);
+  const paymentOption = paymentOptions.find((option) => option.currency === currency);
+  const qrUrl = paymentOption?.qrUrl;
+  const paymentDetails = paymentOption?.paymentDetails;
+  const paymentMethodConfigured = Boolean(qrUrl || paymentDetails);
+  const selectedAmount = paymentOption?.amounts[plan] ?? 0;
 
   const submitPayment = async () => {
     if (!isSignedIn) {
@@ -113,7 +137,7 @@ export default function UpgradePage() {
           >
             <strong style={{ fontSize: 20 }}>{item.name}</strong>
             <p style={{ color: 'var(--text-2)' }}>{item.description}</p>
-            <strong>{currency === 'INR' ? '₹' : '£'}{planPrices[item.code][currency]}</strong>
+            <strong>{currency === 'INR' ? '₹' : '£'}{paymentOption?.amounts[item.code] ?? '—'}</strong>
             <span style={{ color: 'var(--text-3)', fontSize: 12 }}> / month</span>
           </button>
         ))}
@@ -125,7 +149,8 @@ export default function UpgradePage() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {(['INR', 'GBP'] as CurrencyCode[]).map((item) => (
               <Button key={item} variant={currency === item ? 'primary' : 'ghost'} onClick={() => setCurrency(item)}>
-                {item === 'INR' ? 'INR · UPI' : 'GBP · Bank transfer'}
+                {paymentOptions.find((option) => option.currency === item)?.methodLabel ??
+                  (item === 'INR' ? 'INR · UPI' : 'GBP · Bank transfer')}
               </Button>
             ))}
           </div>
@@ -133,7 +158,9 @@ export default function UpgradePage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20, alignItems: 'center' }}>
           <div style={{ minHeight: 210, border: '1px dashed var(--border)', borderRadius: 12, display: 'grid', placeItems: 'center', padding: 16, textAlign: 'center' }}>
-            {qrUrl ? (
+            {settingsLoading ? (
+              <p style={{ color: 'var(--text-3)', fontSize: 13 }}>Loading payment details…</p>
+            ) : qrUrl ? (
               <Image
                 src={qrUrl}
                 alt={currency === 'INR' ? 'UPI payment QR code' : 'GBP bank transfer QR code'}
@@ -143,16 +170,18 @@ export default function UpgradePage() {
                 style={{ maxWidth: 190, maxHeight: 190, objectFit: 'contain' }}
               />
             ) : (
-              <p style={{ color: 'var(--text-3)', fontSize: 13 }}>Payment QR will appear here when configured.</p>
+              <p style={{ color: 'var(--text-3)', fontSize: 13 }}>
+                {paymentDetails || 'Payment details are not configured yet.'}
+              </p>
             )}
           </div>
           <div>
             <p style={{ color: 'var(--text-2)' }}>
-              Pay <strong>{currency === 'INR' ? '₹' : '£'}{planPrices[plan][currency]}</strong> for {plan === 'PREMIUM' ? 'Pro' : 'Pro Max'}.
+              Pay <strong>{currency === 'INR' ? '₹' : '£'}{selectedAmount}</strong> for {plan === 'PREMIUM' ? 'Pro' : 'Pro Max'}.
             </p>
-            {currency === 'GBP' && (
+            {paymentDetails && qrUrl && (
               <p style={{ color: 'var(--text-2)', whiteSpace: 'pre-wrap' }}>
-                {bankDetails || 'Bank transfer details will be configured here.'}
+                {paymentDetails}
               </p>
             )}
             <label style={{ display: 'grid', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--text-2)' }}>
@@ -169,9 +198,9 @@ export default function UpgradePage() {
           </div>
         </div>
 
-        <Button onClick={submitPayment} disabled={submitting || !paymentMethodConfigured}>
+        <Button onClick={submitPayment} disabled={submitting || settingsLoading || !paymentMethodConfigured}>
           {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-          {!paymentMethodConfigured ? 'Payment method not configured yet' : isSignedIn ? 'Submit payment for confirmation' : 'Sign in to submit payment'}
+          {settingsLoading ? 'Loading payment method…' : !paymentMethodConfigured ? 'Payment method not configured yet' : isSignedIn ? 'Submit payment for confirmation' : 'Sign in to submit payment'}
         </Button>
         <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
           The plan remains inactive until an admin verifies the reference. Need help? <Link href="/settings">Contact support from settings.</Link>

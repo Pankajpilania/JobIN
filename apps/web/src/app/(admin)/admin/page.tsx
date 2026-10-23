@@ -118,6 +118,8 @@ export default function AdminDashboardPage() {
         <StatCard label="MRR" value={`£${data.mrr.toLocaleString()}`} icon="💰" _colorClass="text-brand dark:text-brand-mid" sub={`ARR £${data.arr.toLocaleString()}`} />
         <StatCard label="AI Requests" value={data.totalAIRequests.toLocaleString()} icon="🤖" _colorClass="text-indigo-600 dark:text-indigo-400" sub={`$${data.totalAICostUsd} total cost`} />
         <StatCard label="Subscriptions" value={data.activeSubscriptions} icon="💳" />
+        <StatCard label="Paid Users" value={data.paidUsers.toLocaleString()} icon="💎" />
+        <StatCard label="Free Users" value={data.freeUsers.toLocaleString()} icon="🆓" />
         <StatCard label="New Users (30d)" value={data.newUsersMonth} icon="✨" _colorClass="text-emerald-600 dark:text-emerald-400" />
         <StatCard label="Churn Rate" value={`${data.churnRate}%`} icon="📉" _colorClass={data.churnRate > 5 ? 'text-rose-500' : 'text-emerald-500'} sub="last 30 days" />
         <StatCard label="AI Cost" value={`$${data.totalAICostUsd}`} icon="⚡" _colorClass="text-amber-500" />

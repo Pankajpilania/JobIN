@@ -1,9 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { isAbsolute, join, resolve } from 'node:path';
-import { promisify } from 'node:util';
+import { Injectable } from '@nestjs/common';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
 import {
@@ -17,8 +12,6 @@ import {
   TabStopType,
   convertInchesToTwip,
 } from 'docx';
-
-const execFileAsync = promisify(execFile);
 
 export interface ExportOptions {
   title: string;
@@ -34,6 +27,9 @@ const SECTION_HEADINGS = new Set([
   'education', 'skills', 'technical skills', 'core skills', 'certifications',
   'licenses', 'projects', 'personal projects', 'achievements', 'awards', 'publications',
   'volunteer experience', 'languages', 'interests', 'references',
+  'additional information', 'additional skills', 'areas of expertise', 'career summary',
+  'core competencies', 'key achievements', 'selected projects', 'soft skills',
+  'technical proficiencies',
 ]);
 
 function cleanResumeLine(line: string): string {
@@ -43,6 +39,7 @@ function cleanResumeLine(line: string): string {
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/__(.+?)__/g, '$1')
     .replace(/`(.+?)`/g, '$1')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, '$1 $2')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/[\u00a0\u200b]/g, ' ')
     .replace(/[\u2010-\u2015]/g, '-')
@@ -51,7 +48,10 @@ function cleanResumeLine(line: string): string {
 }
 
 function getResumeLines(content: string): string[] {
-  return content.split(/\r?\n/).map(cleanResumeLine);
+  return content
+    .split(/\r?\n/)
+    .map(cleanResumeLine)
+    .filter((line) => line.length > 0 && !/^[•‣▪*-]$/.test(line));
 }
 
 function isSectionHeading(line: string): boolean {
@@ -59,8 +59,7 @@ function isSectionHeading(line: string): boolean {
   const lower = text.toLowerCase();
   return (
     SECTION_HEADINGS.has(lower) ||
-    (line.endsWith(':') && text.length > 2 && text.length < 60) ||
-    (text.length > 2 && text.length < 60 && text === text.toUpperCase() && /[A-Z]/.test(text))
+    (line.endsWith(':') && text.length > 2 && text.length < 60)
   );
 }
 
@@ -111,17 +110,91 @@ function latexEscape(value: string): string {
   return value.replace(/[\\{}$&#%_~^]/g, (character) => escaped[character]);
 }
 
+interface ResumeTextPart {
+  text: string;
+  href?: string;
+}
+
+interface PdfTextWriter {
+  text(text: string, options?: Record<string, unknown>): unknown;
+}
+
+function splitLinkedText(text: string): ResumeTextPart[] {
+  const matches: Array<{ start: number; end: number; href: string }> = [];
+  const linkPattern =
+    /(?:https?:\/\/|www\.)[^\s<>()]+|(?:linkedin|github)\.com\/[^\s<>()]+|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+
+  for (const match of text.matchAll(linkPattern)) {
+    const value = match[0];
+    const start = match.index ?? 0;
+    const trailingPunctuation = value.match(/[.,;:!?]+$/)?.[0].length ?? 0;
+    const visible = value.slice(0, value.length - trailingPunctuation);
+    if (!visible) continue;
+    const href = visible.includes('@')
+      ? `mailto:${visible}`
+      : /^https?:\/\//i.test(visible)
+        ? visible
+        : `https://${visible}`;
+    matches.push({ start, end: start + visible.length, href });
+  }
+
+  if (isLikelyContact(text)) {
+    const phonePattern = /(?<![\w])\+?\d[\d\s().-]{6,}\d(?![\w])/g;
+    for (const match of text.matchAll(phonePattern)) {
+      const value = match[0];
+      if (value.replace(/\D/g, '').length < 8) continue;
+      const start = match.index ?? 0;
+      matches.push({
+        start,
+        end: start + value.length,
+        href: `tel:${value.replace(/[^\d+]/g, '')}`,
+      });
+    }
+  }
+
+  matches.sort((left, right) => left.start - right.start);
+  const parts: ResumeTextPart[] = [];
+  let cursor = 0;
+  for (const match of matches) {
+    if (match.start < cursor) continue;
+    if (match.start > cursor) parts.push({ text: text.slice(cursor, match.start) });
+    parts.push({ text: text.slice(match.start, match.end), href: match.href });
+    cursor = match.end;
+  }
+  if (cursor < text.length) parts.push({ text: text.slice(cursor) });
+  return parts.length ? parts : [{ text }];
+}
+
+function writePdfText(
+  doc: PdfTextWriter,
+  text: string,
+  options: Record<string, unknown> = {},
+): void {
+  const parts = splitLinkedText(text);
+  parts.forEach((part, index) => {
+    doc.text(part.text, {
+      ...(index === 0 ? options : {}),
+      ...(part.href ? { link: part.href } : {}),
+      continued: index < parts.length - 1,
+    });
+  });
+}
+
+function latexText(value: string): string {
+  return splitLinkedText(value)
+    .map((part) => {
+      const label = latexEscape(part.text);
+      if (!part.href) return label;
+      return `\\href{${latexEscape(part.href)}}{${label}}`;
+    })
+    .join('');
+}
+
 @Injectable()
 export class ExportService {
-  private readonly logger = new Logger(ExportService.name);
-
   // ATS resume PDF: one column, standard font, selectable text and familiar headings.
   async generatePdf(options: ExportOptions): Promise<Buffer> {
-    if (options.atsFriendly) {
-      const compiled = await this.compileLatexPdf(this.generateLatex(options));
-      if (compiled) return compiled;
-      return this.generateAtsPdf(options);
-    }
+    if (options.atsFriendly) return this.generateAtsPdf(options);
 
     const { title, subtitle, content, author } = options;
 
@@ -173,7 +246,7 @@ export class ExportService {
     const lines = getResumeLines(options.content).filter((line) => line.length > 0);
     const chunks: Buffer[] = [];
     const doc = new PDFDocument({
-      margin: 52,
+      margin: 47,
       size: 'A4',
       info: { Title: options.title, Author: options.author ?? 'JobIN' },
     });
@@ -186,26 +259,28 @@ export class ExportService {
       let start = 0;
       let inSkills = false;
       if (lines.length && isLikelyName(lines[0])) {
-        doc.font('Times-Bold').fontSize(17).fillColor('#111111').text(lines[0], { align: 'center' });
+        doc.font('Helvetica-Bold').fontSize(17).fillColor('#111111');
+        writePdfText(doc, lines[0], { align: 'center' });
         start = 1;
         if (lines[start] && !isLikelyContact(lines[start]) && !isSectionHeading(lines[start])) {
-          doc.moveDown(0.1).font('Times-Bold').fontSize(10).text(lines[start], { align: 'center' });
+          doc.moveDown(0.1).font('Helvetica-Bold').fontSize(10).text(lines[start], { align: 'center' });
           start += 1;
         }
         while (lines[start] && isLikelyContact(lines[start])) {
-          doc.moveDown(0.1).font('Times-Roman').fontSize(9).text(lines[start], { align: 'center' });
+          doc.moveDown(0.1).font('Helvetica').fontSize(8.5);
+          writePdfText(doc, lines[start], { align: 'center' });
           start += 1;
         }
         doc.moveDown(0.25);
       } else {
-        doc.font('Times-Bold').fontSize(16).fillColor('#111111').text(options.title, { align: 'center' });
+        doc.font('Helvetica-Bold').fontSize(16).fillColor('#111111').text(options.title, { align: 'center' });
         doc.moveDown(0.25);
       }
 
       for (const line of lines.slice(start)) {
         if (isSectionHeading(line)) {
           inSkills = /skills/i.test(line);
-          doc.moveDown(0.3).font('Times-Bold').fontSize(10).fillColor('#111111')
+          doc.moveDown(0.3).font('Helvetica-Bold').fontSize(10).fillColor('#111111')
             .text(line.replace(/:$/, '').toUpperCase());
           const y = doc.y + 1;
           doc.moveTo(doc.page.margins.left, y)
@@ -214,7 +289,8 @@ export class ExportService {
             .stroke();
           doc.moveDown(0.15);
         } else if (isBullet(line)) {
-          doc.font('Times-Roman').fontSize(9.5).fillColor('#111111').text(`- ${bulletText(line)}`, {
+          doc.font('Helvetica').fontSize(9.5).fillColor('#111111');
+          writePdfText(doc, `- ${bulletText(line)}`, {
             indent: 12,
             hanging: 9,
             lineGap: 1,
@@ -222,24 +298,17 @@ export class ExportService {
         } else {
           const pair = splitResumePair(line);
           if (pair) {
-            const y = doc.y;
-            const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-            const leftWidth = width * 0.68;
-            doc.font('Times-Bold').fontSize(9.5).fillColor('#111111')
-              .text(pair[0], doc.page.margins.left, y, { width: leftWidth });
-            const bottom = doc.y;
-            doc.font('Times-Roman').fontSize(9).text(pair[1], doc.page.width - doc.page.margins.right - width * 0.32, y, {
-              width: width * 0.32,
-              align: 'right',
-            });
-            doc.y = Math.max(bottom, doc.y) + 1;
+            doc.font('Helvetica').fontSize(9.5).fillColor('#111111');
+            writePdfText(doc, `${pair[0]} | ${pair[1]}`, { lineGap: 1 });
           } else {
             const label = inSkills ? splitLabeledLine(line) : null;
             if (label) {
-              doc.font('Times-Bold').fontSize(9.5).fillColor('#111111').text(`${label[0]}: `, { continued: true });
-              doc.font('Times-Roman').text(label[1], { lineGap: 1 });
+              doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#111111').text(`${label[0]}: `, { continued: true });
+              doc.font('Helvetica');
+              writePdfText(doc, label[1], { lineGap: 1 });
             } else {
-              doc.font('Times-Roman').fontSize(9.5).fillColor('#111111').text(line, { lineGap: 1 });
+              doc.font('Helvetica').fontSize(9.5).fillColor('#111111');
+              writePdfText(doc, line, { lineGap: 1 });
             }
           }
         }
@@ -259,12 +328,14 @@ export class ExportService {
       '\\usepackage[utf8]{inputenc}',
       '\\usepackage{enumitem}',
       '\\usepackage{titlesec}',
+      '\\usepackage[colorlinks=true,urlcolor=blue]{hyperref}',
       '\\pagestyle{empty}',
       '\\setlength{\\parindent}{0pt}',
       '\\setlength{\\parskip}{3pt}',
       '\\setlist[itemize]{leftmargin=1.25em,itemsep=1pt,topsep=2pt}',
       '\\titleformat{\\section}{\\normalsize\\bfseries}{}{0pt}{}[\\titlerule]',
       '\\titlespacing*{\\section}{0pt}{6pt}{2pt}',
+      `\\hypersetup{pdftitle={${latexEscape(options.title)}},pdfauthor={${latexEscape(options.author ?? 'JobIN')}},colorlinks=true,urlcolor=blue}`,
       '\\begin{document}',
     ];
 
@@ -277,7 +348,7 @@ export class ExportService {
         start += 1;
       }
       while (lines[start] && isLikelyContact(lines[start])) {
-        output.push(`{\\centering\\small ${latexEscape(lines[start])}\\par}`);
+        output.push(`{\\centering\\small ${latexText(lines[start])}\\par}`);
         start += 1;
       }
       output.push('\\vspace{4pt}');
@@ -294,7 +365,7 @@ export class ExportService {
           output.push('\\begin{itemize}');
           inList = true;
         }
-        output.push(`\\item ${latexEscape(bulletText(line))}`);
+        output.push(`\\item ${latexText(bulletText(line))}`);
       } else {
         if (inList) {
           output.push('\\end{itemize}');
@@ -307,11 +378,11 @@ export class ExportService {
           const pair = splitResumePair(line);
           const label = inSkills ? splitLabeledLine(line) : null;
           if (pair) {
-            output.push(`\\textbf{${latexEscape(pair[0])}}\\hfill ${latexEscape(pair[1])}\\par`);
+            output.push(`\\textbf{${latexEscape(pair[0])}}\\hfill ${latexText(pair[1])}\\par`);
           } else if (label) {
-            output.push(`\\textbf{${latexEscape(label[0])}:} ${latexEscape(label[1])}\\par`);
+            output.push(`\\textbf{${latexEscape(label[0])}:} ${latexText(label[1])}\\par`);
           } else {
-            output.push(`${latexEscape(line)}\\par`);
+            output.push(`${latexText(line)}\\par`);
           }
         }
       }
@@ -319,28 +390,6 @@ export class ExportService {
     if (inList) output.push('\\end{itemize}');
     output.push('\\end{document}', '');
     return output.join('\n');
-  }
-
-  private async compileLatexPdf(source: string): Promise<Buffer | null> {
-    const directory = await mkdtemp(join(tmpdir(), 'jobin-resume-'));
-    const texPath = join(directory, 'resume.tex');
-    try {
-      await writeFile(texPath, source, 'utf8');
-      const configuredPath = process.env.TECTONIC_PATH;
-      const executable = configuredPath
-        ? (isAbsolute(configuredPath) ? configuredPath : resolve(process.cwd(), configuredPath))
-        : 'tectonic';
-      await execFileAsync(executable, ['--keep-logs', 'resume.tex'], { cwd: directory, timeout: 50_000 });
-      return await readFile(join(directory, 'resume.pdf'));
-    } catch (error) {
-      const errorCode = (error as NodeJS.ErrnoException).code;
-      if (errorCode !== 'ENOENT') {
-        this.logger.warn(`LaTeX compilation unavailable; using ATS PDF renderer: ${(error as Error).message}`);
-      }
-      return null;
-    } finally {
-      await rm(directory, { recursive: true, force: true });
-    }
   }
 
   // ATS DOCX: semantic heading and list paragraphs, one column, standard Arial font.
@@ -438,7 +487,7 @@ export class ExportService {
       }
     } else {
       children.push(new Paragraph({
-        children: [new TextRun({ text: options.title, bold: true, size: 30, font: 'Arial' })],
+        children: [new TextRun({ text: options.title, bold: true, size: 32, font: 'Arial' })],
         alignment: AlignmentType.CENTER,
         spacing: { after: 180 },
       }));
@@ -456,8 +505,7 @@ export class ExportService {
         }));
       } else if (isBullet(line)) {
         children.push(new Paragraph({
-          bullet: { level: 0 },
-          children: [new TextRun({ text: bulletText(line), size: 18, font: 'Arial' })],
+          children: [new TextRun({ text: `- ${bulletText(line)}`, size: 19, font: 'Arial' })],
           spacing: { after: 25 },
           indent: { left: convertInchesToTwip(0.25) },
         }));
@@ -467,18 +515,18 @@ export class ExportService {
         children.push(new Paragraph({
           children: pair
             ? [
-                new TextRun({ text: pair[0], bold: true, size: 18, font: 'Arial' }),
+                new TextRun({ text: pair[0], bold: true, size: 19, font: 'Arial' }),
                 new TextRun({ text: '\t' }),
-                new TextRun({ text: pair[1], size: 18, font: 'Arial' }),
+                new TextRun({ text: `| ${pair[1]}`, size: 19, font: 'Arial' }),
               ]
             : label
               ? [
-                  new TextRun({ text: `${label[0]}: `, bold: true, size: 18, font: 'Arial' }),
-                  new TextRun({ text: label[1], size: 18, font: 'Arial' }),
+                  new TextRun({ text: `${label[0]}: `, bold: true, size: 19, font: 'Arial' }),
+                  new TextRun({ text: label[1], size: 19, font: 'Arial' }),
                 ]
-              : [new TextRun({ text: line, size: 18, font: 'Arial' })],
+              : [new TextRun({ text: line, size: 19, font: 'Arial' })],
           ...(pair ? {
-            tabStops: [{ type: TabStopType.RIGHT, position: convertInchesToTwip(6.8) }],
+            tabStops: [{ type: TabStopType.RIGHT, position: convertInchesToTwip(6.95) }],
           } : {}),
           spacing: { after: 35 },
         }));
@@ -492,7 +540,7 @@ export class ExportService {
       styles: { default: { document: { run: { font: 'Arial', size: 19 } } } },
       sections: [{ properties: { page: { margin: {
         top: convertInchesToTwip(0.65), bottom: convertInchesToTwip(0.65),
-        left: convertInchesToTwip(0.7), right: convertInchesToTwip(0.7),
+        left: convertInchesToTwip(0.65), right: convertInchesToTwip(0.65),
       } } }, children }],
     });
     return Packer.toBuffer(doc);

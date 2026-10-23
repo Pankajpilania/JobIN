@@ -19,6 +19,7 @@ function UserModal({
   const [loading, setLoading] = useState(true);
   const [status,  setStatus]  = useState('');
   const [credits, setCredits] = useState('');
+  const [planId, setPlanId] = useState('');
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
 
@@ -26,6 +27,7 @@ function UserModal({
     getUserActivity(token, userId).then(d => {
       setData(d);
       setStatus(d.user.status);
+      setPlanId('');
       setLoading(false);
     }).catch(() => {
       toast.error('Failed to load user activity details');
@@ -39,12 +41,13 @@ function UserModal({
       await updateUser(token, userId, {
         status: status,
         grantCredits: credits ? parseInt(credits) : undefined,
+        planId: planId || undefined,
       });
       setSaved(true);
       toast.success('User details updated successfully!');
       setTimeout(() => setSaved(false), 2000);
-    } catch {
-      toast.error('Failed to update user actions');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update user actions');
     } finally {
       setSaving(false);
     }
@@ -141,6 +144,34 @@ function UserModal({
                     Admin Settings
                   </h4>
                   <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Assign plan
+                      </label>
+                      <select
+                        value={planId}
+                        onChange={(event) => setPlanId(event.target.value)}
+                        style={{
+                          width: '100%',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border)',
+                          backgroundColor: 'var(--surface)',
+                          padding: '10px 12px',
+                          fontSize: '14px',
+                          color: 'var(--text-1)',
+                        }}
+                      >
+                        <option value="">Keep current plan</option>
+                        {data.plans.map((plan: { id: string; name: string; priceMonthly: number; currency: string }) => (
+                          <option key={plan.id} value={plan.id}>
+                            {plan.name} {plan.priceMonthly > 0 ? `· ${plan.currency} ${plan.priceMonthly}/month` : '· Free'}
+                          </option>
+                        ))}
+                      </select>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                        The selected plan replaces the current subscription for 30 days.
+                      </span>
+                    </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Account Status
