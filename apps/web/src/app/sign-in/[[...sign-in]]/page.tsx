@@ -26,7 +26,9 @@ function SignInPageContent() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(
-    searchParams.get('error') === 'auth-code-exchange-failed' ? 'Google authentication failed' : ''
+    searchParams.get('error') === 'auth-code-exchange-failed'
+      ? 'Authentication failed. The sign-in or confirmation link may have expired. Please try again.'
+      : ''
   );
 
   const handleSignIn = async (e: React.FormEvent) => {

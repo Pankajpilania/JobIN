@@ -32,6 +32,7 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -47,7 +48,7 @@ export default function SignUpPage() {
       emailRedirectTo.searchParams.set('next', next);
 
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           data: {
@@ -63,15 +64,38 @@ export default function SignUpPage() {
         router.replace(next);
         router.refresh();
       } else {
-        setSuccessMsg('Check your inbox to confirm your account. Once confirmed, you’ll continue to your dashboard.');
-        setEmail('');
-        setPassword('');
-        setFullName('');
+        setSuccessMsg(`Your signup request was received for ${email.trim()}. If email confirmation is enabled and this address can be registered, Supabase will send a link. Open it in this browser to continue to your dashboard, or sign in after confirming on another device.`);
       }
     } catch (err: any) {
       setErrorMsg('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email.trim()) {
+      setErrorMsg('Enter the email address you registered with.');
+      return;
+    }
+
+    setResending(true);
+    setErrorMsg('');
+    try {
+      const next = getSafeNextPath(new URLSearchParams(window.location.search).get('next'));
+      const emailRedirectTo = new URL('/auth/callback', window.location.origin);
+      emailRedirectTo.searchParams.set('next', next);
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim(),
+        options: { emailRedirectTo: emailRedirectTo.toString() },
+      });
+      if (error) throw error;
+      setSuccessMsg(`A new confirmation link has been requested for ${email.trim()}. Check your inbox and spam folder.`);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Could not resend the confirmation email. Please try again later.');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -243,10 +267,86 @@ export default function SignUpPage() {
             gap: '24px'
           }} hoverEffect={false}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>Create your account</h2>
-              <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: 0 }}>Sign up to get started with JobIN.</p>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>
+                {successMsg ? 'Confirm your email' : 'Create your account'}
+              </h2>
+              <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: 0 }}>
+                {successMsg ? 'One more step before you can use JobIN.' : 'Sign up to get started with JobIN.'}
+              </p>
             </div>
 
+            {successMsg ? (
+              <div style={{ display: 'grid', gap: 16 }}>
+                <div
+                  role="status"
+                  style={{
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    color: 'var(--text-2)',
+                    fontSize: '14px',
+                    lineHeight: 1.6,
+                    borderRadius: '8px',
+                    padding: '16px',
+                  }}
+                >
+                  <strong style={{ display: 'block', color: '#059669', marginBottom: 6 }}>Check your inbox</strong>
+                  {successMsg}
+                  <p style={{ margin: '12px 0 0' }}>
+                    No email? Check your spam folder. You can request another confirmation link below.
+                  </p>
+                </div>
+                {errorMsg && (
+                  <div role="alert" style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    color: '#EF4444',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    padding: '12px',
+                  }}>
+                    {errorMsg}
+                  </div>
+                )}
+                <Button type="button" disabled={resending} onClick={handleResendConfirmation}>
+                  {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resend confirmation email'}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSuccessMsg('');
+                    setErrorMsg('');
+                    setPassword('');
+                  }}
+                  style={{
+                    justifySelf: 'center',
+                    padding: 4,
+                    color: 'var(--brand)',
+                    background: 'none',
+                    border: 'none',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Use a different email address
+                </button>
+                <div style={{ textAlign: 'center', fontSize: 14, color: 'var(--text-3)' }}>
+                  Already confirmed?{' '}
+                  <Link
+                    href={`/sign-in?next=${encodeURIComponent(getSafeNextPath(
+                      typeof window === 'undefined'
+                        ? null
+                        : new URLSearchParams(window.location.search).get('next'),
+                    ))}`}
+                    style={{ color: 'var(--brand)', fontWeight: 700, textDecoration: 'none' }}
+                  >
+                    Sign in
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <>
             {errorMsg && (
               <div style={{
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -458,6 +558,8 @@ export default function SignUpPage() {
                 Sign in
               </Link>
             </div>
+              </>
+            )}
           </Card>
         </div>
       </div>

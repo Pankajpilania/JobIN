@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import Image from 'next/image';
 import { CheckCircle2, Clock3, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -99,8 +98,14 @@ export default function UpgradePage() {
           <Clock3 size={40} style={{ color: 'var(--brand)', margin: '0 auto' }} />
           <h1 style={{ color: 'var(--text-1)' }}>Payment submitted</h1>
           <p style={{ color: 'var(--text-2)', lineHeight: 1.6 }}>
-            Your {plan === 'PREMIUM' ? 'Pro' : 'Pro Max'} payment reference has been sent for admin confirmation.
-            Your plan will be activated after verification. Returning to your dashboard shortly.
+            Thanks for choosing {plan === 'PREMIUM' ? 'Pro' : 'Pro Max'}! We received your payment reference.
+            Our team will verify it and add your plan shortly.
+          </p>
+          <p style={{ color: 'var(--text-2)', lineHeight: 1.6 }}>
+            Need help? Contact{' '}
+            <a href="mailto:159ring@gmail.com" style={{ color: 'var(--brand)', fontWeight: 700 }}>
+              159ring@gmail.com
+            </a>.
           </p>
           <Button onClick={() => router.push('/dashboard')}>Return to dashboard</Button>
         </Card>
@@ -203,7 +208,8 @@ export default function UpgradePage() {
           {settingsLoading ? 'Loading payment method…' : !paymentMethodConfigured ? 'Payment method not configured yet' : isSignedIn ? 'Submit payment for confirmation' : 'Sign in to submit payment'}
         </Button>
         <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
-          The plan remains inactive until an admin verifies the reference. Need help? <Link href="/settings">Contact support from settings.</Link>
+          The plan remains inactive until an admin verifies the reference. Need help?{' '}
+          <a href="mailto:159ring@gmail.com" style={{ color: 'var(--brand)' }}>Contact 159ring@gmail.com.</a>
         </p>
       </Card>
     </div>

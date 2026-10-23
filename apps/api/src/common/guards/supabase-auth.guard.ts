@@ -5,8 +5,10 @@ import {
   ExecutionContext,
   UnauthorizedException,
   ForbiddenException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailService } from '../../email/email.service';
@@ -54,34 +56,9 @@ export class SupabaseAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired Supabase token');
     }
 
-    // Lazy user creation / sync
-    let dbUser = await this.prisma.user.findUnique({
-      where: { supabaseId: user.id },
-      include: {
-        roles: { include: { role: true } },
-      },
-    });
+    const { dbUser, created } = await this.findOrCreateDbUser(user);
 
-    if (!dbUser) {
-      const email = user.email || `${user.id}@unknown.jobin`;
-      const fullName =
-        user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0];
-      const avatarUrl = user.user_metadata?.avatar_url || null;
-
-      dbUser = await this.prisma.user.create({
-        data: {
-          supabaseId: user.id,
-          email,
-          fullName,
-          avatarUrl,
-          status: 'ACTIVE',
-        },
-        include: {
-          roles: { include: { role: true } },
-        },
-      });
-
-      // Send welcome email asynchronously
+    if (created) {
       this.email.sendWelcome(dbUser.email, dbUser.fullName.split(' ')[0]).catch((err) => {
         this.logger.warn(`Failed to send welcome email: ${err.message}`);
       });
@@ -101,5 +78,77 @@ export class SupabaseAuthGuard implements CanActivate {
     };
 
     return true;
+  }
+
+  private async findOrCreateDbUser(user: {
+    id: string;
+    email?: string;
+    email_confirmed_at?: string;
+    user_metadata?: Record<string, unknown>;
+  }) {
+    const include = { roles: { include: { role: true } } };
+    const linkedUser = await this.prisma.user.findUnique({
+      where: { supabaseId: user.id },
+      include,
+    });
+    if (linkedUser) return { dbUser: linkedUser, created: false };
+
+    const email = user.email?.trim().toLowerCase() || `${user.id}@unknown.jobin`;
+    const existingEmailUser = await this.prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      include,
+    });
+
+    if (existingEmailUser) {
+      if (existingEmailUser.supabaseId && existingEmailUser.supabaseId !== user.id) {
+        throw new ConflictException('This email is already linked to another account.');
+      }
+      if (user.email && !user.email_confirmed_at) {
+        throw new ForbiddenException('Confirm your email before linking this existing account.');
+      }
+
+      const dbUser = await this.prisma.user.update({
+        where: { id: existingEmailUser.id },
+        data: { supabaseId: user.id },
+        include,
+      });
+      return { dbUser, created: false };
+    }
+
+    const fullName =
+      (typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name) ||
+      (typeof user.user_metadata?.name === 'string' && user.user_metadata.name) ||
+      email.split('@')[0];
+    const avatarUrl =
+      typeof user.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null;
+
+    try {
+      const dbUser = await this.prisma.user.create({
+        data: {
+          supabaseId: user.id,
+          email,
+          fullName,
+          avatarUrl,
+          status: 'ACTIVE',
+        },
+        include,
+      });
+      return { dbUser, created: true };
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+        throw error;
+      }
+
+      const racedUser = await this.prisma.user.findUnique({
+        where: { supabaseId: user.id },
+        include,
+      });
+      if (racedUser) return { dbUser: racedUser, created: false };
+
+      this.logger.warn(`User sync encountered a unique constraint conflict for ${user.id}`);
+      throw new ConflictException(
+        'An account with this email already exists. Please contact support.',
+      );
+    }
   }
 }
