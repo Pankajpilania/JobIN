@@ -23,7 +23,9 @@
     "https://jobs.lever.co/*",
     "https://*.workday.com/*",
     "http://localhost:4000/*",
-    "https://api.jobin.ai/*"
+    "https://api.jobin.ai/*",
+    "https://jobin-tmvb.onrender.com/*",
+    "https://duccxvuwdoqqgaowplrs.supabase.co/*"
   ],
   "background": {
     "service_worker": "src/background/service-worker.ts",

@@ -98,7 +98,7 @@ export interface ExtensionSettings {
 }
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
-  apiUrl: import.meta.env?.VITE_API_URL ?? 'http://localhost:4000/api',
+  apiUrl: import.meta.env?.VITE_API_URL ?? 'https://jobin-tmvb.onrender.com/api',
   showBadge: true,
   openSidePanelOnDetect: true,
   autofill: {

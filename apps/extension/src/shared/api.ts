@@ -2,13 +2,15 @@ import { getToken, getSettings } from './storage';
 import type { Resume, TailorResult, CoverLetterResult, CoverLetterVariant } from './types';
 
 // ─── Supabase Configuration ──────────────────────────────────────────────────
-const SUPABASE_URL = 'https://duccxvuwdoqqgaowplrs.supabase.co';
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL ?? 'https://duccxvuwdoqqgaowplrs.supabase.co';
 const SUPABASE_ANON_KEY =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ??
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1Y2N4dnV3ZG9xcWdhb3dwbHJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODMzMDMsImV4cCI6MjA5Njk1OTMwM30.x651PDjYrsYkxMZRMWmsq5Pq7YAN8_YjOEwyl1Dx8Xk';
 
 async function getBaseUrl(): Promise<string> {
   const settings = await getSettings();
-  return settings?.apiUrl || 'http://localhost:4000/api';
+  return settings?.apiUrl || 'https://jobin-tmvb.onrender.com/api';
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<any> {

@@ -373,6 +373,21 @@ export class AdminService {
   }
 
   async updateUser(adminId: string, userId: string, dto: AdminUpdateUserDto, ipAddress?: string) {
+    let roleId: string | undefined;
+    if (dto.role) {
+      const admin = await this.prisma.user.findUnique({
+        where: { id: adminId },
+        include: { roles: { include: { role: true } } },
+      });
+      if (!admin?.roles.some(({ role }) => role.name === 'SUPER_ADMIN')) {
+        throw new ForbiddenException('Only super admins can assign user roles.');
+      }
+
+      const roleToAssign = await this.prisma.role.findFirst({ where: { name: dto.role } });
+      if (!roleToAssign) throw new NotFoundException('Role not found');
+      roleId = roleToAssign.id;
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { roles: { include: { role: true } } },
@@ -427,15 +442,12 @@ export class AdminService {
       });
     }
 
-    if (dto.role) {
-      const role = await this.prisma.role.findFirst({ where: { name: dto.role } });
-      if (role) {
-        await this.prisma.userRole.upsert({
-          where: { userId_roleId: { userId, roleId: role.id } },
-          create: { userId, roleId: role.id },
-          update: {},
-        });
-      }
+    if (roleId) {
+      await this.prisma.userRole.upsert({
+        where: { userId_roleId: { userId, roleId } },
+        create: { userId, roleId },
+        update: {},
+      });
     }
 
     const afterState = {

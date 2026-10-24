@@ -26,9 +26,11 @@ function SignInPageContent() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(
-    searchParams.get('error') === 'auth-code-exchange-failed'
-      ? 'Authentication failed. The sign-in or confirmation link may have expired. Please try again.'
-      : '',
+    searchParams.get('reason') === 'inactivity'
+      ? 'You were signed out after 10 minutes of inactivity. Sign in again to continue.'
+      : searchParams.get('error') === 'auth-code-exchange-failed'
+        ? 'Authentication failed. The sign-in or confirmation link may have expired. Please try again.'
+        : '',
   );
 
   const handleSignIn = async (e: React.FormEvent) => {

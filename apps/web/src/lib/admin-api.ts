@@ -1,7 +1,7 @@
 // Admin API client — all calls to /api/admin/*
 // Uses getToken from Clerk to always have fresh JWT
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://jobin-tmvb.onrender.com/api';
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;
 

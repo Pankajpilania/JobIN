@@ -56,9 +56,16 @@ export async function getToken(): Promise<string | null> {
 
 export async function getSettings(): Promise<ExtensionSettings> {
   const stored = await get<ExtensionSettings>(KEYS.SETTINGS);
+  const storedApiUrl =
+    import.meta.env.MODE === 'production' &&
+    !import.meta.env.VITE_API_URL &&
+    stored?.apiUrl === 'http://localhost:4000/api'
+      ? DEFAULT_SETTINGS.apiUrl
+      : stored?.apiUrl;
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
+    apiUrl: storedApiUrl ?? DEFAULT_SETTINGS.apiUrl,
     autofill: { ...DEFAULT_SETTINGS.autofill, ...stored?.autofill },
   };
 }

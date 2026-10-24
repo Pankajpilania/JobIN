@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 const supabase = createClient();
-const apiBase = process.env.NEXT_PUBLIC_API_URL ?? '';
+const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'https://jobin-tmvb.onrender.com/api';
 
 async function downloadCoverLetter(
   content: string,

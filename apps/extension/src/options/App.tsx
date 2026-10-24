@@ -839,10 +839,11 @@ export default function OptionsApp() {
             onChange={async (e) => {
               await updateSetting('apiUrl', e.target.value);
             }}
-            placeholder="http://localhost:4000/api"
+            placeholder="https://jobin-tmvb.onrender.com/api"
           />
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-            Change only for production deployment. Default: http://localhost:4000/api
+            Use the deployed API URL or your local API during development. Default:
+            https://jobin-tmvb.onrender.com/api
           </p>
         </div>
       </Section>
