@@ -31,6 +31,8 @@ The intended mapping is:
 | `www.jobin.today` | Website |
 | `api.jobin.today` | API |
 
+For non-production checks, reserve `staging.jobin.today` for the web app and `api.staging.jobin.today` for the API. Never route `api.jobin.today` or either production website hostname to the staging stack. The Cloudflare zone is still pending registrar nameserver changes, so do not change nameservers or production records just to expose staging; keep staging private until a safe staging DNS path is available.
+
 The Cloudflare Free zone has been added but is pending until its registrar nameservers are changed. Its automatic scan imported five DNS records, including current website records. Treat this as a partial scan, not a complete backup: export the authoritative GoDaddy zone and compare every record, especially MX, SPF, DKIM, DMARC, verification, and service records. Do not delete or replace the existing Vercel/Render records during preparation.
 
 Create a remotely managed Cloudflare Tunnel named `jobin-oci`. Store its token only in the protected `deploy/oci/cloudflared-token` file on the VM; do not commit it or paste it into chat. The Compose service reads the token from a mounted secret file instead of putting it in its command line or container environment. Add these published application routes in Cloudflare:
@@ -43,7 +45,9 @@ Create a remotely managed Cloudflare Tunnel named `jobin-oci`. Store its token o
 
 Cloudflare must be able to resolve the service names on the Compose network. The `cloudflared` service joins that network and has no published ports. Cloudflare terminates public HTTPS; the tunnel connection to these internal HTTP services is carried over the outbound tunnel.
 
-Changing the registrar nameservers is a separate production DNS cutover. Do not do it until all old DNS records have been checked, the OCI app and tunnel are healthy, and a non-production hostname has passed end-to-end tests. Keep the existing production records until a deliberate final cutover.
+When a safe staging DNS path is available, add separate routes for `staging.jobin.today` to `http://web:3000` and `api.staging.jobin.today` to `http://api:4000`. Do not route production hostnames to staging. The staging database is a copy of application data; before making either staging hostname public, sanitize production personal data or restrict access with a Cloudflare Access policy for the authorized test group.
+
+Changing the registrar nameservers is a separate DNS-authority change. The selected `staging.jobin.today` host cannot resolve through Cloudflare while the zone is pending. Before any nameserver change, complete and verify the full GoDaddy DNS export, then obtain explicit approval for a nameserver-only activation that preserves every production record and keeps the Vercel/Render routes unchanged. After Cloudflare is authoritative, add and protect the staging routes and test them end to end. Switching production hostnames to OCI is a later, separate cutover that must wait until staging passes.
 
 ## 3. Install Docker and check out the release
 
@@ -80,9 +84,15 @@ openssl rand -hex 32
 ${EDITOR:-vi} deploy/oci/.env
 ```
 
-Replace the PostgreSQL password with the output of `openssl rand -hex 32`. Keep the password URL-safe; Compose uses it in the private database connection string. Fill in the Supabase project URL and public anon key used by the existing sign-in flow, plus all required API credentials. Keep real values only in the VM's protected `deploy/oci/.env`; do not commit or paste them into chat.
+Replace the PostgreSQL password with the output of `openssl rand -hex 32`. Keep the password URL-safe; Compose uses it in the private database connection string.
 
-The web image receives `NEXT_PUBLIC_*` values at build time. The provided Compose file builds the site with `NEXT_PUBLIC_API_URL=https://api.jobin.today/api` and the existing Supabase sign-in provider. Rebuild the web image after changing those public settings.
+For staging, use a separate Supabase project from the production project. Create it only if the Supabase organization remains on its Free plan; do not upgrade or add paid resources for staging. This project is for authentication only: disable the Data API and automatic table exposure if available, do not import production auth users, and do not use production service-role or OAuth-provider credentials. For private pre-DNS tests, set its Auth Site URL to `http://localhost:3000` and allow `http://localhost:3000/auth/callback`. When the approved staging hostname is active, add `https://staging.jobin.today/auth/callback` and set the Site URL to `https://staging.jobin.today`. If Google sign-in is tested, configure a separate staging OAuth client and its Supabase callback URL in that provider; otherwise leave that provider disabled.
+
+Use the staging project's URL and public anon key for `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Leave `SUPABASE_SERVICE_ROLE_KEY` unset initially; the API can validate Supabase access tokens with the public key. If a staging-only admin feature requires server-side Supabase access, configure a key from the staging project only. For private tests, use `CORS_ORIGIN=http://localhost:3000`, `NEXT_PUBLIC_URL=http://localhost:3000`, and `NEXT_PUBLIC_API_URL=http://localhost:4000/api`. After the approved staging routes are active, switch those values to `CORS_ORIGIN=https://staging.jobin.today`, `NEXT_PUBLIC_URL=https://staging.jobin.today`, and `NEXT_PUBLIC_API_URL=https://api.staging.jobin.today/api`. Leave optional integrations unset until test credentials are ready; never copy production R2, Stripe, email, AI, Sentry, or service-role secrets. Keep real values only in the VM's protected `deploy/oci/.env`; do not commit or paste secrets into chat.
+
+For browser tests before DNS activation, use a temporary, uncommitted Compose override that binds the web and API ports to `127.0.0.1` only, then access those ports through a Bastion SSH port forward. Never bind them to `0.0.0.0` or open public ingress. Remove the override and close the Bastion session when private tests are complete.
+
+The web image receives `NEXT_PUBLIC_*` values at build time. `deploy/oci/.env.example` uses production-domain defaults; override them with the staging values above during staging checks. Rebuild the web image after changing any public settings.
 
 Create a private token file from the tunnel token shown in Cloudflare. Do not print the token in terminal output or include it in `.env`:
 
