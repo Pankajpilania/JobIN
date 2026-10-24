@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function ForgotPasswordPage() {
+  const { startAuth } = useAuth();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -16,6 +18,22 @@ export default function ForgotPasswordPage() {
     event.preventDefault();
     setLoading(true);
     setError('');
+
+    if (
+      process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
+      process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci'
+    ) {
+      try {
+        await startAuth('login', { email: email.trim() });
+      } catch (authError) {
+        setError(
+          authError instanceof Error ? authError.message : 'Could not open the sign-in page.',
+        );
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent('/reset-password')}`;
     const { error: resetError } = await createClient().auth.resetPasswordForEmail(email.trim(), {
@@ -44,7 +62,12 @@ export default function ForgotPasswordPage() {
         <header>
           <h1 style={{ color: 'var(--text-1)', margin: 0 }}>Reset your password</h1>
           <p style={{ color: 'var(--text-2)', marginBottom: 0 }}>
-            Enter your account email and we’ll send a password reset link if an account is eligible.
+            {process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
+            process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci'
+              ? `Continue to the secure ${
+                  process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci' ? 'OCI' : 'Auth0'
+                } sign-in page, then choose “Forgot password?” to receive a reset link.`
+              : 'Enter your account email and we’ll send a password reset link if an account is eligible.'}
           </p>
         </header>
 
@@ -88,7 +111,12 @@ export default function ForgotPasswordPage() {
               </p>
             )}
             <Button type="submit" disabled={loading}>
-              {loading ? 'Sending…' : 'Send reset link'}
+              {loading
+                ? 'Opening…'
+                : process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
+                    process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci'
+                  ? `Continue to ${process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci' ? 'OCI' : 'Auth0'}`
+                  : 'Send reset link'}
             </Button>
           </form>
         )}

@@ -29,6 +29,9 @@
     "lint-staged": "^15.2.2",
     "prettier": "^3.2.4"
   },
+  "overrides": {
+    "multer": "2.5.0"
+  },
   "lint-staged": {
     "apps/**/*.{ts,tsx}": [
       "eslint --fix --max-warnings 0",

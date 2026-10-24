@@ -1,7 +1,14 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
+  if (
+    process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
+    process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci'
+  ) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });

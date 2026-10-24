@@ -17,6 +17,13 @@ export default function ResetPasswordPage() {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
+    if (
+      process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
+      process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci'
+    ) {
+      setError('Password resets are managed by your identity provider. Use its sign-in page.');
+      return;
+    }
     if (password !== confirmPassword) {
       setError('The passwords do not match.');
       return;

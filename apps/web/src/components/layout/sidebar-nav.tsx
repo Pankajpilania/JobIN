@@ -17,13 +17,11 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
 import { useCurrentUser } from '@/hooks/use-user';
 import { useSessionProfile } from '@/hooks/use-session-profile';
 import { Avatar } from '../ui/avatar';
 import { toast } from 'sonner';
-
-const supabase = createClient();
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -44,17 +42,18 @@ interface SidebarNavProps {
 export const SidebarNav: React.FC<SidebarNavProps> = ({ isMobileOpen, onMobileClose }) => {
   const pathname = usePathname();
   const router = useRouter();
+  const { signOut } = useAuth();
   const { data: user } = useCurrentUser();
   const sessionProfile = useSessionProfile();
 
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await signOut();
+      router.push('/');
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not sign out.');
     }
-    router.push('/');
-    router.refresh();
   };
 
   const getInitials = (name?: string) => {

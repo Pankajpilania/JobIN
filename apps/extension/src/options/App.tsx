@@ -19,6 +19,8 @@ import {
   signInWithEmail,
   signUpWithEmail,
 } from '../shared/api';
+import { signInWithAuth0 } from '../shared/auth0';
+import { signInWithOci } from '../shared/oci';
 import type {
   AuthState,
   ExtensionSettings,
@@ -164,7 +166,7 @@ export default function OptionsApp() {
 
   const handleConnect = async () => {
     if (!tokenInput.trim()) {
-      setTokenError('Paste your Supabase token');
+      setTokenError('Paste your API access token');
       return;
     }
     setTokenStatus('validating');
@@ -241,36 +243,58 @@ export default function OptionsApp() {
     setAuthLoading(true);
 
     try {
-      let data;
-      if (authMode === 'login') {
-        if (!email.trim() || !password) {
-          throw new Error('Please enter email and password');
-        }
-        data = await signInWithEmail(email.trim(), password);
+      let authState: AuthState;
+      if (import.meta.env.VITE_AUTH_PROVIDER === 'auth0') {
+        if (!email.trim()) throw new Error('Please enter your email address.');
+        const data = await signInWithAuth0(authMode === 'signup', email.trim());
+        authState = {
+          token: data.access_token,
+          userId: data.user.sub,
+          email: data.user.email ?? email.trim(),
+          fullName: data.user.name ?? data.user.email?.split('@')[0] ?? '',
+          avatarUrl: data.user.picture,
+          expiresAt: Date.now() + data.expires_in * 1000,
+        };
+      } else if (import.meta.env.VITE_AUTH_PROVIDER === 'oci') {
+        const data = await signInWithOci(authMode === 'signup', email.trim() || undefined);
+        authState = {
+          token: data.access_token,
+          userId: data.user.sub,
+          email: data.user.email ?? '',
+          fullName: data.user.name ?? data.user.email?.split('@')[0] ?? '',
+          avatarUrl: data.user.picture,
+          expiresAt: Date.now() + data.expires_in * 1000,
+        };
       } else {
-        if (!email.trim() || !password || !fullName.trim()) {
-          throw new Error('Please enter all fields (Full Name, Email, Password)');
+        let data;
+        if (authMode === 'login') {
+          if (!email.trim() || !password) {
+            throw new Error('Please enter email and password');
+          }
+          data = await signInWithEmail(email.trim(), password);
+        } else {
+          if (!email.trim() || !password || !fullName.trim()) {
+            throw new Error('Please enter all fields (Full Name, Email, Password)');
+          }
+          data = await signUpWithEmail(email.trim(), password, fullName.trim());
         }
-        data = await signUpWithEmail(email.trim(), password, fullName.trim());
+
+        if (authMode === 'signup' && !data.access_token) {
+          setAuthError('Sign up successful! Please check your email to verify your account.');
+          setAuthLoading(false);
+          return;
+        }
+
+        const user = data.user;
+        authState = {
+          token: data.access_token,
+          userId: user.id,
+          email: user.email,
+          fullName: user.user_metadata?.full_name || user.email.split('@')[0],
+          avatarUrl: user.user_metadata?.avatar_url || undefined,
+          expiresAt: Date.now() + data.expires_in * 1000,
+        };
       }
-
-      if (authMode === 'signup' && !data.access_token) {
-        setAuthError('Sign up successful! Please check your email to verify your account.');
-        setAuthLoading(false);
-        return;
-      }
-
-      const token = data.access_token;
-      const user = data.user;
-
-      const authState: AuthState = {
-        token,
-        userId: user.id,
-        email: user.email,
-        fullName: user.user_metadata?.full_name || user.email.split('@')[0],
-        avatarUrl: user.user_metadata?.avatar_url || undefined,
-        expiresAt: Date.now() + data.expires_in * 1000,
-      };
 
       await setAuth(authState);
       setAuthState(authState);
@@ -547,10 +571,10 @@ export default function OptionsApp() {
             {authMode === 'token' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  Paste your Supabase token from the JobIN web app to connect.
+                  Paste your API access token from the JobIN web app to connect.
                 </div>
                 <div className="field">
-                  <label className="label">Supabase Access Token</label>
+                  <label className="label">API Access Token</label>
                   <input
                     type="password"
                     className="input"
@@ -584,7 +608,9 @@ export default function OptionsApp() {
                 onSubmit={handleNativeAuth}
                 style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
               >
-                {authMode === 'signup' && (
+                {authMode === 'signup' &&
+                  import.meta.env.VITE_AUTH_PROVIDER !== 'auth0' &&
+                  import.meta.env.VITE_AUTH_PROVIDER !== 'oci' && (
                   <div className="field">
                     <label className="label">Full Name</label>
                     <input
@@ -605,20 +631,23 @@ export default function OptionsApp() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    required
+                    required={import.meta.env.VITE_AUTH_PROVIDER !== 'oci'}
                   />
                 </div>
-                <div className="field">
-                  <label className="label">Password</label>
-                  <input
-                    type="password"
-                    className="input"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                  />
-                </div>
+                {import.meta.env.VITE_AUTH_PROVIDER !== 'auth0' &&
+                  import.meta.env.VITE_AUTH_PROVIDER !== 'oci' && (
+                  <div className="field">
+                    <label className="label">Password</label>
+                    <input
+                      type="password"
+                      className="input"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                    />
+                  </div>
+                )}
 
                 {authError && (
                   <div
@@ -647,9 +676,14 @@ export default function OptionsApp() {
                 >
                   {authLoading
                     ? 'Authenticating…'
-                    : authMode === 'login'
-                      ? 'Sign In'
-                      : 'Create Account'}
+                    : import.meta.env.VITE_AUTH_PROVIDER === 'auth0' ||
+                        import.meta.env.VITE_AUTH_PROVIDER === 'oci'
+                      ? `Continue with ${
+                          import.meta.env.VITE_AUTH_PROVIDER === 'oci' ? 'OCI' : 'Auth0'
+                        }`
+                      : authMode === 'login'
+                        ? 'Sign In'
+                        : 'Create Account'}
                 </button>
               </form>
             )}

@@ -1,8 +1,5 @@
 import { Logger } from '@nestjs/common';
-
-// CommonJS requires — both libraries have CJS builds
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pdfParse = require('pdf-parse');
+import pdfParse from 'pdf-parse';
 import * as mammoth from 'mammoth';
 
 const logger = new Logger('TextExtractor');

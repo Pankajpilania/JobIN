@@ -9,6 +9,11 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/hooks/use-auth';
+
+const HOSTED_AUTH_PROVIDER =
+  process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
+  process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci';
 
 function getSafeNextPath(value: string | null) {
   if (!value) return '/dashboard';
@@ -25,6 +30,7 @@ function getSafeNextPath(value: string | null) {
 export default function SignUpPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { startAuth } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -44,6 +50,11 @@ export default function SignUpPage() {
 
     try {
       const next = getSafeNextPath(new URLSearchParams(window.location.search).get('next'));
+      if (HOSTED_AUTH_PROVIDER) {
+        await startAuth('signup', { email: email.trim(), returnTo: next });
+        return;
+      }
+
       const emailRedirectTo = new URL('/auth/callback', window.location.origin);
       emailRedirectTo.searchParams.set('next', next);
 
@@ -66,14 +77,19 @@ export default function SignUpPage() {
       } else {
         setSuccessMsg(email.trim());
       }
-    } catch (err: any) {
-      setErrorMsg('An unexpected error occurred. Please try again.');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleResendConfirmation = async () => {
+    if (HOSTED_AUTH_PROVIDER) {
+      setErrorMsg('Email verification and resend options are managed by your identity provider.');
+      return;
+    }
+
     if (!email.trim()) {
       setErrorMsg('Enter the email address you registered with.');
       return;
@@ -109,6 +125,11 @@ export default function SignUpPage() {
 
     try {
       const next = getSafeNextPath(new URLSearchParams(window.location.search).get('next'));
+      if (HOSTED_AUTH_PROVIDER) {
+        await startAuth('login', { returnTo: next });
+        return;
+      }
+
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -121,8 +142,8 @@ export default function SignUpPage() {
         setErrorMsg(error.message);
         setGoogleLoading(false);
       }
-    } catch (err: any) {
-      setErrorMsg('An unexpected error occurred. Please try again.');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
       setGoogleLoading(false);
     }
   };
@@ -495,6 +516,7 @@ export default function SignUpPage() {
                   onSubmit={handleSignUp}
                   style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
                 >
+                  {!HOSTED_AUTH_PROVIDER && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label
                       style={{
@@ -531,6 +553,7 @@ export default function SignUpPage() {
                       onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
                     />
                   </div>
+                  )}
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label
@@ -548,7 +571,7 @@ export default function SignUpPage() {
                     <input
                       id="email"
                       type="email"
-                      required
+                      required={!HOSTED_AUTH_PROVIDER}
                       placeholder="name@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -569,6 +592,7 @@ export default function SignUpPage() {
                     />
                   </div>
 
+                  {!HOSTED_AUTH_PROVIDER && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label
                       style={{
@@ -633,6 +657,7 @@ export default function SignUpPage() {
                       </button>
                     </div>
                   </div>
+                  )}
 
                   <Button
                     type="submit"
@@ -646,10 +671,18 @@ export default function SignUpPage() {
                       gap: '8px',
                     }}
                   >
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continue'}
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : HOSTED_AUTH_PROVIDER ? (
+                      `Continue with ${process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci' ? 'OCI' : 'Auth0'}`
+                    ) : (
+                      'Continue'
+                    )}
                   </Button>
                 </form>
 
+                {!HOSTED_AUTH_PROVIDER && (
+                <>
                 <div
                   style={{
                     position: 'relative',
@@ -730,6 +763,8 @@ export default function SignUpPage() {
                   )}
                   Sign up with Google
                 </button>
+                </>
+                )}
 
                 <div
                   style={{

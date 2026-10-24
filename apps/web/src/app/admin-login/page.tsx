@@ -4,10 +4,12 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { startAuth } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,6 +23,14 @@ export default function AdminLoginPage() {
     setError('');
 
     try {
+      if (
+        process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
+        process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci'
+      ) {
+        await startAuth('login', { email: email.trim(), returnTo: '/admin' });
+        return;
+      }
+
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (signInError) {
@@ -32,8 +42,8 @@ export default function AdminLoginPage() {
       // Always redirect to /admin after successful login
       router.push('/admin');
       router.refresh();
-    } catch {
-      setError('An unexpected error occurred. Please try again.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.');
       setLoading(false);
     }
   };
@@ -170,7 +180,9 @@ export default function AdminLoginPage() {
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {process.env.NEXT_PUBLIC_AUTH_PROVIDER !== 'auth0' &&
+            process.env.NEXT_PUBLIC_AUTH_PROVIDER !== 'oci' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label
               style={{
                 fontSize: '11px',
@@ -229,7 +241,8 @@ export default function AdminLoginPage() {
                 )}
               </button>
             </div>
-          </div>
+            </div>
+          )}
 
           <button
             type="submit"
@@ -262,7 +275,10 @@ export default function AdminLoginPage() {
             ) : (
               <>
                 <ShieldCheck style={{ height: '16px', width: '16px' }} />
-                Sign In to Admin Panel
+                {process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
+                process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci'
+                  ? `Continue with ${process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci' ? 'OCI' : 'Auth0'}`
+                  : 'Sign In to Admin Panel'}
               </>
             )}
           </button>

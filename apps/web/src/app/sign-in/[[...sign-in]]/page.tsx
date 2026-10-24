@@ -7,6 +7,7 @@ import { CheckCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useAuth } from '@/hooks/use-auth';
 
 const highlights = [
   'AI resume tailoring in under 10 seconds',
@@ -14,11 +15,15 @@ const highlights = [
   'Track every application in one pipeline',
   'Chrome autofill on Greenhouse & Lever',
 ];
+const HOSTED_AUTH_PROVIDER =
+  process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
+  process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci';
 
 function SignInPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+  const { startAuth } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,6 +44,14 @@ function SignInPageContent() {
     setErrorMsg('');
 
     try {
+      if (HOSTED_AUTH_PROVIDER) {
+        await startAuth('login', {
+          email: email.trim(),
+          returnTo: searchParams.get('next') || '/dashboard',
+        });
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -51,8 +64,8 @@ function SignInPageContent() {
         router.push(next);
         router.refresh();
       }
-    } catch (err: any) {
-      setErrorMsg('An unexpected error occurred. Please try again.');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -64,6 +77,11 @@ function SignInPageContent() {
 
     try {
       const next = searchParams.get('next') || '/dashboard';
+      if (HOSTED_AUTH_PROVIDER) {
+        await startAuth('login', { returnTo: next });
+        return;
+      }
+
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -76,8 +94,8 @@ function SignInPageContent() {
         setErrorMsg(error.message);
         setGoogleLoading(false);
       }
-    } catch (err: any) {
-      setErrorMsg('An unexpected error occurred. Please try again.');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
       setGoogleLoading(false);
     }
   };
@@ -433,7 +451,7 @@ function SignInPageContent() {
                 <input
                   id="email"
                   type="email"
-                  required
+                  required={!HOSTED_AUTH_PROVIDER}
                   placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -454,6 +472,7 @@ function SignInPageContent() {
                 />
               </div>
 
+              {!HOSTED_AUTH_PROVIDER && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label
                   style={{
@@ -526,6 +545,7 @@ function SignInPageContent() {
                   Forgot password?
                 </Link>
               </div>
+              )}
 
               <Button
                 type="submit"
@@ -539,10 +559,18 @@ function SignInPageContent() {
                   gap: '8px',
                 }}
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continue'}
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : HOSTED_AUTH_PROVIDER ? (
+                  `Continue with ${process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci' ? 'OCI' : 'Auth0'}`
+                ) : (
+                  'Continue'
+                )}
               </Button>
             </form>
 
+            {!HOSTED_AUTH_PROVIDER && (
+              <>
             <div
               style={{
                 position: 'relative',
@@ -623,6 +651,8 @@ function SignInPageContent() {
               )}
               Sign in with Google
             </button>
+              </>
+            )}
 
             <div
               style={{ textAlign: 'center', fontSize: '14px', fontWeight: 500, userSelect: 'none' }}

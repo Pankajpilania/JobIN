@@ -16,6 +16,7 @@ import { BillingModule } from './billing/billing.module';
 import { AdminModule } from './admin/admin.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { InterviewModule } from './interview/interview.module';
+import { OciAuthModule } from './oci-auth/oci-auth.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { InterviewModule } from './interview/interview.module';
     InterviewModule,
     BillingModule, // Sprint 4 — Stripe
     AdminModule, // Sprint 6 — Admin Portal
+    OciAuthModule,
   ],
 })
 export class AppModule {}

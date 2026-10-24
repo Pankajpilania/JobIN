@@ -301,9 +301,32 @@ export class AdminService {
       );
     }
 
-    const supabaseId = user.supabaseId;
+    const supabaseId =
+      user.supabaseId && user.supabaseId !== user.auth0Sub && user.supabaseId !== user.ociSub
+        ? user.supabaseId
+        : null;
     const supabaseUrl = this.config.get<string>('NEXT_PUBLIC_SUPABASE_URL')?.trim();
     const supabaseServiceKey = this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY')?.trim();
+    if (user.auth0Sub) {
+      const auth0Domain = this.config.get<string>('AUTH0_DOMAIN')?.trim();
+      const auth0ClientId = this.config.get<string>('AUTH0_MANAGEMENT_CLIENT_ID')?.trim();
+      const auth0ClientSecret = this.config.get<string>('AUTH0_MANAGEMENT_CLIENT_SECRET')?.trim();
+      if (!auth0Domain || !auth0ClientId || !auth0ClientSecret) {
+        throw new ServiceUnavailableException(
+          'Auth0 account deletion is not configured. Configure the Auth0 Management API credentials with delete:users permission.',
+        );
+      }
+    }
+    if (user.ociSub) {
+      const ociDomainUrl = this.config.get<string>('OCI_DOMAIN_URL')?.trim();
+      const ociClientId = this.config.get<string>('OCI_MANAGEMENT_CLIENT_ID')?.trim();
+      const ociClientSecret = this.config.get<string>('OCI_MANAGEMENT_CLIENT_SECRET')?.trim();
+      if (!ociDomainUrl || !ociClientId || !ociClientSecret) {
+        throw new ServiceUnavailableException(
+          'OCI account deletion is not configured. Configure an OCI Identity Domains management client with permission to delete users.',
+        );
+      }
+    }
     if (supabaseId && (!supabaseUrl || !supabaseServiceKey)) {
       throw new ServiceUnavailableException(
         'Supabase admin access is not configured. Configure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before deleting this user.',
@@ -332,6 +355,12 @@ export class AdminService {
       }
     }
 
+    if (user.auth0Sub) {
+      await this.deleteAuth0User(user.auth0Sub);
+    }
+    if (user.ociSub) {
+      await this.deleteOciUser(user.ociSub);
+    }
     if (supabaseId && supabaseUrl && supabaseServiceKey) {
       const supabase = createClient(supabaseUrl, supabaseServiceKey, {
         auth: { autoRefreshToken: false, persistSession: false },
@@ -366,10 +395,177 @@ export class AdminService {
       userId,
       { email: user.email, fullName: user.fullName },
       undefined,
-      { deletedSupabaseAccount: Boolean(supabaseId) },
+      {
+        deletedSupabaseAccount: Boolean(supabaseId),
+        deletedAuth0Account: Boolean(user.auth0Sub),
+        deletedOciAccount: Boolean(user.ociSub),
+      },
       ipAddress,
     );
     return { deleted: true };
+  }
+
+  private async deleteAuth0User(subject: string) {
+    const domain = this.config
+      .get<string>('AUTH0_DOMAIN')!
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .replace(/\/+$/, '');
+    const clientId = this.config.get<string>('AUTH0_MANAGEMENT_CLIENT_ID')!.trim();
+    const clientSecret = this.config.get<string>('AUTH0_MANAGEMENT_CLIENT_SECRET')!.trim();
+    const issuer = `https://${domain}`;
+
+    let tokenResponse: Response;
+    try {
+      tokenResponse = await fetch(`${issuer}/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grant_type: 'client_credentials',
+          client_id: clientId,
+          client_secret: clientSecret,
+          audience: `${issuer}/api/v2/`,
+        }),
+      });
+    } catch (error) {
+      this.logger.error(
+        `Could not connect to Auth0 Management API (${error instanceof Error ? error.name : 'unknown error'}).`,
+      );
+      throw new InternalServerErrorException(
+        'Could not contact Auth0 to delete the authentication account. The JobIN data was not deleted.',
+      );
+    }
+
+    if (!tokenResponse.ok) {
+      this.logger.error(`Auth0 Management API token request failed (${tokenResponse.status}).`);
+      throw new InternalServerErrorException(
+        'Auth0 could not authorize account deletion. The JobIN data was not deleted.',
+      );
+    }
+
+    const tokenBody = (await tokenResponse.json()) as { access_token?: string };
+    if (!tokenBody.access_token) {
+      throw new InternalServerErrorException(
+        'Auth0 returned no Management API token. The JobIN data was not deleted.',
+      );
+    }
+
+    let deleteResponse: Response;
+    try {
+      deleteResponse = await fetch(`${issuer}/api/v2/users/${encodeURIComponent(subject)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${tokenBody.access_token}` },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Could not delete Auth0 user ${subject} (${error instanceof Error ? error.name : 'unknown error'}).`,
+      );
+      throw new InternalServerErrorException(
+        'Could not delete the Auth0 account. The JobIN data was not deleted.',
+      );
+    }
+    if (!deleteResponse.ok && deleteResponse.status !== 404) {
+      this.logger.error(`Auth0 user deletion failed (${deleteResponse.status}).`);
+      throw new InternalServerErrorException(
+        'Could not delete the Auth0 account. The JobIN data was not deleted.',
+      );
+    }
+  }
+
+  private async deleteOciUser(subject: string) {
+    const configuredDomainUrl = this.config.get<string>('OCI_DOMAIN_URL')!.trim();
+    const clientId = this.config.get<string>('OCI_MANAGEMENT_CLIENT_ID')!.trim();
+    const clientSecret = this.config.get<string>('OCI_MANAGEMENT_CLIENT_SECRET')!.trim();
+    let parsedDomain: URL;
+    try {
+      parsedDomain = new URL(configuredDomainUrl);
+    } catch {
+      throw new ServiceUnavailableException('OCI Identity Domains URL is invalid.');
+    }
+    if (
+      parsedDomain.protocol !== 'https:' ||
+      parsedDomain.username ||
+      parsedDomain.password ||
+      parsedDomain.pathname !== '/' ||
+      parsedDomain.search ||
+      parsedDomain.hash
+    ) {
+      throw new ServiceUnavailableException(
+        'OCI Identity Domains URL must be an HTTPS origin without credentials, path, or query.',
+      );
+    }
+    const domainUrl = parsedDomain.origin;
+
+    let tokenResponse: Response;
+    try {
+      tokenResponse = await fetch(`${domainUrl}/oauth2/v1/token`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          scope: 'urn:opc:idm:__myscopes__',
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (error) {
+      this.logger.error(
+        `Could not connect to OCI Identity Domains (${error instanceof Error ? error.name : 'unknown error'}).`,
+      );
+      throw new InternalServerErrorException(
+        'Could not contact OCI to delete the authentication account. The JobIN data was not deleted.',
+      );
+    }
+    if (!tokenResponse.ok) {
+      this.logger.error(`OCI management token request failed (${tokenResponse.status}).`);
+      throw new InternalServerErrorException(
+        'OCI could not authorize account deletion. The JobIN data was not deleted.',
+      );
+    }
+
+    let tokenPayload: unknown;
+    try {
+      tokenPayload = await tokenResponse.json();
+    } catch {
+      throw new InternalServerErrorException(
+        'OCI returned an invalid management token response. The JobIN data was not deleted.',
+      );
+    }
+    if (!tokenPayload || typeof tokenPayload !== 'object') {
+      throw new InternalServerErrorException(
+        'OCI returned an invalid management token response. The JobIN data was not deleted.',
+      );
+    }
+    const accessToken = (tokenPayload as Record<string, unknown>).access_token;
+    if (typeof accessToken !== 'string' || !accessToken) {
+      throw new InternalServerErrorException(
+        'OCI returned no management token. The JobIN data was not deleted.',
+      );
+    }
+
+    let deleteResponse: Response;
+    try {
+      deleteResponse = await fetch(`${domainUrl}/admin/v1/Users/${encodeURIComponent(subject)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (error) {
+      this.logger.error(
+        `Could not delete OCI user ${subject} (${error instanceof Error ? error.name : 'unknown error'}).`,
+      );
+      throw new InternalServerErrorException(
+        'Could not contact OCI to delete the authentication account. The JobIN data was not deleted.',
+      );
+    }
+    if (!deleteResponse.ok && deleteResponse.status !== 404) {
+      this.logger.error(`OCI user deletion failed (${deleteResponse.status}) for ${subject}.`);
+      throw new InternalServerErrorException(
+        'OCI could not delete the authentication account. The JobIN data was not deleted.',
+      );
+    }
   }
 
   async updateUser(adminId: string, userId: string, dto: AdminUpdateUserDto, ipAddress?: string) {
