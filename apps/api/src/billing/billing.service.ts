@@ -1,6 +1,10 @@
 import {
-  Injectable, Logger, NotFoundException, ConflictException,
-  BadRequestException, InternalServerErrorException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
@@ -13,8 +17,8 @@ export class BillingService {
   private readonly stripe: Stripe;
 
   constructor(
-    private readonly config:  ConfigService,
-    private readonly prisma:  PrismaService,
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
   ) {
     this.stripe = new Stripe(config.get<string>('STRIPE_SECRET_KEY', ''), {
       apiVersion: '2024-06-20' as any,
@@ -25,7 +29,7 @@ export class BillingService {
 
   private async resolveUser(supabaseId: string) {
     const user = await this.prisma.user.findUnique({
-      where:   { supabaseId },
+      where: { supabaseId },
       include: {
         subscriptions: {
           where: { status: 'ACTIVE' },
@@ -45,7 +49,9 @@ export class BillingService {
       include: {
         subscriptions: {
           where: { status: 'ACTIVE' },
-          include: { plan: { include: { features: { where: { featureKey: 'ai_credits_monthly' } } } } },
+          include: {
+            plan: { include: { features: { where: { featureKey: 'ai_credits_monthly' } } } },
+          },
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
@@ -54,16 +60,12 @@ export class BillingService {
     if (!user) throw new NotFoundException('User not found');
 
     const subscription = user.subscriptions[0];
-    const periodStart = subscription?.currentPeriodStart ?? new Date(Date.UTC(
-      new Date().getUTCFullYear(),
-      new Date().getUTCMonth(),
-      1,
-    ));
-    const periodEnd = subscription?.currentPeriodEnd ?? new Date(Date.UTC(
-      new Date().getUTCFullYear(),
-      new Date().getUTCMonth() + 1,
-      1,
-    ));
+    const periodStart =
+      subscription?.currentPeriodStart ??
+      new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+    const periodEnd =
+      subscription?.currentPeriodEnd ??
+      new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1));
     const usage = await this.prisma.aIUsage.aggregate({
       where: {
         userId: user.id,
@@ -91,32 +93,63 @@ export class BillingService {
   }
 
   async getManualPaymentSettings() {
-    const stored = await this.prisma.manualPaymentSettings.findMany();
+    const [stored, methods, stripePrices] = await Promise.all([
+      this.prisma.manualPaymentSettings.findMany(),
+      this.prisma.manualPaymentMethod.findMany({ where: { enabled: true } }),
+      this.prisma.stripePriceConfig.findMany({ include: { plan: { select: { name: true } } } }),
+    ]);
     const byCurrency = new Map(stored.map((setting) => [setting.currency, setting]));
     return (['INR', 'GBP'] as const).map((currency) => {
       const setting = byCurrency.get(currency);
       const isInr = currency === 'INR';
+      const configuredPrices = stripePrices.filter((price) => price.currency === currency);
       return {
         currency,
-        methodLabel: setting?.methodLabel ?? (isInr ? 'INR · UPI' : 'GBP · Bank transfer'),
-        paymentDetails:
-          setting?.paymentDetails ??
-          (isInr ? '' : this.config.get<string>('NEXT_PUBLIC_GBP_BANK_DETAILS', '')),
-        qrUrl:
-          setting?.qrUrl ??
-          this.config.get<string>(
-            isInr ? 'NEXT_PUBLIC_INR_PAYMENT_QR_URL' : 'NEXT_PUBLIC_GBP_BANK_QR_URL',
-            isInr ? '/payments/inr-payment.jpeg' : '/payments/gbp-payment.jpeg',
-          ),
+        methods: methods
+          .filter((method) => method.currency === currency)
+          .map(({ id, label, paymentDetails, qrUrl }) => ({
+            id,
+            label,
+            paymentDetails:
+              paymentDetails ||
+              (isInr ? '' : this.config.get<string>('NEXT_PUBLIC_GBP_BANK_DETAILS', '')),
+            qrUrl:
+              qrUrl ||
+              this.config.get<string>(
+                isInr ? 'NEXT_PUBLIC_INR_PAYMENT_QR_URL' : 'NEXT_PUBLIC_GBP_BANK_QR_URL',
+                isInr ? '/payments/inr-payment.jpeg' : '/payments/gbp-payment.jpeg',
+              ),
+          })),
         amounts: {
           PREMIUM: setting?.premiumAmount ?? (isInr ? 1599 : 15),
           PRO: setting?.proAmount ?? (isInr ? 2999 : 29),
+        },
+        stripeCheckout: {
+          PREMIUM: {
+            MONTHLY:
+              configuredPrices.some(
+                (price) => price.plan.name === 'PREMIUM' && price.interval === 'MONTHLY',
+              ) || Boolean(this.legacyPriceId('PREMIUM', currency, BillingInterval.MONTHLY)),
+            YEARLY:
+              configuredPrices.some(
+                (price) => price.plan.name === 'PREMIUM' && price.interval === 'YEARLY',
+              ) || Boolean(this.legacyPriceId('PREMIUM', currency, BillingInterval.YEARLY)),
+          },
+          PRO: {
+            MONTHLY: configuredPrices.some(
+              (price) => price.plan.name === 'PRO' && price.interval === 'MONTHLY',
+            ),
+            YEARLY: configuredPrices.some(
+              (price) => price.plan.name === 'PRO' && price.interval === 'YEARLY',
+            ),
+          },
         },
       };
     });
   }
 
-  private priceId(interval: BillingInterval): string {
+  private legacyPriceId(plan: string, currency: string, interval: BillingInterval): string {
+    if (plan !== 'PREMIUM' || currency !== 'GBP') return '';
     return interval === BillingInterval.MONTHLY
       ? this.config.get<string>('STRIPE_PRICE_PREMIUM_MONTHLY', '')
       : this.config.get<string>('STRIPE_PRICE_PREMIUM_YEARLY', '');
@@ -124,13 +157,30 @@ export class BillingService {
 
   async createManualPaymentRequest(
     supabaseId: string,
-    dto: { plan: 'PREMIUM' | 'PRO'; currency: 'GBP' | 'INR'; transactionReference: string },
+    dto: {
+      plan: 'PREMIUM' | 'PRO';
+      currency: 'GBP' | 'INR';
+      transactionReference: string;
+      paymentMethodId?: string;
+    },
   ) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new NotFoundException('User not found.');
 
     const plan = await this.prisma.plan.findUnique({ where: { name: dto.plan } });
     if (!plan?.isActive) throw new NotFoundException('The selected plan is not available.');
+
+    const paymentMethod = dto.paymentMethodId
+      ? await this.prisma.manualPaymentMethod.findFirst({
+          where: { id: dto.paymentMethodId, currency: dto.currency, enabled: true },
+        })
+      : await this.prisma.manualPaymentMethod.findFirst({
+          where: { currency: dto.currency, enabled: true },
+          orderBy: { createdAt: 'asc' },
+        });
+    if (dto.paymentMethodId && !paymentMethod) {
+      throw new NotFoundException('The selected payment method is no longer available.');
+    }
 
     const paymentSettings = await this.prisma.manualPaymentSettings.findUnique({
       where: { currency: dto.currency },
@@ -153,6 +203,7 @@ export class BillingService {
         planId: plan.id,
         currency: dto.currency,
         amount,
+        paymentMethodLabel: paymentMethod?.label,
         transactionReference: dto.transactionReference.trim(),
       },
       select: { id: true, status: true, createdAt: true },
@@ -218,6 +269,7 @@ export class BillingService {
             stripeSubscriptionId: `manual-${request.id}`,
             currentPeriodStart: now,
             currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+            isComplimentary: false,
           },
         });
         await transaction.payment.create({
@@ -237,24 +289,39 @@ export class BillingService {
   // ─── Checkout session ─────────────────────────────────────────────────────
 
   async createCheckoutSession(supabaseId: string, dto: CreateCheckoutDto) {
-    const user   = await this.resolveUser(supabaseId);
-    const priceId = this.priceId(dto.interval);
+    const user = await this.resolveUser(supabaseId);
+    const plan = await this.prisma.plan.findUnique({ where: { name: dto.plan } });
+    if (!plan?.isActive) throw new NotFoundException('The selected plan is not available.');
+    const priceConfig = await this.prisma.stripePriceConfig.findUnique({
+      where: {
+        planId_currency_interval: {
+          planId: plan.id,
+          currency: dto.currency,
+          interval: dto.interval,
+        },
+      },
+    });
+    const priceId =
+      priceConfig?.stripePriceId ?? this.legacyPriceId(dto.plan, dto.currency, dto.interval);
 
-    if (!priceId) throw new BadRequestException('Stripe price not configured. Set STRIPE_PRICE_PREMIUM_MONTHLY / YEARLY in .env');
+    if (!priceId)
+      throw new BadRequestException(
+        'Stripe Checkout is not configured for this plan, currency, and billing interval.',
+      );
 
-    const appUrl     = this.config.get<string>('NEXT_PUBLIC_URL', 'http://localhost:3000');
+    const appUrl = this.config.get<string>('NEXT_PUBLIC_URL', 'http://localhost:3000');
     const successUrl = dto.successUrl ?? `${appUrl}/dashboard?upgraded=true`;
-    const cancelUrl  = dto.cancelUrl  ?? `${appUrl}/settings?cancelled=true`;
+    const cancelUrl = dto.cancelUrl ?? `${appUrl}/settings?cancelled=true`;
 
     try {
       const session = await this.stripe.checkout.sessions.create({
-        mode:      'subscription',
+        mode: 'subscription',
         line_items: [{ price: priceId, quantity: 1 }],
         success_url: successUrl,
-        cancel_url:  cancelUrl,
+        cancel_url: cancelUrl,
         client_reference_id: user.id,
         customer_email: user.email,
-        metadata:  { userId: user.id, supabaseId },
+        metadata: { userId: user.id, supabaseId },
         subscription_data: {
           metadata: { userId: user.id, supabaseId },
         },
@@ -273,7 +340,7 @@ export class BillingService {
 
   async createPortalSession(supabaseId: string) {
     const user = await this.resolveUser(supabaseId);
-    const sub  = user.subscriptions[0];
+    const sub = user.subscriptions[0];
     if (!sub) throw new BadRequestException('No active subscription found');
 
     const appUrl = this.config.get<string>('NEXT_PUBLIC_URL', 'http://localhost:3000');
@@ -283,7 +350,7 @@ export class BillingService {
     const customerId = stripeSub.customer as string;
 
     const session = await this.stripe.billingPortal.sessions.create({
-      customer:   customerId,
+      customer: customerId,
       return_url: `${appUrl}/settings`,
     });
 
@@ -353,7 +420,7 @@ export class BillingService {
 
     await this.prisma.subscription.updateMany({
       where: { stripeSubscriptionId: stripeSub.id },
-      data:  { status: 'CANCELLED', cancelAtPeriodEnd: true },
+      data: { status: 'CANCELLED', cancelAtPeriodEnd: true },
     });
     this.logger.log(`Subscription ${stripeSub.id} cancelled for user ${userId}`);
   }
@@ -370,13 +437,13 @@ export class BillingService {
     // Record payment
     if (invoice.payment_intent) {
       await this.prisma.payment.upsert({
-        where:  { stripeIntentId: invoice.payment_intent as string },
+        where: { stripeIntentId: invoice.payment_intent as string },
         create: {
           subscriptionId: sub.id,
           stripeIntentId: invoice.payment_intent as string,
-          amount:   invoice.amount_paid / 100,
+          amount: invoice.amount_paid / 100,
           currency: invoice.currency.toUpperCase(),
-          status:   'succeeded',
+          status: 'succeeded',
         },
         update: { status: 'succeeded' },
       });
@@ -385,16 +452,16 @@ export class BillingService {
     // Record invoice
     if (invoice.hosted_invoice_url) {
       await this.prisma.invoice.upsert({
-        where:  { stripeInvoiceId: invoice.id },
+        where: { stripeInvoiceId: invoice.id },
         create: {
-          subscriptionId:  sub.id,
+          subscriptionId: sub.id,
           stripeInvoiceId: invoice.id,
-          invoiceUrl:      invoice.hosted_invoice_url ?? '',
-          pdfUrl:          invoice.invoice_pdf         ?? '',
+          invoiceUrl: invoice.hosted_invoice_url ?? '',
+          pdfUrl: invoice.invoice_pdf ?? '',
         },
         update: {
           invoiceUrl: invoice.hosted_invoice_url ?? '',
-          pdfUrl:     invoice.invoice_pdf ?? '',
+          pdfUrl: invoice.invoice_pdf ?? '',
         },
       });
     }
@@ -406,7 +473,7 @@ export class BillingService {
 
     await this.prisma.subscription.updateMany({
       where: { stripeSubscriptionId: subscriptionId },
-      data:  { status: 'PAST_DUE' },
+      data: { status: 'PAST_DUE' },
     });
     this.logger.warn(`Invoice payment failed for subscription ${subscriptionId}`);
   }
@@ -416,8 +483,15 @@ export class BillingService {
   private async upsertSubscription(userId: string, stripeSub: Stripe.Subscription) {
     const priceId = stripeSub.items.data[0]?.price.id;
 
-    // Find the matching plan by stripePriceId
-    const plan = await this.prisma.plan.findFirst({ where: { stripePriceId: priceId } });
+    const configuredPrice = priceId
+      ? await this.prisma.stripePriceConfig.findUnique({
+          where: { stripePriceId: priceId },
+          include: { plan: true },
+        })
+      : null;
+    const plan =
+      configuredPrice?.plan ??
+      (await this.prisma.plan.findFirst({ where: { stripePriceId: priceId } }));
     if (!plan) {
       this.logger.warn(`No plan found for Stripe price ${priceId}. Skipping subscription upsert.`);
       return;
@@ -425,10 +499,13 @@ export class BillingService {
 
     const stripeStatus = stripeSub.status;
     const dbStatus: 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'PAST_DUE' =
-      stripeStatus === 'active'   ? 'ACTIVE'   :
-      stripeStatus === 'canceled' ? 'CANCELLED' :
-      stripeStatus === 'past_due' ? 'PAST_DUE'  :
-      'EXPIRED';
+      stripeStatus === 'active'
+        ? 'ACTIVE'
+        : stripeStatus === 'canceled'
+          ? 'CANCELLED'
+          : stripeStatus === 'past_due'
+            ? 'PAST_DUE'
+            : 'EXPIRED';
 
     const existing = await this.prisma.subscription.findFirst({
       where: { stripeSubscriptionId: stripeSub.id },
@@ -437,28 +514,30 @@ export class BillingService {
     if (existing) {
       await this.prisma.subscription.update({
         where: { id: existing.id },
-        data:  {
-          planId:             plan.id,
-          status:             dbStatus,
+        data: {
+          planId: plan.id,
+          status: dbStatus,
           currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-          currentPeriodEnd:   new Date(stripeSub.current_period_end   * 1000),
-          cancelAtPeriodEnd:  stripeSub.cancel_at_period_end,
+          currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+          cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
         },
       });
     } else {
       await this.prisma.subscription.create({
         data: {
           userId,
-          planId:              plan.id,
+          planId: plan.id,
           stripeSubscriptionId: stripeSub.id,
-          status:              dbStatus,
-          currentPeriodStart:  new Date(stripeSub.current_period_start * 1000),
-          currentPeriodEnd:    new Date(stripeSub.current_period_end   * 1000),
-          cancelAtPeriodEnd:   stripeSub.cancel_at_period_end,
+          status: dbStatus,
+          currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
+          currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+          cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
         },
       });
     }
 
-    this.logger.log(`Subscription ${stripeSub.id} upserted for user ${userId} — status: ${dbStatus}`);
+    this.logger.log(
+      `Subscription ${stripeSub.id} upserted for user ${userId} — status: ${dbStatus}`,
+    );
   }
 }

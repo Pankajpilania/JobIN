@@ -3,11 +3,98 @@
 import React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useState, useCallback } from 'react';
-import { listSubscriptions } from '@/lib/admin-api';
+import { getUserActivity, listSubscriptions, updateUser } from '@/lib/admin-api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, ArrowLeft, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+
+function ComplimentaryPlanDialog({
+  userId,
+  userName,
+  onClose,
+  onSaved,
+}: {
+  userId: string;
+  userName: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { getToken } = useAuth();
+  const [token, setToken] = useState('');
+  const [plans, setPlans] = useState<Array<{ id: string; name: string }>>([]);
+  const [planId, setPlanId] = useState('');
+  const [durationDays, setDurationDays] = useState('30');
+  const [noExpiry, setNoExpiry] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    void getToken().then(async (authToken) => {
+      if (!authToken) throw new Error('Please sign in again.');
+      const result = await getUserActivity(authToken, userId);
+      if (mounted) {
+        setToken(authToken);
+        setPlans(result.plans);
+        setLoading(false);
+      }
+    }).catch((error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'Could not load available plans.');
+      if (mounted) setLoading(false);
+    });
+    return () => { mounted = false; };
+  }, [getToken, userId]);
+
+  const save = async () => {
+    if (!planId) return toast.error('Select a plan first.');
+    if (!noExpiry && (!Number.isInteger(Number(durationDays)) || Number(durationDays) < 1 || Number(durationDays) > 3650)) {
+      return toast.error('Enter a complimentary plan duration from 1 to 3650 days.');
+    }
+    setSaving(true);
+    try {
+      await updateUser(token, userId, {
+        planId,
+        planDurationDays: noExpiry ? null : Number(durationDays),
+      });
+      toast.success('Complimentary subscription assigned.');
+      onSaved();
+      onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not assign the plan.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,.55)', display: 'grid', placeItems: 'center', padding: 16 }}>
+      <div onClick={(event) => event.stopPropagation()} style={{ width: '100%', maxWidth: 420, display: 'grid', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 22 }}>
+        <h2 style={{ margin: 0, color: 'var(--text-1)' }}>Assign complimentary plan</h2>
+        <p style={{ margin: 0, color: 'var(--text-2)' }}>{userName}</p>
+        {loading ? <p>Loading plans…</p> : (
+          <>
+            <select value={planId} onChange={(event) => setPlanId(event.target.value)} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)' }}>
+              <option value="">Select a plan</option>
+              {plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+            </select>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-2)' }}>
+              <input type="checkbox" checked={noExpiry} onChange={(event) => setNoExpiry(event.target.checked)} />
+              No expiry (until cancelled)
+            </label>
+            {!noExpiry && (
+              <input type="number" min={1} max={3650} required value={durationDays} onChange={(event) => setDurationDays(event.target.value)} aria-label="Complimentary plan duration in days" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)' }} />
+            )}
+          </>
+        )}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button disabled={loading || saving || !planId} onClick={() => void save()}>{saving ? 'Saving…' : 'Assign plan'}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminSubscriptionsPage() {
   const { getToken } = useAuth();
@@ -15,6 +102,7 @@ export default function AdminSubscriptionsPage() {
   const [loading,setLoading]= useState(true);
   const [status, setStatus] = useState('');
   const [page,   setPage]   = useState(1);
+  const [editingUser, setEditingUser] = useState<{ id: string; name: string } | null>(null);
 
   const load = useCallback(async () => {
     const token = await getToken();
@@ -91,13 +179,14 @@ export default function AdminSubscriptionsPage() {
               <th style={{ padding: '14px 16px', textAlign: 'left', userSelect: 'none' }}>Plan Selected</th>
               <th style={{ padding: '14px 16px', textAlign: 'left', userSelect: 'none' }}>Billing Status</th>
               <th style={{ padding: '14px 16px', textAlign: 'left', userSelect: 'none' }}>Renewal Date</th>
-              <th style={{ padding: '14px 16px', textAlign: 'right', userSelect: 'none' }}>Stripe Subscription ID</th>
+              <th style={{ padding: '14px 16px', textAlign: 'right', userSelect: 'none' }}>Subscription</th>
+              <th style={{ padding: '14px 16px', textAlign: 'right', userSelect: 'none' }}>Admin action</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} style={{ padding: '64px 16px', textAlign: 'center', color: 'var(--text-3)', fontWeight: 600, fontSize: '12px', userSelect: 'none' }}>
+                <td colSpan={6} style={{ padding: '64px 16px', textAlign: 'center', color: 'var(--text-3)', fontWeight: 600, fontSize: '12px', userSelect: 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                     <RefreshCw style={{ height: '16px', width: '16px', animation: 'spin 1s linear infinite', color: 'var(--brand)' }} />
                     <span>Loading subscriptions...</span>
@@ -106,7 +195,7 @@ export default function AdminSubscriptionsPage() {
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: '64px 16px', textAlign: 'center', color: 'var(--text-3)', fontWeight: 600, fontSize: '12px', userSelect: 'none' }}>
+                <td colSpan={6} style={{ padding: '64px 16px', textAlign: 'center', color: 'var(--text-3)', fontWeight: 600, fontSize: '12px', userSelect: 'none' }}>
                   No subscription records match criteria
                 </td>
               </tr>
@@ -134,16 +223,25 @@ export default function AdminSubscriptionsPage() {
                     </Badge>
                   </td>
                   <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-2)', fontWeight: 600 }}>
-                    {sub.cancelAtPeriodEnd ? (
+                    {sub.isComplimentary && !sub.currentPeriodEnd ? (
+                      <span style={{ color: 'var(--brand)', fontWeight: 700 }}>No expiry</span>
+                    ) : sub.cancelAtPeriodEnd && sub.currentPeriodEnd ? (
                       <span style={{ color: '#F59E0B', fontWeight: 700 }}>Cancels {new Date(sub.currentPeriodEnd).toLocaleDateString('en-GB')}</span>
-                    ) : (
+                    ) : sub.isComplimentary && sub.currentPeriodEnd ? (
+                      <span style={{ color: 'var(--brand)', fontWeight: 700 }}>Complimentary until {new Date(sub.currentPeriodEnd).toLocaleDateString('en-GB')}</span>
+                    ) : sub.currentPeriodEnd ? (
                       new Date(sub.currentPeriodEnd).toLocaleDateString('en-GB')
+                    ) : (
+                      '—'
                     )}
                   </td>
                   <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                     <span style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-3)', userSelect: 'all', backgroundColor: 'var(--surface-2)', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px' }}>
-                      {sub.stripeSubscriptionId?.slice(0, 18)}…
+                      {sub.isComplimentary ? 'Complimentary' : `${sub.stripeSubscriptionId?.slice(0, 18)}…`}
                     </span>
+                  </td>
+                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                    <Button onClick={() => setEditingUser({ id: sub.user.id, name: sub.user.fullName })}>Assign free plan</Button>
                   </td>
                 </tr>
               ))
@@ -151,6 +249,15 @@ export default function AdminSubscriptionsPage() {
           </tbody>
         </table>
       </div>
+
+      {editingUser && (
+        <ComplimentaryPlanDialog
+          userId={editingUser.id}
+          userName={editingUser.name}
+          onClose={() => setEditingUser(null)}
+          onSaved={() => void load()}
+        />
+      )}
 
       {/* Pagination control */}
       {totalPages > 1 && (

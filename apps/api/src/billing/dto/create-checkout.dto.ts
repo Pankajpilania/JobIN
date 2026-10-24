@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export enum BillingInterval {
   MONTHLY = 'MONTHLY',
-  YEARLY  = 'YEARLY',
+  YEARLY = 'YEARLY',
 }
 
 export class CreateCheckoutDto {
@@ -15,8 +15,17 @@ export class CreateCheckoutDto {
   @IsEnum(BillingInterval)
   interval: BillingInterval;
 
+  @ApiProperty({ enum: ['PREMIUM', 'PRO'], default: 'PREMIUM' })
+  @IsEnum(['PREMIUM', 'PRO'])
+  plan: 'PREMIUM' | 'PRO' = 'PREMIUM';
+
+  @ApiProperty({ enum: ['GBP', 'INR'], default: 'GBP' })
+  @IsEnum(['GBP', 'INR'])
+  currency: 'GBP' | 'INR' = 'GBP';
+
   @ApiProperty({
-    description: 'Full URL to redirect after successful payment (e.g. http://localhost:3000/dashboard?upgraded=true)',
+    description:
+      'Full URL to redirect after successful payment (e.g. http://localhost:3000/dashboard?upgraded=true)',
     required: false,
   })
   @IsOptional()

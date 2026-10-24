@@ -238,6 +238,12 @@ function SignInPageContent() {
               <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: 0 }}>Welcome back! Please enter your details.</p>
             </div>
 
+            {searchParams.get('passwordReset') === 'true' && (
+              <div role="status" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.25)', color: '#15803d', fontSize: 13, fontWeight: 600, borderRadius: 6, padding: 12 }}>
+                Your password has been updated. Sign in with your new password.
+              </div>
+            )}
+
             {errorMsg && (
               <div style={{
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -331,6 +337,12 @@ function SignInPageContent() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                <Link
+                  href={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}
+                  style={{ alignSelf: 'flex-end', color: 'var(--brand)', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
+                >
+                  Forgot password?
+                </Link>
               </div>
 
               <Button

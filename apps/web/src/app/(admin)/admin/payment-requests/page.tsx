@@ -12,6 +12,7 @@ interface ManualPaymentRequest {
   id: string;
   currency: 'INR' | 'GBP';
   amount: number;
+  paymentMethodLabel?: string | null;
   transactionReference: string;
   status: string;
   createdAt: string;
@@ -81,6 +82,7 @@ export default function AdminPaymentRequestsPage() {
                 <th style={{ padding: 12 }}>Account</th>
                 <th style={{ padding: 12 }}>Plan</th>
                 <th style={{ padding: 12 }}>Amount</th>
+                <th style={{ padding: 12 }}>Method</th>
                 <th style={{ padding: 12 }}>Transaction reference</th>
                 <th style={{ padding: 12 }}>Submitted</th>
                 <th style={{ padding: 12 }}>Action</th>
@@ -95,6 +97,7 @@ export default function AdminPaymentRequestsPage() {
                   </td>
                   <td style={{ padding: 12 }}>{request.plan.name === 'PREMIUM' ? 'Pro' : 'Pro Max'}</td>
                   <td style={{ padding: 12 }}>{request.currency === 'INR' ? '₹' : '£'}{request.amount} {request.currency}</td>
+                  <td style={{ padding: 12 }}>{request.paymentMethodLabel ?? 'Manual payment'}</td>
                   <td style={{ padding: 12, fontFamily: 'monospace' }}>{request.transactionReference}</td>
                   <td style={{ padding: 12 }}>{new Date(request.createdAt).toLocaleString()}</td>
                   <td style={{ padding: 12, display: 'flex', gap: 8 }}>

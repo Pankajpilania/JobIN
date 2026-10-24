@@ -1,6 +1,8 @@
 import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { PrismaService } from '../prisma/prisma.service';
+import { AISettingsCrypto } from './ai-settings-crypto';
 import type {
   ATSAnalysisResult,
   TailorResult,
@@ -22,9 +24,10 @@ function buildUsage(
   outputTokens: number,
   feature: string,
   model: string,
+  provider: string,
 ): AIUsageRecord {
-  const isPaid = process.env.GEMINI_PAID_TIER === 'true';
-  const estimatedCost = isPaid
+  const isGeminiPaid = provider === 'GEMINI' && process.env.GEMINI_PAID_TIER === 'true';
+  const estimatedCost = isGeminiPaid
     ? (inputTokens / 1_000_000) * 0.075 + (outputTokens / 1_000_000) * 0.3
     : 0;
 
@@ -35,19 +38,136 @@ function buildUsage(
     completionTokens: outputTokens,
     totalTokens: inputTokens + outputTokens,
     estimatedCostUsd: +estimatedCost.toFixed(6),
-    tier: isPaid ? 'paid' : 'free',
+    tier: provider === 'OLLAMA' ? 'self-hosted' : isGeminiPaid ? 'paid' : 'provider-configured',
   };
+}
+
+interface AICompletion {
+  text: string;
+  provider: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
 }
 
 @Injectable()
 export class AIService {
   private readonly logger = new Logger(AIService.name);
-  private readonly genAI: GoogleGenerativeAI;
-  private readonly modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
-  constructor(private readonly config: ConfigService) {
-    const apiKey = this.config.get<string>('GEMINI_API_KEY') || process.env.GEMINI_API_KEY || '';
-    this.genAI = new GoogleGenerativeAI(apiKey);
+  constructor(
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly crypto: AISettingsCrypto,
+  ) {}
+
+  private async generateText(prompt: string, json = false): Promise<AICompletion> {
+    const settings = await this.prisma.aIPlatformSettings.findUnique({ where: { id: 'global' } });
+    const provider = settings?.activeProvider ?? 'GEMINI';
+    const model =
+      settings?.activeModel ?? this.config.get<string>('GEMINI_MODEL', 'gemini-2.5-flash');
+    const credential = await this.prisma.aIProviderCredential.findUnique({ where: { provider } });
+    const apiKey = credential?.encryptedApiKey
+      ? this.crypto.decrypt(credential.encryptedApiKey)
+      : provider === 'GEMINI'
+        ? this.config.get<string>('GEMINI_API_KEY') || process.env.GEMINI_API_KEY || ''
+        : '';
+
+    if (provider !== 'OLLAMA' && !apiKey) {
+      throw new Error(`No API key is configured for the active AI provider (${provider}).`);
+    }
+
+    if (provider === 'GEMINI') {
+      const result = await new GoogleGenerativeAI(apiKey)
+        .getGenerativeModel({
+          model,
+          generationConfig: json ? { responseMimeType: 'application/json' } : undefined,
+        })
+        .generateContent(prompt);
+      return {
+        text: result.response.text(),
+        provider,
+        model,
+        inputTokens: result.response.usageMetadata?.promptTokenCount ?? 0,
+        outputTokens: result.response.usageMetadata?.candidatesTokenCount ?? 0,
+      };
+    }
+
+    const baseUrl = settings?.baseUrl?.replace(/\/+$/, '') || this.defaultBaseUrl(provider);
+    if (!baseUrl) throw new Error(`A reachable API base URL is required for ${provider}.`);
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    let endpoint: string;
+    let body: Record<string, unknown>;
+    if (provider === 'ANTHROPIC') {
+      endpoint = `${baseUrl}/v1/messages`;
+      headers['x-api-key'] = apiKey;
+      headers['anthropic-version'] = '2023-06-01';
+      body = { model, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] };
+    } else {
+      endpoint = `${baseUrl}/chat/completions`;
+      if (provider !== 'OLLAMA') headers.Authorization = `Bearer ${apiKey}`;
+      body = {
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        ...(json && provider === 'OPENAI' ? { response_format: { type: 'json_object' } } : {}),
+      };
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
+    });
+    const responseText = await response.text();
+    if (!response.ok) {
+      throw new Error(
+        `${provider} request failed (${response.status}): ${responseText.slice(0, 500)}`,
+      );
+    }
+    const payload = JSON.parse(responseText) as {
+      choices?: Array<{ message?: { content?: string | Array<{ text?: string }> } }>;
+      content?: Array<{ text?: string }>;
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        input_tokens?: number;
+        output_tokens?: number;
+      };
+    };
+    const content =
+      provider === 'ANTHROPIC'
+        ? payload.content?.[0]?.text
+        : payload.choices?.[0]?.message?.content;
+    const text =
+      typeof content === 'string'
+        ? content
+        : Array.isArray(content)
+          ? content.map((part) => part.text ?? '').join('')
+          : '';
+    if (!text) throw new Error(`${provider} returned an empty response.`);
+    return {
+      text,
+      provider,
+      model,
+      inputTokens: payload.usage?.prompt_tokens ?? payload.usage?.input_tokens ?? 0,
+      outputTokens: payload.usage?.completion_tokens ?? payload.usage?.output_tokens ?? 0,
+    };
+  }
+
+  private defaultBaseUrl(provider: string): string {
+    switch (provider) {
+      case 'OPENAI':
+        return 'https://api.openai.com/v1';
+      case 'ANTHROPIC':
+        return 'https://api.anthropic.com';
+      case 'DEEPSEEK':
+        return 'https://api.deepseek.com';
+      case 'NVIDIA':
+        return 'https://integrate.api.nvidia.com/v1';
+      default:
+        return '';
+    }
   }
 
   // ─── 1. ATS Resume Analysis ───────────────────────────────────────────────
@@ -79,18 +199,9 @@ Return ONLY valid JSON:
 }`;
 
     try {
-      const model = this.genAI.getGenerativeModel({
-        model: this.modelName,
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0,
-        },
-      });
-
       const prompt = `System Instructions:\n${systemPrompt}\n\nAnalyse this resume:\n\n${resumeText.slice(0, 12_000)}`;
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      const parsed = JSON.parse(text) as Partial<ATSAnalysisResult>;
+      const result = await this.generateText(prompt, true);
+      const parsed = JSON.parse(result.text) as Partial<ATSAnalysisResult>;
 
       const analysisResult: ATSAnalysisResult = {
         healthScore: Number(parsed.healthScore ?? 50),
@@ -103,12 +214,12 @@ Return ONLY valid JSON:
         improvements: parsed.improvements ?? [],
       };
 
-      const usageMetadata = result.response.usageMetadata;
       const usage = buildUsage(
-        usageMetadata?.promptTokenCount ?? 0,
-        usageMetadata?.candidatesTokenCount ?? 0,
+        result.inputTokens,
+        result.outputTokens,
         'resume_ats_analysis',
-        this.modelName,
+        result.model,
+        result.provider,
       );
 
       this.logger.log(
@@ -177,24 +288,16 @@ ORIGINAL RESUME:
 ${resumeText.slice(0, 6_000)}`;
 
     try {
-      const model = this.genAI.getGenerativeModel({
-        model: this.modelName,
-        generationConfig: {
-          responseMimeType: 'application/json',
-        },
-      });
-
       const prompt = `System Instructions:\n${systemPrompt}\n\n${userPrompt}`;
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      const tailorResult = parseTailorResult(JSON.parse(text) as unknown);
+      const result = await this.generateText(prompt, true);
+      const tailorResult = parseTailorResult(JSON.parse(result.text) as unknown);
 
-      const usageMetadata = result.response.usageMetadata;
       const usage = buildUsage(
-        usageMetadata?.promptTokenCount ?? 0,
-        usageMetadata?.candidatesTokenCount ?? 0,
+        result.inputTokens,
+        result.outputTokens,
         'resume_tailoring',
-        this.modelName,
+        result.model,
+        result.provider,
       );
 
       this.logger.log(
@@ -213,10 +316,6 @@ ${resumeText.slice(0, 6_000)}`;
     companyName: string;
     previousQuestions: string[];
   }): Promise<{ question: string; usage: AIUsageRecord }> {
-    const model = this.genAI.getGenerativeModel({
-      model: this.modelName,
-      generationConfig: { responseMimeType: 'application/json' },
-    });
     const prompt = `You are an expert interview coach. Generate exactly one fresh, realistic interview question tailored to the candidate's resume and target role at the target company. The question should test a relevant skill or experience, avoid generic questions, and not repeat any prior question. Do not invent confidential company information. Return only JSON: {"question":"..."}.
 
 Target role: ${params.roleTitle}
@@ -227,24 +326,26 @@ Previous questions:
 ${JSON.stringify(params.previousQuestions.slice(-20))}`;
 
     try {
-      const result = await model.generateContent(prompt);
-      const parsed = JSON.parse(result.response.text()) as { question?: unknown };
+      const result = await this.generateText(prompt, true);
+      const parsed = JSON.parse(result.text) as { question?: unknown };
       if (typeof parsed.question !== 'string' || !parsed.question.trim()) {
         throw new Error('AI returned an empty interview question');
       }
-      const metadata = result.response.usageMetadata;
       return {
         question: parsed.question.trim(),
         usage: buildUsage(
-          metadata?.promptTokenCount ?? 0,
-          metadata?.candidatesTokenCount ?? 0,
+          result.inputTokens,
+          result.outputTokens,
           'interview_question',
-          this.modelName,
+          result.model,
+          result.provider,
         ),
       };
     } catch (err) {
       this.logger.error(`Interview question generation failed: ${err.message}`, err.stack);
-      throw new InternalServerErrorException('Could not generate an interview question. Please try again.');
+      throw new InternalServerErrorException(
+        'Could not generate an interview question. Please try again.',
+      );
     }
   }
 
@@ -261,10 +362,6 @@ ${JSON.stringify(params.previousQuestions.slice(-20))}`;
     improvements: string[];
     usage: AIUsageRecord;
   }> {
-    const model = this.genAI.getGenerativeModel({
-      model: this.modelName,
-      generationConfig: { responseMimeType: 'application/json' },
-    });
     const prompt = `Evaluate this candidate's interview answer fairly and specifically for the target role. Score the answer from 1 to 10 (integer), considering relevance, evidence, clarity, and impact. Use resume facts as context, do not penalize an honest answer for not repeating resume wording. Give concise actionable feedback. Return only JSON: {"score":1,"evaluation":"...","strengths":["..."],"improvements":["..."]}.
 
 Target role: ${params.roleTitle}
@@ -275,8 +372,8 @@ Interview question: ${params.question.slice(0, 2000)}
 Candidate answer: ${params.answer.slice(0, 6000)}`;
 
     try {
-      const result = await model.generateContent(prompt);
-      const parsed = JSON.parse(result.response.text()) as {
+      const result = await this.generateText(prompt, true);
+      const parsed = JSON.parse(result.text) as {
         score?: unknown;
         evaluation?: unknown;
         strengths?: unknown;
@@ -286,17 +383,21 @@ Candidate answer: ${params.answer.slice(0, 6000)}`;
       if (!Number.isFinite(numericScore) || typeof parsed.evaluation !== 'string') {
         throw new Error('AI returned an invalid interview evaluation');
       }
-      const metadata = result.response.usageMetadata;
       return {
         score: Math.max(1, Math.min(10, Math.round(numericScore))),
         evaluation: parsed.evaluation,
-        strengths: Array.isArray(parsed.strengths) ? parsed.strengths.filter((item): item is string => typeof item === 'string') : [],
-        improvements: Array.isArray(parsed.improvements) ? parsed.improvements.filter((item): item is string => typeof item === 'string') : [],
+        strengths: Array.isArray(parsed.strengths)
+          ? parsed.strengths.filter((item): item is string => typeof item === 'string')
+          : [],
+        improvements: Array.isArray(parsed.improvements)
+          ? parsed.improvements.filter((item): item is string => typeof item === 'string')
+          : [],
         usage: buildUsage(
-          metadata?.promptTokenCount ?? 0,
-          metadata?.candidatesTokenCount ?? 0,
+          result.inputTokens,
+          result.outputTokens,
           'interview_answer_evaluation',
-          this.modelName,
+          result.model,
+          result.provider,
         ),
       };
     } catch (err) {
@@ -345,20 +446,16 @@ RESUME (source of achievements):
 ${resumeText.slice(0, 4_000)}`;
 
     try {
-      const model = this.genAI.getGenerativeModel({
-        model: this.modelName,
-      });
-
       const prompt = `System Instructions:\n${systemPrompt}\n\n${userPrompt}`;
-      const result = await model.generateContent(prompt);
-      const content = result.response.text().trim();
+      const result = await this.generateText(prompt);
+      const content = result.text.trim();
 
-      const usageMetadata = result.response.usageMetadata;
       const usage = buildUsage(
-        usageMetadata?.promptTokenCount ?? 0,
-        usageMetadata?.candidatesTokenCount ?? 0,
+        result.inputTokens,
+        result.outputTokens,
         `cover_letter_${variant.toLowerCase()}`,
-        this.modelName,
+        result.model,
+        result.provider,
       );
 
       this.logger.log(

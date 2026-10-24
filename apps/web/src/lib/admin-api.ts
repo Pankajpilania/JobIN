@@ -3,6 +3,18 @@
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
+type QueryParams = Record<string, string | number | boolean | null | undefined>;
+
+function queryString(params?: QueryParams): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if (value === undefined || value === null || value === '') continue;
+    query.set(key, String(value));
+  }
+  const serialized = query.toString();
+  return serialized ? `?${serialized}` : '';
+}
+
 async function _getHeaders(): Promise<Record<string, string>> {
   // In Next.js app router, use Clerk's getToken() from the component
   // This module exports a factory so callers can pass the token
@@ -42,16 +54,16 @@ async function request<T>(
 export const getMetrics      = (token: string) => request<any>('/metrics', token);
 
 // ─── Users ────────────────────────────────────────────────────────────────────
-export const listUsers       = (token: string, params?: Record<string, any>) =>
-  request<any>(`/users?${new URLSearchParams(params).toString()}`, token);
+export const listUsers       = (token: string, params?: QueryParams) =>
+  request<any>(`/users${queryString(params)}`, token);
 export const getUserActivity = (token: string, id: string) =>
   request<any>(`/users/${id}/activity`, token);
 export const updateUser      = (token: string, id: string, data: any) =>
   request<any>(`/users/${id}`, token, { method: 'PATCH', body: JSON.stringify(data) });
 
 // ─── Subscriptions ────────────────────────────────────────────────────────────
-export const listSubscriptions = (token: string, params?: Record<string, any>) =>
-  request<any>(`/subscriptions?${new URLSearchParams(params).toString()}`, token);
+export const listSubscriptions = (token: string, params?: QueryParams) =>
+  request<any>(`/subscriptions${queryString(params)}`, token);
 
 // ─── Billing ──────────────────────────────────────────────────────────────────
 export const getBilling = (token: string) => request<any>('/billing', token);
@@ -60,8 +72,8 @@ export const getBilling = (token: string) => request<any>('/billing', token);
 export const getAIUsage = (token: string) => request<any>('/ai-usage', token);
 
 // ─── Tickets ──────────────────────────────────────────────────────────────────
-export const listTickets  = (token: string, params?: Record<string, any>) =>
-  request<any>(`/tickets?${new URLSearchParams(params).toString()}`, token);
+export const listTickets  = (token: string, params?: QueryParams) =>
+  request<any>(`/tickets${queryString(params)}`, token);
 export const updateTicket = (token: string, id: string, data: any) =>
   request<any>(`/tickets/${id}`, token, { method: 'PATCH', body: JSON.stringify(data) });
 export const replyToTicket = (token: string, id: string, content: string) =>

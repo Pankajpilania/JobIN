@@ -9,7 +9,7 @@ export type ApplicationStatus =
 export interface Role { id: string; name: string; description?: string }
 export interface UserRole { userId: string; roleId: string; role: Role; grantedAt: string }
 export interface Plan { id: string; name: string; priceMonthly: number; priceYearly: number; currency: string }
-export interface Subscription { id: string; status: SubscriptionStatus; currentPeriodEnd: string; cancelAtPeriodEnd: boolean; plan: Plan }
+export interface Subscription { id: string; status: SubscriptionStatus; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean; isComplimentary?: boolean; plan: Plan }
 export interface User {
   id: string; clerkId?: string; email: string; fullName: string;
   avatarUrl?: string; country?: string; status: AccountStatus;

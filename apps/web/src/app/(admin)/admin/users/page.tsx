@@ -20,6 +20,8 @@ function UserModal({
   const [status,  setStatus]  = useState('');
   const [credits, setCredits] = useState('');
   const [planId, setPlanId] = useState('');
+  const [planDurationDays, setPlanDurationDays] = useState('30');
+  const [noPlanExpiry, setNoPlanExpiry] = useState(false);
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
 
@@ -36,12 +38,17 @@ function UserModal({
   }, [token, userId, onClose]);
 
   const save = async () => {
+    if (planId && !noPlanExpiry && (!Number.isInteger(Number(planDurationDays)) || Number(planDurationDays) < 1 || Number(planDurationDays) > 3650)) {
+      toast.error('Enter a complimentary plan duration from 1 to 3650 days.');
+      return;
+    }
     setSaving(true);
     try {
       await updateUser(token, userId, {
         status: status,
         grantCredits: credits ? parseInt(credits) : undefined,
         planId: planId || undefined,
+        planDurationDays: planId ? (noPlanExpiry ? null : Number(planDurationDays)) : undefined,
       });
       setSaved(true);
       toast.success('User details updated successfully!');
@@ -168,9 +175,41 @@ function UserModal({
                           </option>
                         ))}
                       </select>
-                      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
-                        The selected plan replaces the current subscription for 30 days.
-                      </span>
+                      {planId && (
+                        <>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-2)', fontSize: 12 }}>
+                            <input
+                              type="checkbox"
+                              checked={noPlanExpiry}
+                              onChange={(event) => setNoPlanExpiry(event.target.checked)}
+                            />
+                            No expiry (until cancelled)
+                          </label>
+                          {!noPlanExpiry && (
+                            <input
+                              type="number"
+                              required
+                              min={1}
+                              max={3650}
+                              value={planDurationDays}
+                              onChange={(event) => setPlanDurationDays(event.target.value)}
+                              aria-label="Complimentary subscription duration in days"
+                              style={{
+                                width: '100%',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border)',
+                                backgroundColor: 'var(--surface)',
+                                padding: '10px 12px',
+                                fontSize: '14px',
+                                color: 'var(--text-1)',
+                              }}
+                            />
+                          )}
+                          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                            This grants a complimentary subscription and replaces the current active plan.
+                          </span>
+                        </>
+                      )}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>

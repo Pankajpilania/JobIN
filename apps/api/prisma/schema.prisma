@@ -10,17 +10,17 @@ datasource db {
 
 /// Core user record. clerkId links this row to Clerk's user object.
 model User {
-  id              String           @id @default(uuid())
-  supabaseId      String?          @unique
-  email           String           @unique
+  id              String                 @id @default(uuid())
+  supabaseId      String?                @unique
+  email           String                 @unique
   fullName        String
   avatarUrl       String?
   country         String?
-  status          AccountStatus    @default(ACTIVE)
+  status          AccountStatus          @default(ACTIVE)
   lastLoginAt     DateTime?
   tenantId        String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
   aiCredits       AICredits?
   aiUsage         AIUsage[]
   auditLogs       AuditLog[]
@@ -83,18 +83,19 @@ model UserRole {
 
 /// Billing plan. e.g. FREE, PREMIUM (£15/mo), PRO (£29/mo), ENTERPRISE
 model Plan {
-  id            String         @id @default(uuid())
-  name          String         @unique
-  stripePriceId String         @unique
-  priceMonthly  Float
-  priceYearly   Float
-  currency      String         @default("GBP")
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  features      PlanFeature[]
-  subscriptions Subscription[]
+  id             String                 @id @default(uuid())
+  name           String                 @unique
+  stripePriceId  String                 @unique
+  priceMonthly   Float
+  priceYearly    Float
+  currency       String                 @default("GBP")
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  features       PlanFeature[]
+  subscriptions  Subscription[]
   manualPayments ManualPaymentRequest[]
+  stripePrices   StripePriceConfig[]
 }
 
 /// Key-value feature flags per plan. e.g. { featureKey: "resume_versions", value: "5" }
@@ -114,9 +115,10 @@ model Subscription {
   status               SubscriptionStatus @default(ACTIVE)
   stripeSubscriptionId String             @unique
   currentPeriodStart   DateTime
-  currentPeriodEnd     DateTime
+  currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean            @default(false)
   cancellationReason   String?
+  isComplimentary      Boolean            @default(false)
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   invoices             Invoice[]
@@ -129,21 +131,35 @@ model Subscription {
 }
 
 model ManualPaymentRequest {
-  id                  String   @id @default(uuid())
-  userId              String
-  planId              String
-  currency            String
-  amount              Float
+  id                   String    @id @default(uuid())
+  userId               String
+  planId               String
+  currency             String
+  amount               Float
   transactionReference String
-  status              String   @default("PENDING")
-  createdAt           DateTime @default(now())
-  reviewedAt          DateTime?
-  reviewedBy          String?
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan                Plan     @relation(fields: [planId], references: [id])
+  paymentMethodLabel   String?
+  status               String    @default("PENDING")
+  createdAt            DateTime  @default(now())
+  reviewedAt           DateTime?
+  reviewedBy           String?
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 Plan      @relation(fields: [planId], references: [id])
 
   @@index([status, createdAt])
   @@index([userId, createdAt])
+}
+
+model ManualPaymentMethod {
+  id             String   @id @default(uuid())
+  currency       String
+  label          String
+  paymentDetails String   @default("")
+  qrUrl          String   @default("")
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([currency, enabled])
 }
 
 model ManualPaymentSettings {
@@ -154,6 +170,33 @@ model ManualPaymentSettings {
   premiumAmount  Float
   proAmount      Float
   updatedAt      DateTime @updatedAt
+}
+
+model StripePriceConfig {
+  id            String   @id @default(uuid())
+  planId        String
+  currency      String
+  interval      String
+  stripePriceId String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  plan          Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, currency, interval])
+}
+
+model AIPlatformSettings {
+  id             String   @id @default("global")
+  activeProvider String
+  activeModel    String
+  baseUrl        String?
+  updatedAt      DateTime @updatedAt
+}
+
+model AIProviderCredential {
+  provider        String   @id
+  encryptedApiKey String?
+  updatedAt       DateTime @updatedAt
 }
 
 /// Payment intent record — one per successful invoice payment

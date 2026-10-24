@@ -1,14 +1,31 @@
 import {
-  Controller, Get, Patch, Post, Body, Param, Query, BadRequestException,
-  UseGuards, Req, HttpCode, HttpStatus,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Body,
+  Param,
+  Query,
+  BadRequestException,
+  UseGuards,
+  Req,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
 import { AdminRoleGuard, RequireAdminRole } from './guards/admin-role.guard';
 import {
-  ListUsersDto, AdminUpdateUserDto,
-  SendNotificationDto, ListSubscriptionsDto, UpdateManualPaymentSettingsDto,
+  ListUsersDto,
+  AdminUpdateUserDto,
+  SendNotificationDto,
+  ListSubscriptionsDto,
+  UpdateManualPaymentSettingsDto,
+  CreateManualPaymentMethodDto,
+  UpdateManualPaymentMethodDto,
+  UpdateStripePricesDto,
+  UpdateAIPlatformSettingsDto,
 } from './dto/admin.dto';
 
 @ApiTags('Admin')
@@ -57,6 +74,61 @@ export class AdminController {
     );
   }
 
+  @Get('payment-methods')
+  @RequireAdminRole('FINANCE_ADMIN')
+  getPaymentMethods() {
+    return this.adminService.getManualPaymentMethods();
+  }
+
+  @Post('payment-methods')
+  @HttpCode(HttpStatus.CREATED)
+  @RequireAdminRole('FINANCE_ADMIN')
+  createPaymentMethod(@Body() dto: CreateManualPaymentMethodDto, @Req() req: any) {
+    return this.adminService.createManualPaymentMethod(req.adminUser?.id ?? 'system', dto, req.ip);
+  }
+
+  @Patch('payment-methods/:id')
+  @HttpCode(HttpStatus.OK)
+  @RequireAdminRole('FINANCE_ADMIN')
+  updatePaymentMethod(
+    @Param('id') id: string,
+    @Body() dto: UpdateManualPaymentMethodDto,
+    @Req() req: any,
+  ) {
+    return this.adminService.updateManualPaymentMethod(
+      req.adminUser?.id ?? 'system',
+      id,
+      dto,
+      req.ip,
+    );
+  }
+
+  @Get('stripe-prices')
+  @RequireAdminRole('FINANCE_ADMIN')
+  getStripePrices() {
+    return this.adminService.getStripePrices();
+  }
+
+  @Post('stripe-prices')
+  @HttpCode(HttpStatus.OK)
+  @RequireAdminRole('FINANCE_ADMIN')
+  updateStripePrices(@Body() dto: UpdateStripePricesDto, @Req() req: any) {
+    return this.adminService.updateStripePrices(req.adminUser?.id ?? 'system', dto, req.ip);
+  }
+
+  @Get('ai-settings')
+  @RequireAdminRole('SUPER_ADMIN')
+  getAIPlatformSettings() {
+    return this.adminService.getAIPlatformSettings();
+  }
+
+  @Post('ai-settings')
+  @HttpCode(HttpStatus.OK)
+  @RequireAdminRole('SUPER_ADMIN')
+  updateAIPlatformSettings(@Body() dto: UpdateAIPlatformSettingsDto, @Req() req: any) {
+    return this.adminService.updateAIPlatformSettings(req.adminUser?.id ?? 'system', dto, req.ip);
+  }
+
   // ─── GET /admin/users ──────────────────────────────────────────────────────
   @Get('users')
   @ApiOperation({ summary: 'Paginated user list with filters' })
@@ -75,12 +147,8 @@ export class AdminController {
   @Patch('users/:id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Suspend/activate user, grant credits, change plan/role' })
-  updateUser(
-    @Param('id') id: string,
-    @Body() dto: AdminUpdateUserDto,
-    @Req() req: any,
-  ) {
-    const adminId   = req.adminUser?.id ?? 'system';
+  updateUser(@Param('id') id: string, @Body() dto: AdminUpdateUserDto, @Req() req: any) {
+    const adminId = req.adminUser?.id ?? 'system';
     const ipAddress = req.ip ?? req.headers?.['x-forwarded-for'];
     return this.adminService.updateUser(adminId, id, dto, ipAddress);
   }
@@ -113,8 +181,8 @@ export class AdminController {
   @ApiOperation({ summary: 'Support tickets inbox' })
   listTickets(
     @Query('status') status?: string,
-    @Query('page')   page?:   number,
-    @Query('limit')  limit?:  number,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
   ) {
     return this.adminService.listTickets(status, page, limit);
   }
@@ -123,12 +191,12 @@ export class AdminController {
   @Patch('tickets/:id')
   @ApiOperation({ summary: 'Update ticket status / assignment' })
   updateTicket(
-    @Param('id')   ticketId:   string,
-    @Body('status') status:    string,
+    @Param('id') ticketId: string,
+    @Body('status') status: string,
     @Body('assignedTo') assignedTo?: string,
     @Req() req?: any,
   ) {
-    const adminId   = req?.adminUser?.id ?? 'system';
+    const adminId = req?.adminUser?.id ?? 'system';
     const ipAddress = req?.ip;
     return this.adminService.updateTicket(adminId, ticketId, status, assignedTo, ipAddress);
   }
@@ -137,11 +205,7 @@ export class AdminController {
   @Post('tickets/:id/reply')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Admin reply to a support ticket' })
-  replyToTicket(
-    @Param('id')    ticketId: string,
-    @Body('content') content: string,
-    @Req() req: any,
-  ) {
+  replyToTicket(@Param('id') ticketId: string, @Body('content') content: string, @Req() req: any) {
     return this.adminService.replyToTicket(req.adminUser?.id ?? 'system', ticketId, content);
   }
 
@@ -151,7 +215,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Send email campaign / in-app notification' })
   @RequireAdminRole('OPERATIONS_ADMIN')
   sendNotification(@Body() dto: SendNotificationDto, @Req() req: any) {
-    const adminId   = req.adminUser?.id ?? 'system';
+    const adminId = req.adminUser?.id ?? 'system';
     const ipAddress = req.ip;
     return this.adminService.sendNotification(adminId, dto, ipAddress);
   }
