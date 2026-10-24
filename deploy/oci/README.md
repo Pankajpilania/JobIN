@@ -7,17 +7,17 @@ This stack is designed to run the Next.js website, NestJS API, PostgreSQL, and C
 - PostgreSQL is self-hosted on the VM and is not exposed to the internet.
 - Supabase Auth, Cloudflare R2, Stripe, Resend, and configured AI providers remain external integrations. OCI Identity Domains remains staged; do not switch authentication until its signing-key access and production login flow are verified.
 
-This is a single-VM design, not a managed-database or high-availability setup. A Cloudflare Tunnel removes the need for inbound public IPv4, but the VM still needs outbound connectivity to Cloudflare, the container registries, and every configured external integration. The current OCI VCN has no IPv6 configured, and a no-public-IPv4 VM without an IPv6 route or NAT gateway cannot reach those services. Do not provision until the OCI networking path and its cost are verified as Always Free.
+This is a single-VM design, not a managed-database or high-availability setup. A Cloudflare Tunnel removes the need for inbound public IPv4, but the VM still needs outbound connectivity to Cloudflare, the container registries, and every configured external integration. The current IPv4-only VCN has a private subnet routed through a NAT gateway for outbound access. The NAT gateway and any related egress charges have not been confirmed as Always Free; verify the tenancy's billing and usage before treating this deployment as strictly Always Free.
 
 ## 1. Check Always Free eligibility and create the VM
 
 Oracle documents the Always Free Ampere A1 allocation as up to 2 OCPUs and 12 GB of memory total, plus 200 GB of block-volume storage. A 47 GB boot volume is the documented minimum. Availability and any existing tenancy usage can reduce what is available. See [OCI Always Free resources](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm) and [Oracle Cloud Free Tier](https://www.oracle.com/cloud/free/).
 
 1. In the OCI Console, select `VM.Standard.A1.Flex`, allocate no more than the remaining Always Free OCPU/memory allowance, and use Oracle Linux 9 (the current instance draft) or Ubuntu 24.04.
-2. Confirm the shape and boot volume are explicitly Always Free eligible and the final estimate does not use trial credits or include paid resources. This deployment does not need an inbound public IPv4, but do not assume that IPv4 egress, NAT, Bastion, or IPv6 networking is free: verify each required item in the tenancy before creating it.
+2. Confirm the shape and boot volume are explicitly Always Free eligible and the final estimate does not use trial credits or include paid resources. This deployment does not need an inbound public IPv4. Verify whether the existing NAT gateway and its egress are included in the tenancy's free allowance; do not assume they are free.
 3. Keep total boot and block volumes within the tenancy's remaining Always Free storage. Do not create a paid load balancer or a separate paid database.
-4. Use OCI Bastion for SSH and do not assign a public IPv4 to the VM. Do not open inbound TCP 22, 80, or 443 to the internet, and do not allow inbound TCP 4000 or 5432. Keep the SSH private key local.
-5. Verify a free outbound path before provisioning. The current VCN is IPv4-only; a VM without a public IPv4 cannot use Cloudflare Tunnel or external integrations until an Always Free IPv6 route is configured and tested, or another genuinely free egress path is confirmed. Do not add a paid NAT gateway or public IPv4 under the strict Always Free requirement.
+4. Do not assign a public IPv4 to the VM or open inbound TCP 22, 80, 443, 4000, or 5432. Keep the SSH private key local. Use the enabled OCI Compute Instance Run Command plugin for provisioning without inbound SSH.
+5. The private subnet already routes `0.0.0.0/0` through the tenancy's NAT gateway. Before relying on this path for deployment traffic, confirm the gateway and expected egress usage do not create charges outside the Always Free allowance. If they do, stop and choose a verified free egress option rather than adding public access.
 
 OCI Always Free resources have limits and may be reclaimed when idle. Monitor the account's usage and alarms; a free-tier label does not guarantee regional capacity.
 
@@ -47,7 +47,13 @@ Changing the registrar nameservers is a separate production DNS cutover. Do not 
 
 ## 3. Install Docker and check out the release
 
-Connect through OCI Bastion using the selected image's default account. Install Docker Engine and the Compose plugin using Docker's official instructions for Oracle Linux 9 or Ubuntu. Verify:
+Use OCI Compute Instance Run Command to provision the private VM; the plugin is enabled and avoids inbound SSH access. The VM needs a dynamic group that matches only its instance OCID and this IAM policy:
+
+```text
+Allow dynamic-group <run-command-instance-group> to use instance-agent-command-execution-family in tenancy where request.instance.id=target.instance.id
+```
+
+The operator creating commands also needs `manage instance-agent-command-family` in the VM's compartment. If the instance is added to a dynamic group after launch, OCI may take up to 30 minutes to start polling for commands. Install Docker Engine and the Compose plugin using Docker's official instructions for Oracle Linux 9 or Ubuntu. Verify:
 
 ```bash
 docker --version
