@@ -62,6 +62,8 @@ services:
         NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
     restart: unless-stopped
     init: true
+    expose:
+      - "3000"
     environment:
       SENTRY_DSN: ${SENTRY_DSN:-}
     healthcheck:
@@ -77,30 +79,29 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  caddy:
-    image: caddy:2-alpine
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.3
     restart: unless-stopped
+    init: true
     depends_on:
       api:
         condition: service_healthy
       web:
         condition: service_healthy
-    environment:
-      ROOT_DOMAIN: ${ROOT_DOMAIN:?Set ROOT_DOMAIN in deploy/oci/.env}
-      WEB_DOMAIN: ${WEB_DOMAIN:?Set WEB_DOMAIN in deploy/oci/.env}
-      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in deploy/oci/.env}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token-file
+      - /run/secrets/cloudflare_tunnel_token
+    secrets:
+      - cloudflare_tunnel_token
     security_opt:
       - no-new-privileges:true
 
+secrets:
+  cloudflare_tunnel_token:
+    file: ./cloudflared-token
+
 volumes:
   postgres_data:
-  caddy_data:
-  caddy_config:

@@ -1,27 +1,27 @@
 # Deploy JobIN to OCI Always Free
 
-This stack is designed to run the Next.js website, NestJS API, PostgreSQL, and Caddy on one OCI Compute VM:
+This stack is designed to run the Next.js website, NestJS API, PostgreSQL, and Cloudflare Tunnel on one OCI Compute VM:
 
-- `jobin.today` and `www.jobin.today` serve the website.
-- `api.jobin.today` serves the API.
+- Cloudflare Tunnel routes `jobin.today` and `www.jobin.today` to the website and `api.jobin.today` to the API.
+- The VM has no inbound application ports; Cloudflare Tunnel makes outbound connections to Cloudflare.
 - PostgreSQL is self-hosted on the VM and is not exposed to the internet.
 - Supabase Auth, Cloudflare R2, Stripe, Resend, and configured AI providers remain external integrations. OCI Identity Domains remains staged; do not switch authentication until its signing-key access and production login flow are verified.
 
-This is a single-VM design, not a managed-database or high-availability setup. The OCI VM has not been production-verified, so do not change production DNS or remove the existing Render/Vercel services until the final checklist passes.
+This is a single-VM design, not a managed-database or high-availability setup. A Cloudflare Tunnel removes the need for inbound public IPv4, but the VM still needs outbound connectivity to Cloudflare, the container registries, and every configured external integration. The current OCI VCN has no IPv6 configured, and a no-public-IPv4 VM without an IPv6 route or NAT gateway cannot reach those services. Do not provision until the OCI networking path and its cost are verified as Always Free.
 
 ## 1. Check Always Free eligibility and create the VM
 
 Oracle documents the Always Free Ampere A1 allocation as up to 2 OCPUs and 12 GB of memory total, plus 200 GB of block-volume storage. A 47 GB boot volume is the documented minimum. Availability and any existing tenancy usage can reduce what is available. See [OCI Always Free resources](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm) and [Oracle Cloud Free Tier](https://www.oracle.com/cloud/free/).
 
-1. In the OCI Console, select `VM.Standard.A1.Flex`, allocate no more than the remaining Always Free OCPU/memory allowance, and select Ubuntu 24.04.
-2. Confirm the shape is explicitly marked Always Free eligible and the final estimate does not use trial credits or include paid resources. Check the public IPv4 and reserved-IP costs too; stop if any charge is shown.
+1. In the OCI Console, select `VM.Standard.A1.Flex`, allocate no more than the remaining Always Free OCPU/memory allowance, and use Oracle Linux 9 (the current instance draft) or Ubuntu 24.04.
+2. Confirm the shape and boot volume are explicitly Always Free eligible and the final estimate does not use trial credits or include paid resources. This deployment does not need an inbound public IPv4, but do not assume that IPv4 egress, NAT, Bastion, or IPv6 networking is free: verify each required item in the tenancy before creating it.
 3. Keep total boot and block volumes within the tenancy's remaining Always Free storage. Do not create a paid load balancer or a separate paid database.
-4. Use the existing public subnet only after confirming its route to the Internet Gateway and its security rules. Allow TCP 22 only from the administrator's trusted IP range, and TCP 80/443 from the internet. Do not allow inbound TCP 4000 or 5432.
-5. Attach a stable public IP only if the Console confirms it remains within the free allowance. Keep the SSH private key local.
+4. Use OCI Bastion for SSH and do not assign a public IPv4 to the VM. Do not open inbound TCP 22, 80, or 443 to the internet, and do not allow inbound TCP 4000 or 5432. Keep the SSH private key local.
+5. Verify a free outbound path before provisioning. The current VCN is IPv4-only; a VM without a public IPv4 cannot use Cloudflare Tunnel or external integrations until an Always Free IPv6 route is configured and tested, or another genuinely free egress path is confirmed. Do not add a paid NAT gateway or public IPv4 under the strict Always Free requirement.
 
 OCI Always Free resources have limits and may be reclaimed when idle. Monitor the account's usage and alarms; a free-tier label does not guarantee regional capacity.
 
-## 2. Configure hostnames and DNS
+## 2. Prepare Cloudflare DNS and Tunnel
 
 The intended mapping is:
 
@@ -31,13 +31,23 @@ The intended mapping is:
 | `www.jobin.today` | Website |
 | `api.jobin.today` | API |
 
-After the VM passes its pre-DNS health checks, create DNS records pointing all three hostnames to its stable public IP. Caddy obtains and renews HTTPS certificates automatically once public DNS resolves to the VM and ports 80/443 are reachable.
+The Cloudflare Free zone has been added but is pending until its registrar nameservers are changed. Its automatic scan imported five DNS records, including current website records. Treat this as a partial scan, not a complete backup: export the authoritative GoDaddy zone and compare every record, especially MX, SPF, DKIM, DMARC, verification, and service records. Do not delete or replace the existing Vercel/Render records during preparation.
 
-Do not point production DNS at an unverified instance. Until the domain cutover, keep the existing production records unchanged.
+Create a remotely managed Cloudflare Tunnel named `jobin-oci`. Store its token only in the protected `deploy/oci/cloudflared-token` file on the VM; do not commit it or paste it into chat. The Compose service reads the token from a mounted secret file instead of putting it in its command line or container environment. Add these published application routes in Cloudflare:
+
+| Public hostname | Service URL |
+| --- | --- |
+| `jobin.today` | `http://web:3000` |
+| `www.jobin.today` | `http://web:3000` |
+| `api.jobin.today` | `http://api:4000` |
+
+Cloudflare must be able to resolve the service names on the Compose network. The `cloudflared` service joins that network and has no published ports. Cloudflare terminates public HTTPS; the tunnel connection to these internal HTTP services is carried over the outbound tunnel.
+
+Changing the registrar nameservers is a separate production DNS cutover. Do not do it until all old DNS records have been checked, the OCI app and tunnel are healthy, and a non-production hostname has passed end-to-end tests. Keep the existing production records until a deliberate final cutover.
 
 ## 3. Install Docker and check out the release
 
-Connect to the instance as the Ubuntu account. Install Docker Engine and the Compose plugin using Docker's official Ubuntu instructions. Verify:
+Connect through OCI Bastion using the selected image's default account. Install Docker Engine and the Compose plugin using Docker's official instructions for Oracle Linux 9 or Ubuntu. Verify:
 
 ```bash
 docker --version
@@ -61,6 +71,13 @@ ${EDITOR:-vi} deploy/oci/.env
 Replace the PostgreSQL password with the output of `openssl rand -hex 32`. Keep the password URL-safe; Compose uses it in the private database connection string. Fill in the Supabase project URL and public anon key used by the existing sign-in flow, plus all required API credentials. Keep real values only in the VM's protected `deploy/oci/.env`; do not commit or paste them into chat.
 
 The web image receives `NEXT_PUBLIC_*` values at build time. The provided Compose file builds the site with `NEXT_PUBLIC_API_URL=https://api.jobin.today/api` and the existing Supabase sign-in provider. Rebuild the web image after changing those public settings.
+
+Create a private token file from the tunnel token shown in Cloudflare. Do not print the token in terminal output or include it in `.env`:
+
+```bash
+install -m 600 /dev/null deploy/oci/cloudflared-token
+${EDITOR:-vi} deploy/oci/cloudflared-token
+```
 
 The API starts Prisma migrations on startup. For a database move, do not start the API against an empty database and then restore over it. First check the current Supabase PostgreSQL server version, take a tested backup, and use a compatible PostgreSQL image by setting `POSTGRES_IMAGE` if needed.
 
@@ -104,29 +121,31 @@ cd /opt/jobin
 docker compose --env-file deploy/oci/.env -f deploy/oci/compose.yaml config
 docker compose --env-file deploy/oci/.env -f deploy/oci/compose.yaml up -d --build
 docker compose --env-file deploy/oci/.env -f deploy/oci/compose.yaml ps
-docker compose --env-file deploy/oci/.env -f deploy/oci/compose.yaml logs --tail=200 db api web caddy
+docker compose --env-file deploy/oci/.env -f deploy/oci/compose.yaml logs --tail=200 db api web cloudflared
 ```
 
-The database is available only on the Docker network. Only Caddy publishes ports 80/443; do not publish PostgreSQL or the API port. Confirm the `db`, `api`, and `web` services are healthy before testing the site.
+The database and application services are available only on the Docker network. No container publishes a host port. Confirm the `db`, `api`, and `web` services are healthy, then confirm `cloudflared` reports a healthy, connected tunnel in Cloudflare.
 
-Before changing DNS, test the API readiness endpoint and website directly against the VM's public IP using the intended Host header:
+Before changing production DNS, test the API readiness endpoint and website locally on the VM:
 
 ```bash
-curl --fail -H "Host: api.jobin.today" http://<OCI_PUBLIC_IP>/api/health
-curl --fail -H "Host: api.jobin.today" http://<OCI_PUBLIC_IP>/api/health/ready
-curl --fail -H "Host: www.jobin.today" http://<OCI_PUBLIC_IP>/
+docker compose --env-file deploy/oci/.env -f deploy/oci/compose.yaml exec api \
+  node -e "Promise.all(['/api/health','/api/health/ready'].map(async p => { const r = await fetch('http://127.0.0.1:4000' + p); if (!r.ok) process.exitCode = 1; console.log(p, r.status); }))"
+docker compose --env-file deploy/oci/.env -f deploy/oci/compose.yaml exec web \
+  node -e "fetch('http://127.0.0.1:3000/').then(r => { console.log('/', r.status); if (r.status >= 500) process.exitCode = 1; })"
 ```
 
-Then verify sign-in, database reads and writes, uploads/downloads, email, AI-provider calls, Stripe webhooks, CORS from both website hostnames, and extension access. Do not set `AUTH_PROVIDER=oci` until OCI signing-key access and the full login flow are verified.
+Test a temporary Cloudflare Tunnel hostname and verify sign-in, database reads and writes, uploads/downloads, email, AI-provider calls, Stripe webhooks, CORS, and extension access. Use test credentials and test integrations where available. Do not set `AUTH_PROVIDER=oci` until OCI signing-key access and the full login flow are verified.
 
 ## 6. Cut over after verification
 
-Only after database and direct-IP smoke checks pass:
+Only after the full Cloudflare-zone audit, database checks, and non-production tunnel smoke tests pass:
 
-1. Point `jobin.today`, `www.jobin.today`, and `api.jobin.today` to the OCI public IP.
-2. Wait for DNS propagation and confirm Caddy obtains valid TLS certificates for all three names.
-3. Test the production website, API health/readiness, authentication, critical workflows, integrations, and extension builds against the public names.
-4. Keep the old database backup until the new service has passed its agreed observation period. Once the OCI cutover is confirmed, remove the Render service as requested. Vercel can also be retired after the OCI-hosted website is verified.
+1. Change the GoDaddy registrar nameservers to the Cloudflare nameservers. Do not transfer the domain registration.
+2. Confirm the complete existing DNS zone is resolving through Cloudflare and the old production website, API, and mail records still work.
+3. Add/enable the Cloudflare Tunnel routes for `jobin.today`, `www.jobin.today`, and `api.jobin.today`, then verify HTTPS and application behavior on all three.
+4. Test the production website, API health/readiness, authentication, critical workflows, integrations, and extension builds against the public names.
+5. Keep the old database backup until the new service has passed its agreed observation period. Once the OCI cutover is confirmed, remove the Render service as requested. Vercel can also be retired after the OCI-hosted website is verified.
 
 Build and publish an extension release configured with `VITE_API_URL=https://api.jobin.today/api`; do this only after the API is verified. Existing extension installations may continue using their bundled API URL until updated.
 
@@ -144,4 +163,4 @@ docker compose --env-file deploy/oci/.env -f deploy/oci/compose.yaml up -d --bui
 docker compose --env-file deploy/oci/.env -f deploy/oci/compose.yaml ps
 ```
 
-Caddy certificate state and PostgreSQL data are stored in Docker volumes. Back up PostgreSQL independently and test restores regularly. Monitor free-tier usage, disk space, container health, and OCI idle-resource notifications.
+PostgreSQL data is stored in a Docker volume. Back it up independently and test restores regularly. Monitor free-tier usage, disk space, container health, and OCI idle-resource notifications.
