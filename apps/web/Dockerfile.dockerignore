@@ -1,0 +1,15 @@
+**
+!package.json
+!package-lock.json
+!apps/
+!apps/api/
+!apps/api/package.json
+!apps/web/
+!apps/web/**
+!apps/extension/
+!apps/extension/package.json
+apps/web/node_modules
+apps/web/.next
+apps/web/.env*
+apps/web/**/*.log
+apps/web/**/*.tsbuildinfo
