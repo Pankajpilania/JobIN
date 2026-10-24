@@ -47,13 +47,19 @@ Changing the registrar nameservers is a separate production DNS cutover. Do not 
 
 ## 3. Install Docker and check out the release
 
-Use OCI Compute Instance Run Command to provision the private VM; the plugin is enabled and avoids inbound SSH access. The VM needs a dynamic group that matches only its instance OCID and this IAM policy:
+Use OCI Compute Instance Run Command for diagnostics and non-root setup; the plugin is enabled and avoids inbound SSH access. On the current Oracle Linux image, Run Command executes as `ocarun`, which is not root and cannot use `sudo` by default. Do not assume Run Command can install system packages, and never include secrets in command content because OCI retains it.
+
+For privileged setup without assigning a public IP, use a temporary OCI Bastion session. Prefer managed SSH when the Bastion plugin is running. If it is not, use SSH port forwarding and temporarily allow TCP 22 only from the Bastion's private endpoint `/32` in the private subnet. Remove the temporary ingress rule and Bastion session when finished; never expose SSH to `0.0.0.0/0`.
+
+The VM needs a dynamic group that matches only its instance OCID and this IAM policy:
 
 ```text
 Allow dynamic-group <run-command-instance-group> to use instance-agent-command-execution-family in tenancy where request.instance.id=target.instance.id
 ```
 
-The operator creating commands also needs `manage instance-agent-command-family` in the VM's compartment. If the instance is added to a dynamic group after launch, OCI may take up to 30 minutes to start polling for commands. Install Docker Engine and the Compose plugin using Docker's official instructions for Oracle Linux 9 or Ubuntu. Verify:
+The operator creating commands also needs `manage instance-agent-command-family` in the VM's compartment. If the instance is added to a dynamic group after launch, OCI may take up to 30 minutes to start polling for commands.
+
+Docker does not list Oracle Linux among its supported installation platforms. On the current Oracle Linux 9.8 VM, Docker Engine and Compose were installed from Docker's RHEL repository and verified, but Docker's support for this Oracle Linux derivative is unverified. For a vendor-supported deployment, use Ubuntu 24.04 or another distribution on Docker's supported-platform list and follow its official instructions. Verify:
 
 ```bash
 docker --version
