@@ -53,6 +53,11 @@ function getSafeReturnTo(value: string | undefined) {
     : '/dashboard';
 }
 
+function resetIdleTracking(userId: string) {
+  window.localStorage.setItem(`jobin:last-activity:${userId}`, String(Date.now()));
+  window.localStorage.removeItem(`jobin:idle-signout:${userId}`);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   return OCI_ENABLED ? (
     <OciSessionProvider>{children}</OciSessionProvider>
@@ -174,9 +179,12 @@ function SupabaseSessionProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       eventVersion.current += 1;
       if (active) {
+        if (event === 'SIGNED_IN' && nextSession?.user.id) {
+          resetIdleTracking(nextSession.user.id);
+        }
         setSession(nextSession);
         setIsReady(true);
       }
@@ -288,6 +296,9 @@ function Auth0SessionProvider({ children }: { children: React.ReactNode }) {
 
       const [authenticated, user] = await Promise.all([auth0.isAuthenticated(), auth0.getUser()]);
       if (!active) return;
+      if (callbackReturnTo && authenticated && user?.sub) {
+        resetIdleTracking(user.sub);
+      }
       setIdentity(authenticated && user?.sub ? { ...user, sub: user.sub } : null);
       setIsReady(true);
       if (callbackReturnTo && callbackReturnTo !== window.location.pathname) {
@@ -439,6 +450,9 @@ function OciSessionProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!active) return;
+      if (callbackReturnTo && user && !user.expired && typeof user.profile.sub === 'string') {
+        resetIdleTracking(user.profile.sub);
+      }
       updateIdentity(user);
       setIsReady(true);
       if (callbackReturnTo && callbackReturnTo !== window.location.pathname) {
