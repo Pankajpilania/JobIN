@@ -4,9 +4,9 @@
  */
 
 import { detectBoard, isJobPage } from './detector';
-import { extractWithRetry }       from './extractor';
+import { extractWithRetry } from './extractor';
 import { injectBadge, updateBadgeScore, removeBadge } from './badge';
-import { MSG }                    from '../shared/messages';
+import { MSG } from '../shared/messages';
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
@@ -81,12 +81,18 @@ const observer = new MutationObserver(onUrlChange);
 observer.observe(document.body, { childList: true, subtree: true });
 
 // Also hook into history API
-const origPushState    = history.pushState.bind(history);
+const origPushState = history.pushState.bind(history);
 const origReplaceState = history.replaceState.bind(history);
-history.pushState    = (...args) => { origPushState(...args);    onUrlChange(); };
-history.replaceState = (...args) => { origReplaceState(...args); onUrlChange(); };
+history.pushState = (...args) => {
+  origPushState(...args);
+  onUrlChange();
+};
+history.replaceState = (...args) => {
+  origReplaceState(...args);
+  onUrlChange();
+};
 window.addEventListener('popstate', onUrlChange);
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 
-main().catch(err => console.error('[JobIN Content]', err));
+main().catch((err) => console.error('[JobIN Content]', err));

@@ -1,12 +1,16 @@
 import {
-  CanActivate, ExecutionContext, Injectable, ForbiddenException, Logger,
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /** Roles that are allowed to access admin endpoints */
 const ADMIN_ROLES = ['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN', 'FINANCE_ADMIN'] as const;
-type AdminRole = typeof ADMIN_ROLES[number];
+type AdminRole = (typeof ADMIN_ROLES)[number];
 
 export const REQUIRED_ADMIN_ROLE_KEY = 'requiredAdminRole';
 
@@ -19,8 +23,8 @@ export class AdminRoleGuard implements CanActivate {
   private readonly logger = new Logger(AdminRoleGuard.name);
 
   constructor(
-    private readonly prisma:     PrismaService,
-    private readonly reflector:  Reflector,
+    private readonly prisma: PrismaService,
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -33,7 +37,7 @@ export class AdminRoleGuard implements CanActivate {
 
     // Load user + roles from the database
     const user = await this.prisma.user.findUnique({
-      where:   { supabaseId: supabaseUser.id },
+      where: { supabaseId: supabaseUser.id },
       include: { roles: { include: { role: true } } },
     });
 
@@ -45,8 +49,8 @@ export class AdminRoleGuard implements CanActivate {
       throw new ForbiddenException('Account suspended');
     }
 
-    const userRoles = user.roles.map(ur => ur.role.name);
-    const hasAdminRole = userRoles.some(r => ADMIN_ROLES.includes(r as AdminRole));
+    const userRoles = user.roles.map((ur) => ur.role.name);
+    const hasAdminRole = userRoles.some((r) => ADMIN_ROLES.includes(r as AdminRole));
 
     if (!hasAdminRole) {
       this.logger.warn(`Admin access denied for user ${user.id} (roles: ${userRoles.join(', ')})`);
@@ -54,10 +58,7 @@ export class AdminRoleGuard implements CanActivate {
     }
 
     // Optional: check a specific role required by the handler
-    const required = this.reflector.get<AdminRole>(
-      REQUIRED_ADMIN_ROLE_KEY,
-      ctx.getHandler(),
-    );
+    const required = this.reflector.get<AdminRole>(REQUIRED_ADMIN_ROLE_KEY, ctx.getHandler());
     if (required && !userRoles.includes(required) && !userRoles.includes('SUPER_ADMIN')) {
       throw new ForbiddenException(`Role ${required} required for this action`);
     }

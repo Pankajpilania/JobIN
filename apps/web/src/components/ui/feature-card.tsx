@@ -20,7 +20,12 @@ export const FeatureCard: React.FC<FeatureCardProps> = ({
 }) => {
   return (
     <Card className={cn('flex flex-col gap-4 hover:-translate-y-1 duration-200', className)}>
-      <div className={cn('inline-flex h-11 w-11 items-center justify-center rounded-[10px] border flex-shrink-0', iconBgClass)}>
+      <div
+        className={cn(
+          'inline-flex h-11 w-11 items-center justify-center rounded-[10px] border flex-shrink-0',
+          iconBgClass,
+        )}
+      >
         <Icon className="h-5 w-5" />
       </div>
       <div>

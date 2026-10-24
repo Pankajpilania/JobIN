@@ -31,7 +31,15 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, background: 'var(--surface)' }}>
+    <main
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        padding: 24,
+        background: 'var(--surface)',
+      }}
+    >
       <Card hoverEffect={false} style={{ width: '100%', maxWidth: 440, display: 'grid', gap: 18 }}>
         <header>
           <h1 style={{ color: 'var(--text-1)', margin: 0 }}>Reset your password</h1>
@@ -42,11 +50,20 @@ export default function ForgotPasswordPage() {
 
         {sent ? (
           <p role="status" style={{ color: 'var(--text-2)', margin: 0 }}>
-            If an account matches that email, a reset link will arrive shortly. Check your inbox and spam folder.
+            If an account matches that email, a reset link will arrive shortly. Check your inbox and
+            spam folder.
           </p>
         ) : (
           <form onSubmit={submit} style={{ display: 'grid', gap: 14 }}>
-            <label style={{ display: 'grid', gap: 6, color: 'var(--text-2)', fontSize: 13, fontWeight: 700 }}>
+            <label
+              style={{
+                display: 'grid',
+                gap: 6,
+                color: 'var(--text-2)',
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
               Email address
               <input
                 type="email"
@@ -54,17 +71,32 @@ export default function ForgotPasswordPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                style={{ width: '100%', boxSizing: 'border-box', padding: 11, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)' }}
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: 11,
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text-1)',
+                }}
               />
             </label>
-            {error && <p role="alert" style={{ color: 'var(--danger, #dc2626)', margin: 0 }}>{error}</p>}
+            {error && (
+              <p role="alert" style={{ color: 'var(--danger, #dc2626)', margin: 0 }}>
+                {error}
+              </p>
+            )}
             <Button type="submit" disabled={loading}>
               {loading ? 'Sending…' : 'Send reset link'}
             </Button>
           </form>
         )}
 
-        <Link href="/sign-in" style={{ color: 'var(--brand)', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
+        <Link
+          href="/sign-in"
+          style={{ color: 'var(--brand)', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}
+        >
           Back to sign in
         </Link>
       </Card>

@@ -5,10 +5,7 @@ export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
-  const cookieMutations = new Map<
-    string,
-    { value: string; options?: CookieOptions }
-  >();
+  const cookieMutations = new Map<string, { value: string; options?: CookieOptions }>();
 
   const refreshResponse = () => {
     supabaseResponse = NextResponse.next({ request });
@@ -36,7 +33,7 @@ export async function middleware(request: NextRequest) {
           refreshResponse();
         },
       },
-    }
+    },
   );
 
   const {

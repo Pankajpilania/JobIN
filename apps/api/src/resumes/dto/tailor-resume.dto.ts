@@ -4,7 +4,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class TailorResumeDto {
   @ApiProperty({
     description: 'The full job description text to tailor the resume against',
-    example: 'We are looking for a Senior Software Engineer with 5+ years of experience in TypeScript...',
+    example:
+      'We are looking for a Senior Software Engineer with 5+ years of experience in TypeScript...',
     minLength: 50,
   })
   @IsString()

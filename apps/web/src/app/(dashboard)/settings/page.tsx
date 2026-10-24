@@ -48,27 +48,48 @@ function Section({
         padding: '24px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px'
+        gap: '20px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{
+      <div
+        style={{
           display: 'flex',
-          height: '40px',
-          width: '40px',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: '10px',
-          backgroundColor: 'var(--brand-light)',
-          color: 'var(--brand)',
-          border: '1px solid rgba(79, 70, 229, 0.2)',
-          flexShrink: 0
-        }}>
+          alignItems: 'flex-start',
+          gap: '16px',
+          paddingBottom: '16px',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            height: '40px',
+            width: '40px',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '10px',
+            backgroundColor: 'var(--brand-light)',
+            color: 'var(--brand)',
+            border: '1px solid rgba(79, 70, 229, 0.2)',
+            flexShrink: 0,
+          }}
+        >
           <Icon style={{ height: '20px', width: '20px' }} />
         </div>
         <div>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{title}</h2>
-          <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: '4px 0 0 0', fontWeight: 500 }}>{description}</p>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
+            {title}
+          </h2>
+          <p
+            style={{
+              fontSize: '13px',
+              color: 'var(--text-3)',
+              margin: '4px 0 0 0',
+              fontWeight: 500,
+            }}
+          >
+            {description}
+          </p>
         </div>
       </div>
       {children}
@@ -96,7 +117,12 @@ function Input({
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      <label htmlFor={`settings-${label.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-2)' }}>{label}</label>
+      <label
+        htmlFor={`settings-${label.toLowerCase().replace(/\s+/g, '-')}`}
+        style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-2)' }}
+      >
+        {label}
+      </label>
       <div style={{ position: 'relative' }}>
         <input
           id={`settings-${label.toLowerCase().replace(/\s+/g, '-')}`}
@@ -116,11 +142,22 @@ function Input({
             outline: 'none',
             transition: 'var(--transition)',
             opacity: disabled ? 0.5 : 1,
-            cursor: disabled ? 'not-allowed' : 'text'
+            cursor: disabled ? 'not-allowed' : 'text',
           }}
         />
         {suffix && (
-          <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>{suffix}</div>
+          <div
+            style={{
+              position: 'absolute',
+              right: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            {suffix}
+          </div>
         )}
       </div>
     </div>
@@ -132,19 +169,19 @@ export default function SettingsPage() {
   const router = useRouter();
 
   // Profile state
-  const [fullName, setFullName]   = useState('');
-  const [email, setEmail]         = useState('');
-  const [country, setCountry]     = useState('');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [country, setCountry] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Password state
-  const [newPassword, setNewPassword]     = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPw, setShowPw]               = useState(false);
-  const [savingPw, setSavingPw]           = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [savingPw, setSavingPw] = useState(false);
 
   // Danger zone
-  const [deleting, setDeleting]           = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [loaded, setLoaded] = useState(false);
 
@@ -152,7 +189,10 @@ export default function SettingsPage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       const u = data?.user;
-      if (!u) { router.push('/sign-in'); return; }
+      if (!u) {
+        router.push('/sign-in');
+        return;
+      }
       setEmail(u.email ?? '');
       setFullName(u.user_metadata?.full_name ?? '');
       setCountry(u.user_metadata?.country ?? '');
@@ -163,20 +203,98 @@ export default function SettingsPage() {
   // Show loading skeleton while session is being fetched
   if (!loaded) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '640px', margin: '0 auto', animation: 'pulse 1.5s infinite' }}>
-        <div style={{ height: '32px', width: '192px', borderRadius: '8px', backgroundColor: 'var(--surface-2)', border: '1px solid var(--border)' }} />
-        <div style={{ height: '16px', width: '288px', borderRadius: '8px', backgroundColor: 'var(--surface-2)' }} />
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px',
+          maxWidth: '640px',
+          margin: '0 auto',
+          animation: 'pulse 1.5s infinite',
+        }}
+      >
+        <div
+          style={{
+            height: '32px',
+            width: '192px',
+            borderRadius: '8px',
+            backgroundColor: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+          }}
+        />
+        <div
+          style={{
+            height: '16px',
+            width: '288px',
+            borderRadius: '8px',
+            backgroundColor: 'var(--surface-2)',
+          }}
+        />
         {[1, 2, 3].map((i) => (
-          <div key={i} style={{ borderRadius: '12px', border: '1px solid var(--border)', backgroundColor: 'var(--surface)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ height: '40px', width: '40px', borderRadius: '10px', backgroundColor: 'var(--surface-2)' }} />
+          <div
+            key={i}
+            style={{
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+              backgroundColor: 'var(--surface)',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                paddingBottom: '16px',
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
+              <div
+                style={{
+                  height: '40px',
+                  width: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--surface-2)',
+                }}
+              />
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ height: '16px', width: '128px', borderRadius: '4px', backgroundColor: 'var(--surface-2)' }} />
-                <div style={{ height: '12px', width: '192px', borderRadius: '4px', backgroundColor: 'var(--surface-2)' }} />
+                <div
+                  style={{
+                    height: '16px',
+                    width: '128px',
+                    borderRadius: '4px',
+                    backgroundColor: 'var(--surface-2)',
+                  }}
+                />
+                <div
+                  style={{
+                    height: '12px',
+                    width: '192px',
+                    borderRadius: '4px',
+                    backgroundColor: 'var(--surface-2)',
+                  }}
+                />
               </div>
             </div>
-            <div style={{ height: '40px', width: '100%', borderRadius: '8px', backgroundColor: 'var(--surface-2)' }} />
-            <div style={{ height: '40px', width: '100%', borderRadius: '8px', backgroundColor: 'var(--surface-2)' }} />
+            <div
+              style={{
+                height: '40px',
+                width: '100%',
+                borderRadius: '8px',
+                backgroundColor: 'var(--surface-2)',
+              }}
+            />
+            <div
+              style={{
+                height: '40px',
+                width: '100%',
+                borderRadius: '8px',
+                backgroundColor: 'var(--surface-2)',
+              }}
+            />
           </div>
         ))}
       </div>
@@ -242,7 +360,10 @@ export default function SettingsPage() {
     if (!confirmed) return;
     setDeleting(true);
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!session) throw new Error('Your session has expired. Sign in and try again.');
 
@@ -260,26 +381,52 @@ export default function SettingsPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '640px', margin: '0 auto', paddingBottom: '40px' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '24px',
+        maxWidth: '640px',
+        margin: '0 auto',
+        paddingBottom: '40px',
+      }}
+    >
       {/* Page header */}
       <div>
-        <h1 style={{ fontSize: '32px', fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-1.2px' }}>
+        <h1
+          style={{
+            fontSize: '32px',
+            fontWeight: 800,
+            color: 'var(--text-1)',
+            margin: 0,
+            letterSpacing: '-1.2px',
+          }}
+        >
           Settings
         </h1>
-        <p style={{ marginTop: '4px', color: 'var(--text-2)', fontSize: '14px', fontWeight: 500, margin: '4px 0 0 0' }}>
+        <p
+          style={{
+            marginTop: '4px',
+            color: 'var(--text-2)',
+            fontSize: '14px',
+            fontWeight: 500,
+            margin: '4px 0 0 0',
+          }}
+        >
           Manage your account, security, and preferences.
         </p>
       </div>
 
       {/* ── Profile ── */}
       <Section icon={User} title="Profile" description="Update your personal information.">
-        <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          <Input
-            label="Full Name"
-            value={fullName}
-            onChange={setFullName}
-            placeholder="Jane Doe"
-          />
+        <div
+          style={{
+            display: 'grid',
+            gap: '16px',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          }}
+        >
+          <Input label="Full Name" value={fullName} onChange={setFullName} placeholder="Jane Doe" />
           <Input
             label="Country"
             value={country}
@@ -313,7 +460,7 @@ export default function SettingsPage() {
             cursor: 'pointer',
             transition: 'var(--transition)',
             alignSelf: 'flex-start',
-            boxShadow: 'var(--shadow-sm)'
+            boxShadow: 'var(--shadow-sm)',
           }}
         >
           <Save style={{ height: '16px', width: '16px' }} />
@@ -339,9 +486,21 @@ export default function SettingsPage() {
               onClick={() => setShowPw((p) => !p)}
               aria-label={showPw ? 'Hide password' : 'Show password'}
               aria-pressed={showPw}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: 'var(--text-3)' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                color: 'var(--text-3)',
+              }}
             >
-              {showPw ? <EyeOff style={{ height: '16px', width: '16px' }} /> : <Eye style={{ height: '16px', width: '16px' }} />}
+              {showPw ? (
+                <EyeOff style={{ height: '16px', width: '16px' }} />
+              ) : (
+                <Eye style={{ height: '16px', width: '16px' }} />
+              )}
             </button>
           }
         />
@@ -370,7 +529,7 @@ export default function SettingsPage() {
             transition: 'var(--transition)',
             alignSelf: 'flex-start',
             boxShadow: 'var(--shadow-sm)',
-            opacity: (savingPw || !newPassword) ? 0.5 : 1
+            opacity: savingPw || !newPassword ? 0.5 : 1,
           }}
         >
           <CheckCircle style={{ height: '16px', width: '16px' }} />
@@ -413,7 +572,7 @@ export default function SettingsPage() {
               fontWeight: 600,
               color: 'var(--text-2)',
               cursor: 'pointer',
-              transition: 'var(--transition)'
+              transition: 'var(--transition)',
             }}
             onMouseOver={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--border)';
@@ -428,12 +587,30 @@ export default function SettingsPage() {
             Sign out of JobIN
           </button>
 
-          <div style={{ borderRadius: '10px', border: '1px solid #FCA5A5', backgroundColor: '#FEF2F2', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div
+            style={{
+              borderRadius: '10px',
+              border: '1px solid #FCA5A5',
+              backgroundColor: '#FEF2F2',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
               <AlertTriangle style={{ height: '18px', width: '18px' }} />
               <p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>Danger Zone</p>
             </div>
-            <p style={{ fontSize: '12px', color: '#B91C1C', lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
+            <p
+              style={{
+                fontSize: '12px',
+                color: '#B91C1C',
+                lineHeight: 1.5,
+                margin: 0,
+                fontWeight: 500,
+              }}
+            >
               Deactivate your JobIN profile. This blocks access to JobIN with this account, but does
               not delete your authentication-provider account or permanently erase associated data.
             </p>
@@ -453,10 +630,10 @@ export default function SettingsPage() {
                 color: '#EF4444',
                 cursor: 'pointer',
                 transition: 'var(--transition)',
-                alignSelf: 'flex-start'
+                alignSelf: 'flex-start',
               }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#FCA5A5'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#FEE2E2'}
+              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#FCA5A5')}
+              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#FEE2E2')}
             >
               <Trash2 style={{ height: '16px', width: '16px' }} />
               {deleting ? 'Deactivating…' : 'Deactivate JobIN Profile'}

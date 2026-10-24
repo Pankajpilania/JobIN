@@ -6,11 +6,11 @@ import { apiClient } from '@/lib/api-client';
 import type { CoverLetter, CoverLetterListItem, CoverLetterVariant } from '@/types';
 
 interface GeneratePayload {
-  resumeId:          string;
-  jobTitle:          string;
-  companyName:       string;
-  jobDescription:    string;
-  variant:           CoverLetterVariant;
+  resumeId: string;
+  jobTitle: string;
+  companyName: string;
+  jobDescription: string;
+  variant: CoverLetterVariant;
   hiringManagerName?: string;
 }
 
@@ -18,8 +18,8 @@ export function useCoverLetters() {
   const { getToken, isSignedIn } = useAuth();
   return useQuery<CoverLetterListItem[]>({
     queryKey: ['cover-letters'],
-    enabled:  !!isSignedIn,
-    queryFn:  async () => {
+    enabled: !!isSignedIn,
+    queryFn: async () => {
       const token = await getToken();
       return apiClient.get<CoverLetterListItem[]>('/cover-letters', token ?? undefined);
     },
@@ -30,8 +30,8 @@ export function useCoverLetter(id: string | null) {
   const { getToken } = useAuth();
   return useQuery<CoverLetter>({
     queryKey: ['cover-letters', id],
-    enabled:  !!id,
-    queryFn:  async () => {
+    enabled: !!id,
+    queryFn: async () => {
       const token = await getToken();
       return apiClient.get<CoverLetter>(`/cover-letters/${id}`, token ?? undefined);
     },

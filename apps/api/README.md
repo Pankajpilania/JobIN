@@ -11,3 +11,5 @@ IMPORTANT: After deploying to Render, sign up at [uptimerobot.com](https://uptim
 ## Admin-managed AI providers
 
 Set `AI_SETTINGS_ENCRYPTION_KEY` in the API environment before saving provider keys from Admin → AI settings. Generate a key with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"` and keep it stable; changing it makes previously encrypted provider keys unreadable. The key itself must never be committed or shared. Ollama must use a hosted endpoint reachable from the Render API service.
+
+Stripe customer-portal management and subscription cancellation require a valid `STRIPE_SECRET_KEY` on the API service. Admin user deletion also requires `SUPABASE_SERVICE_ROLE_KEY`; deletion is restricted to super admins and removes the linked authentication account and stored resume files.

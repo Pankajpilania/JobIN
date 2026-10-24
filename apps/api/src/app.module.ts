@@ -24,22 +24,22 @@ import { InterviewModule } from './interview/interview.module';
     ScheduleModule.forRoot(),
 
     // ─── Global infrastructure ────────────────────────────────────────────
-    PrismaModule,        // @Global
-    S3Module,            // @Global
-    AIModule,            // @Global
-    ExportModule,        // @Global (Sprint 3)
-    EmailModule,         // @Global (Sprint 6)
+    PrismaModule, // @Global
+    S3Module, // @Global
+    AIModule, // @Global
+    ExportModule, // @Global (Sprint 3)
+    EmailModule, // @Global (Sprint 6)
 
     // ─── Feature modules ──────────────────────────────────────────────────
     HealthModule,
     UsersModule,
-    ResumesModule,       // Sprint 2
-    CoverLettersModule,  // Sprint 3
-    JobTrackerModule,    // Sprint 4
+    ResumesModule, // Sprint 2
+    CoverLettersModule, // Sprint 3
+    JobTrackerModule, // Sprint 4
     DashboardModule,
     InterviewModule,
-    BillingModule,       // Sprint 4 — Stripe
-    AdminModule,         // Sprint 6 — Admin Portal
+    BillingModule, // Sprint 4 — Stripe
+    AdminModule, // Sprint 6 — Admin Portal
   ],
 })
 export class AppModule {}

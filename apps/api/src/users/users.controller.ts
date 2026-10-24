@@ -8,11 +8,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
@@ -39,10 +35,7 @@ export class UsersController {
   @UseGuards(SupabaseAuthGuard)
   @ApiBearerAuth('SupabaseJWT')
   @ApiOperation({ summary: "Update the authenticated user's profile" })
-  async updateMe(
-    @CurrentUser() user: SupabaseUserPayload,
-    @Body() dto: UpdateUserDto,
-  ) {
+  async updateMe(@CurrentUser() user: SupabaseUserPayload, @Body() dto: UpdateUserDto) {
     return this.usersService.updateBySupabaseId(user.id, dto);
   }
 

@@ -5,7 +5,7 @@ import { AdminRoleGuard } from '../admin/guards/admin-role.guard';
 
 @Module({
   controllers: [BillingController],
-  providers:   [BillingService, AdminRoleGuard],
-  exports:     [BillingService],
+  providers: [BillingService, AdminRoleGuard],
+  exports: [BillingService],
 })
 export class BillingModule {}

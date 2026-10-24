@@ -21,45 +21,45 @@ async function _getHeaders(): Promise<Record<string, string>> {
   return { 'Content-Type': 'application/json' };
 }
 
-async function request<T>(
-  path:    string,
-  token:   string,
-  options: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
   let res;
   try {
     res = await fetch(`${API}/admin${path}`, {
       ...options,
       headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${token}`,
-        ...(options.headers as Record<string, string> ?? {}),
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...((options.headers as Record<string, string>) ?? {}),
       },
     });
   } catch (fetchErr: any) {
     throw new Error(
       `Network request failed to ${API}/admin${path}.\n` +
-      `Please ensure NEXT_PUBLIC_API_URL is configured correctly in production environment variables (e.g. pointing to your Render backend HTTPS URL instead of localhost) and CORS is configured on the backend. Details: ${fetchErr.message}`
+        `Please ensure NEXT_PUBLIC_API_URL is configured correctly in production environment variables (e.g. pointing to your Render backend HTTPS URL instead of localhost) and CORS is configured on the backend. Details: ${fetchErr.message}`,
     );
   }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(Array.isArray(err.message) ? err.message.join(', ') : (err.message ?? 'API error'));
+    throw new Error(
+      Array.isArray(err.message) ? err.message.join(', ') : (err.message ?? 'API error'),
+    );
   }
   return res.status === 204 ? (null as T) : res.json();
 }
 
 // ─── Metrics ──────────────────────────────────────────────────────────────────
-export const getMetrics      = (token: string) => request<any>('/metrics', token);
+export const getMetrics = (token: string) => request<any>('/metrics', token);
 
 // ─── Users ────────────────────────────────────────────────────────────────────
-export const listUsers       = (token: string, params?: QueryParams) =>
+export const listUsers = (token: string, params?: QueryParams) =>
   request<any>(`/users${queryString(params)}`, token);
 export const getUserActivity = (token: string, id: string) =>
   request<any>(`/users/${id}/activity`, token);
-export const updateUser      = (token: string, id: string, data: any) =>
+export const updateUser = (token: string, id: string, data: any) =>
   request<any>(`/users/${id}`, token, { method: 'PATCH', body: JSON.stringify(data) });
+export const deleteUser = (token: string, id: string) =>
+  request<{ deleted: boolean }>(`/users/${id}`, token, { method: 'DELETE' });
 
 // ─── Subscriptions ────────────────────────────────────────────────────────────
 export const listSubscriptions = (token: string, params?: QueryParams) =>
@@ -72,12 +72,15 @@ export const getBilling = (token: string) => request<any>('/billing', token);
 export const getAIUsage = (token: string) => request<any>('/ai-usage', token);
 
 // ─── Tickets ──────────────────────────────────────────────────────────────────
-export const listTickets  = (token: string, params?: QueryParams) =>
+export const listTickets = (token: string, params?: QueryParams) =>
   request<any>(`/tickets${queryString(params)}`, token);
 export const updateTicket = (token: string, id: string, data: any) =>
   request<any>(`/tickets/${id}`, token, { method: 'PATCH', body: JSON.stringify(data) });
 export const replyToTicket = (token: string, id: string, content: string) =>
-  request<any>(`/tickets/${id}/reply`, token, { method: 'POST', body: JSON.stringify({ content }) });
+  request<any>(`/tickets/${id}/reply`, token, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 export const sendNotification = (token: string, data: any) =>

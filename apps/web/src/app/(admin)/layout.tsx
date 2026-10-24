@@ -7,7 +7,18 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { apiClient } from '@/lib/api-client';
-import { LogOut, BarChart2, Users, CreditCard, DollarSign, Bot, AlertCircle, ChevronRight, ReceiptText, Settings2 } from 'lucide-react';
+import {
+  LogOut,
+  BarChart2,
+  Users,
+  CreditCard,
+  DollarSign,
+  Bot,
+  AlertCircle,
+  ChevronRight,
+  ReceiptText,
+  Settings2,
+} from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -15,15 +26,15 @@ import type { User as SupabaseUser } from '@supabase/supabase-js';
 const supabase = createClient();
 
 const NAV = [
-  { href: '/admin',              label: 'Dashboard',    icon: BarChart2  },
-  { href: '/admin/users',        label: 'Users',        icon: Users      },
-  { href: '/admin/subscriptions',label: 'Subscriptions',icon: CreditCard },
-  { href: '/admin/billing',      label: 'Billing',      icon: DollarSign },
+  { href: '/admin', label: 'Dashboard', icon: BarChart2 },
+  { href: '/admin/users', label: 'Users', icon: Users },
+  { href: '/admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
+  { href: '/admin/billing', label: 'Billing', icon: DollarSign },
   { href: '/admin/payment-requests', label: 'Payment requests', icon: ReceiptText },
   { href: '/admin/payment-settings', label: 'Payment settings', icon: Settings2 },
-  { href: '/admin/ai-settings',  label: 'AI settings', icon: Bot },
-  { href: '/admin/ai-usage',     label: 'AI Usage',     icon: Bot        },
-  { href: '/admin/tickets',      label: 'Support',      icon: AlertCircle },
+  { href: '/admin/ai-settings', label: 'AI settings', icon: Bot },
+  { href: '/admin/ai-usage', label: 'AI Usage', icon: Bot },
+  { href: '/admin/tickets', label: 'Support', icon: AlertCircle },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -38,7 +49,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSupabaseUser(session?.user ?? null);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSupabaseUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
@@ -54,9 +67,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!supabaseUser) return;
     let active = true;
-    supabase.auth.getSession()
+    supabase.auth
+      .getSession()
       .then(async ({ data: { session } }) => {
-        if (!session?.access_token) throw new Error('Your session has expired. Please sign in again.');
+        if (!session?.access_token)
+          throw new Error('Your session has expired. Please sign in again.');
         await apiClient.get<{ allowed: boolean }>('/admin/access', session.access_token);
         if (active) setAdminVerified(true);
       })
@@ -92,82 +107,141 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // Show loading spinner while we wait for Supabase session
   if (supabaseUser === undefined || supabaseUser === null || (!adminVerified && !adminError)) {
     return (
-      <div style={{ display: 'flex', height: '100vh', backgroundColor: 'var(--surface)', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{
-          height: '24px',
-          width: '24px',
-          borderRadius: '50%',
-          border: '2px solid var(--brand)',
-          borderTopColor: 'transparent',
-          animation: 'spin 1s linear infinite'
-        }} />
-        <style dangerouslySetInnerHTML={{__html: `
+      <div
+        style={{
+          display: 'flex',
+          height: '100vh',
+          backgroundColor: 'var(--surface)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          style={{
+            height: '24px',
+            width: '24px',
+            borderRadius: '50%',
+            border: '2px solid var(--brand)',
+            borderTopColor: 'transparent',
+            animation: 'spin 1s linear infinite',
+          }}
+        />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
           @keyframes spin {
             to { transform: rotate(360deg); }
           }
-        `}} />
+        `,
+          }}
+        />
       </div>
     );
   }
 
   if (adminError) {
     return (
-      <div style={{ display: 'grid', minHeight: '100vh', placeContent: 'center', gap: 12, padding: 24, textAlign: 'center' }}>
+      <div
+        style={{
+          display: 'grid',
+          minHeight: '100vh',
+          placeContent: 'center',
+          gap: 12,
+          padding: 24,
+          textAlign: 'center',
+        }}
+      >
         <h1 style={{ color: 'var(--text-1)', margin: 0 }}>Admin access required</h1>
         <p style={{ color: 'var(--text-2)', margin: 0 }}>{adminError}</p>
         <p style={{ color: 'var(--text-3)', margin: 0 }}>
           Ask an administrator to grant your account an admin role, then sign out and back in.
         </p>
-        <button onClick={handleSignOut} style={{ justifySelf: 'center' }}>Sign out</button>
+        <button onClick={handleSignOut} style={{ justifySelf: 'center' }}>
+          Sign out
+        </button>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', backgroundColor: 'var(--surface)', color: 'var(--text-1)' }}>
-      
-      {/* ── Sidebar Nav ── */}
-      <aside style={{
+    <div
+      style={{
         display: 'flex',
-        flexDirection: 'column',
         height: '100vh',
-        width: '256px',
-        borderRight: '1px solid var(--border)',
+        overflow: 'hidden',
         backgroundColor: 'var(--surface)',
         color: 'var(--text-1)',
-        flexShrink: 0
-      }}>
-        {/* Logo */}
-        <div style={{
+      }}
+    >
+      {/* ── Sidebar Nav ── */}
+      <aside
+        style={{
           display: 'flex',
-          height: '64px',
-          alignItems: 'center',
-          gap: '10px',
-          borderBottom: '1px solid var(--border)',
-          padding: '0 20px',
-          userSelect: 'none'
-        }}>
-          <Link href="/admin" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-            <div style={{
-              display: 'flex',
-              height: '32px',
-              width: '32px',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '8px',
-              backgroundColor: 'var(--brand)',
-              color: 'white',
-              fontWeight: 900,
-              fontSize: '18px',
-              boxShadow: 'var(--shadow-sm)'
-            }}>
+          flexDirection: 'column',
+          height: '100vh',
+          width: '256px',
+          borderRight: '1px solid var(--border)',
+          backgroundColor: 'var(--surface)',
+          color: 'var(--text-1)',
+          flexShrink: 0,
+        }}
+      >
+        {/* Logo */}
+        <div
+          style={{
+            display: 'flex',
+            height: '64px',
+            alignItems: 'center',
+            gap: '10px',
+            borderBottom: '1px solid var(--border)',
+            padding: '0 20px',
+            userSelect: 'none',
+          }}
+        >
+          <Link
+            href="/admin"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                height: '32px',
+                width: '32px',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '8px',
+                backgroundColor: 'var(--brand)',
+                color: 'white',
+                fontWeight: 900,
+                fontSize: '18px',
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
               J
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.3px', lineHeight: 1 }}>
+              <span
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 800,
+                  color: 'var(--text-1)',
+                  letterSpacing: '-0.3px',
+                  lineHeight: 1,
+                }}
+              >
                 JobIN
               </span>
-              <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px', lineHeight: 1 }}>
+              <span
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  color: 'var(--brand)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginTop: '2px',
+                  lineHeight: 1,
+                }}
+              >
                 Admin Portal
               </span>
             </div>
@@ -175,15 +249,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         {/* Navigation list */}
-        <nav style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '12px',
-          paddingTop: '16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '4px'
-        }}>
+        <nav
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '12px',
+            paddingTop: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+          }}
+        >
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || (href !== '/admin' && pathname.startsWith(href));
             return (
@@ -203,17 +279,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     cursor: 'pointer',
                     backgroundColor: active ? 'var(--brand-light)' : 'transparent',
                     color: active ? 'var(--brand)' : 'var(--text-2)',
-                    border: active ? '1px solid rgba(79, 70, 229, 0.2)' : '1px solid transparent'
+                    border: active ? '1px solid rgba(79, 70, 229, 0.2)' : '1px solid transparent',
                   }}
                 >
-                  <Icon style={{
-                    height: '16px',
-                    width: '16px',
-                    flexShrink: 0,
-                    color: active ? 'var(--brand)' : 'var(--text-3)'
-                  }} />
+                  <Icon
+                    style={{
+                      height: '16px',
+                      width: '16px',
+                      flexShrink: 0,
+                      color: active ? 'var(--brand)' : 'var(--text-3)',
+                    }}
+                  />
                   <span style={{ flex: 1 }}>{label}</span>
-                  {active && <ChevronRight style={{ height: '12px', width: '12px', color: 'rgba(79, 70, 229, 0.5)' }} />}
+                  {active && (
+                    <ChevronRight
+                      style={{ height: '12px', width: '12px', color: 'rgba(79, 70, 229, 0.5)' }}
+                    />
+                  )}
                 </motion.div>
               </Link>
             );
@@ -221,12 +303,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         {/* User profile footer */}
-        <div style={{
-          borderTop: '1px solid var(--border)',
-          padding: '16px',
-          backgroundColor: 'rgba(248, 249, 255, 0.3)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+        <div
+          style={{
+            borderTop: '1px solid var(--border)',
+            padding: '16px',
+            backgroundColor: 'rgba(248, 249, 255, 0.3)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
               <Avatar
                 src={avatarUrl}
@@ -235,10 +326,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 size="sm"
               />
               <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-1)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                <p
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: 'var(--text-1)',
+                    margin: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '120px',
+                  }}
+                >
                   {displayName}
                 </p>
-                <p style={{ fontSize: '9px', color: 'var(--brand)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '2px 0 0 0' }}>
+                <p
+                  style={{
+                    fontSize: '9px',
+                    color: 'var(--brand)',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    margin: '2px 0 0 0',
+                  }}
+                >
                   SUPER ADMIN
                 </p>
               </div>
@@ -257,7 +368,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                transition: 'var(--transition)'
+                transition: 'var(--transition)',
               }}
               onMouseOver={(e) => {
                 e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
@@ -275,7 +386,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* ── Main content wrapper ── */}
-      <main style={{ flex: 1, overflowY: 'auto', padding: '32px', backgroundColor: 'var(--surface-2)' }}>
+      <main
+        style={{ flex: 1, overflowY: 'auto', padding: '32px', backgroundColor: 'var(--surface-2)' }}
+      >
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}

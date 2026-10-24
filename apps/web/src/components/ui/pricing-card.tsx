@@ -32,8 +32,10 @@ export const PricingCard: React.FC<PricingPlanProps> = ({
     <Card
       className={cn(
         'relative flex flex-col gap-6 p-8 transition-all duration-300 bg-surface border border-border h-full',
-        popular ? 'border-brand border-2 dark:border-brand-mid shadow-lg shadow-brand/10 md:scale-105' : '',
-        className
+        popular
+          ? 'border-brand border-2 dark:border-brand-mid shadow-lg shadow-brand/10 md:scale-105'
+          : '',
+        className,
       )}
       hoverEffect={!popular}
     >
@@ -52,9 +54,7 @@ export const PricingCard: React.FC<PricingPlanProps> = ({
           <span className="text-4xl font-black text-text-1 tracking-tight select-none">
             {price}
           </span>
-          {period && (
-            <span className="text-sm font-semibold text-text-3">{period}</span>
-          )}
+          {period && <span className="text-sm font-semibold text-text-3">{period}</span>}
         </div>
       </div>
 

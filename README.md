@@ -9,7 +9,7 @@
 
 ## 📖 Overview
 
-**JobIN** is a next-generation SaaS platform designed to streamline the modern job search. Leveraging Google Gemini 1.5 Flash AI, JobIN analyzes a candidate's uploaded resume alongside target job descriptions to instantly generate ATS-optimized, highly-tailored resumes and cover letters. 
+**JobIN** is an AI-powered SaaS platform designed to streamline the modern job search. It analyzes a candidate's uploaded resume alongside target job descriptions to generate ATS-optimized resumes and cover letters.
 
 The platform features a full Kanban-style application tracker, robust admin portals, AI credit billing, and multi-tenant security powered by Supabase.
 
@@ -32,7 +32,7 @@ JobIN is built using a modern, decoupled monorepo architecture:
 *   **ORM**: Prisma.
 *   **Authentication**: Supabase Auth (JWT).
 *   **Storage**: Cloudflare R2 (S3-Compatible).
-*   **AI Engine**: Google Gemini API.
+*   **AI Engine**: Admin-configurable Gemini, OpenAI, Anthropic, DeepSeek, NVIDIA NIM, and hosted Ollama providers.
 
 ---
 
@@ -43,11 +43,14 @@ This repository uses a workspace structure:
 ```text
 JobIN/
 ├── apps/
-│   └── web/           # Next.js 14 Frontend Application
-├── backend/           # NestJS REST API
-├── prisma/            # Global database schemas and migrations
-└── docs/              # Comprehensive architectural documentation
+│   ├── api/            # NestJS API and Prisma schema/migrations
+│   ├── web/            # Next.js 14 web application
+│   └── extension/      # Chrome extension (Manifest V3)
+├── docs/               # Product and architecture documentation
+└── render.yaml         # Render API service configuration
 ```
+
+The root-level `backend/` and `frontend/` directories are legacy snapshots; active development and deployment use the `apps/` workspaces.
 
 ---
 
@@ -56,51 +59,45 @@ JobIN/
 To run JobIN locally, you need Node.js (v20+), npm, and a Supabase project.
 
 ### 1. Prerequisites
-Ensure you have your environment variables set up. Copy the `.env.example` files to `.env` in both the root directory and the `apps/web` directory, and fill in your Supabase credentials, Stripe Keys, and Gemini API keys.
+Ensure Node.js 20+ and npm are installed. Copy `apps/api/.env.example` to `apps/api/.env` and configure the required local Supabase, database, and service settings. Configure the web app's public Supabase and API URL variables in `apps/web/.env.local`.
 
 ### 2. Install Dependencies
 ```bash
-# In the root directory
-npm install
-
-# In the backend directory
-cd backend
-npm install
-
-# In the frontend directory
-cd ../apps/web
-npm install
+# From the repository root
+npm ci
+npm run db:generate --workspace=apps/api
 ```
 
 ### 3. Database Migration
-Sync the Prisma schema with your local or cloud Supabase PostgreSQL database:
+Apply pending migrations to the configured database:
 ```bash
-# From the backend directory
-npx prisma generate
-npx prisma db push
+npm run db:migrate:deploy --workspace=apps/api
 ```
 
 ### 4. Start the Application
 
-**Start the Backend (NestJS)**
+**Start the API (NestJS)**
 ```bash
-cd backend
-npm run dev
-# The API will start on http://localhost:4000/api/v1
+npm run dev:api
+# The API will start on http://localhost:4000/api
 ```
 
 **Start the Frontend (Next.js)**
 ```bash
-cd apps/web
-npm run dev
+npm run dev:web
 # The UI will start on http://localhost:3000
+```
+
+**Build the Chrome extension**
+```bash
+npm run build:extension
 ```
 
 ---
 
 ## 🌐 Publishing & Deployment
 
-For deploying the application to live production environments (Vercel, Render, etc.), please refer to the comprehensive [Production Deployment Guide](deployment_guide.md).
+The API deploys to Render using [render.yaml](./render.yaml); the web app deploys to Vercel from `apps/web`. Review the [production deployment plan](./docs/11_production_deployment_plan.md) and [API environment setup](./apps/api/README.md) before deploying.
 
 ### Manual plan payments
 
@@ -129,13 +126,7 @@ npm run db:generate --workspace=apps/api
 
 ## 📚 Architectural Documentation
 
-JobIN includes a full suite of technical specifications and architectural plans. You can find these in the `/docs` folder:
-
-1. `01_prd.md` - Product Requirements Document
-2. `02_system_architecture.md` - System Architecture & Diagrams
-3. `03_database_schema.md` - Database & Schema Design
-4. `04_api_specifications.md` - REST API Definitions
-5. `...` and more.
+Product requirements, architecture, API specifications, deployment, and product plans are maintained in [`docs/`](./docs/).
 
 ---
 

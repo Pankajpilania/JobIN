@@ -36,7 +36,7 @@ export const JobCard: React.FC<JobCardProps> = ({
     <Card
       className={cn(
         'flex flex-col md:flex-row md:items-center justify-between gap-6 hover:-translate-y-1 hover:shadow-lg transition-all duration-200',
-        className
+        className,
       )}
     >
       {/* Left section: Logo + Details */}
@@ -80,7 +80,7 @@ export const JobCard: React.FC<JobCardProps> = ({
             </span>
           )}
         </div>
-        
+
         <div className="flex items-center gap-4">
           {postedTime && (
             <span className="hidden md:flex items-center gap-1 text-[11px] text-text-3 font-medium">

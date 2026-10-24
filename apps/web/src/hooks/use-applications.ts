@@ -4,8 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import { apiClient } from '@/lib/api-client';
 import type {
-  JobApplication, ApplicationStats, ActivityItem,
-  CreateApplicationPayload, ApplicationStatus,
+  JobApplication,
+  ApplicationStats,
+  ActivityItem,
+  CreateApplicationPayload,
+  ApplicationStatus,
 } from '@/types';
 
 // ─── List applications ────────────────────────────────────────────────────────
@@ -14,10 +17,10 @@ export function useApplications(status?: ApplicationStatus) {
   const { getToken, isSignedIn } = useAuth();
   return useQuery<JobApplication[]>({
     queryKey: ['applications', status],
-    enabled:  !!isSignedIn,
-    queryFn:  async () => {
+    enabled: !!isSignedIn,
+    queryFn: async () => {
       const token = await getToken();
-      const qs    = status ? `?status=${status}` : '';
+      const qs = status ? `?status=${status}` : '';
       return apiClient.get<JobApplication[]>(`/applications${qs}`, token ?? undefined);
     },
   });
@@ -35,8 +38,8 @@ export function useApplicationStats() {
   const { getToken, isSignedIn } = useAuth();
   return useQuery<ApplicationStats>({
     queryKey: ['application-stats'],
-    enabled:  !!isSignedIn,
-    queryFn:  async () => {
+    enabled: !!isSignedIn,
+    queryFn: async () => {
       const token = await getToken();
       return apiClient.get<ApplicationStats>('/applications/stats', token ?? undefined);
     },
@@ -50,8 +53,8 @@ export function useActivityFeed() {
   const { getToken, isSignedIn } = useAuth();
   return useQuery<ActivityItem[]>({
     queryKey: ['activity-feed'],
-    enabled:  !!isSignedIn,
-    queryFn:  async () => {
+    enabled: !!isSignedIn,
+    queryFn: async () => {
       const token = await getToken();
       return apiClient.get<ActivityItem[]>('/applications/activity', token ?? undefined);
     },

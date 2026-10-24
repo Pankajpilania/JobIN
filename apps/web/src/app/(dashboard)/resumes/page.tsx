@@ -42,14 +42,31 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
   const r = (size - 12) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (score / 100) * circ;
-  
+
   // Brand color representation
   const color = 'var(--brand)';
 
   return (
-    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, width: size, height: size }}>
+    <div
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        width: size,
+        height: size,
+      }}
+    >
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={6} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="var(--border)"
+          strokeWidth={6}
+        />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -63,7 +80,9 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
           style={{ transition: 'all 1s ease-out' }}
         />
       </svg>
-      <span style={{ position: 'absolute', fontSize: '14px', fontWeight: 800, color: 'var(--brand)' }}>
+      <span
+        style={{ position: 'absolute', fontSize: '14px', fontWeight: 800, color: 'var(--brand)' }}
+      >
         {score > 0 ? `${score}` : '—'}
       </span>
     </div>
@@ -134,30 +153,41 @@ function DropZone() {
           transition: 'var(--transition)',
           cursor: 'pointer',
           userSelect: 'none',
-          backgroundColor: isDragActive ? 'rgba(79, 70, 229, 0.08)' : 'rgba(255, 255, 255, 0.5)'
+          backgroundColor: isDragActive ? 'rgba(79, 70, 229, 0.08)' : 'rgba(255, 255, 255, 0.5)',
         }}
       >
         <input {...getInputProps()} />
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            display: 'flex',
-            height: '48px',
-            width: '48px',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '10px',
-            backgroundColor: 'var(--brand-light)',
-            color: 'var(--brand)',
-            border: '1px solid rgba(79, 70, 229, 0.2)'
-          }}>
+        <div
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              height: '48px',
+              width: '48px',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '10px',
+              backgroundColor: 'var(--brand-light)',
+              color: 'var(--brand)',
+              border: '1px solid rgba(79, 70, 229, 0.2)',
+            }}
+          >
             <Upload style={{ height: '20px', width: '20px' }} />
           </div>
           <div>
             <p style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
               {isDragActive ? 'Drop to upload CV' : 'Drag & drop your resume CV file'}
             </p>
-            <p style={{ fontSize: '12px', color: 'var(--text-3)', fontWeight: 600, margin: '4px 0 0 0' }}>
+            <p
+              style={{
+                fontSize: '12px',
+                color: 'var(--text-3)',
+                fontWeight: 600,
+                margin: '4px 0 0 0',
+              }}
+            >
               PDF or DOCX · maximum 10 MB
             </p>
           </div>
@@ -182,27 +212,43 @@ function DropZone() {
               borderRadius: '10px',
               border: '1px solid var(--border)',
               backgroundColor: 'var(--surface)',
-              padding: '16px'
+              padding: '16px',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-              <div style={{
-                display: 'flex',
-                height: '40px',
-                width: '40px',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '8px',
-                backgroundColor: 'var(--brand-light)',
-                border: '1px solid rgba(79, 70, 229, 0.2)',
-                color: 'var(--brand)',
-                flexShrink: 0
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  height: '40px',
+                  width: '40px',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--brand-light)',
+                  border: '1px solid rgba(79, 70, 229, 0.2)',
+                  color: 'var(--brand)',
+                  flexShrink: 0,
+                }}
+              >
                 <FileText style={{ height: '20px', width: '20px' }} />
               </div>
               <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-1)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</p>
-                <p style={{ fontSize: '12px', color: 'var(--text-3)', fontWeight: 600, margin: 0 }}>{formatBytes(file.size)}</p>
+                <p
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: 'var(--text-1)',
+                    margin: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {file.name}
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--text-3)', fontWeight: 600, margin: 0 }}>
+                  {formatBytes(file.size)}
+                </p>
               </div>
             </div>
             <button
@@ -214,10 +260,10 @@ function DropZone() {
                 cursor: 'pointer',
                 padding: '6px',
                 borderRadius: '6px',
-                transition: 'var(--transition)'
+                transition: 'var(--transition)',
               }}
-              onMouseOver={(e) => e.currentTarget.style.color = '#ef4444'}
-              onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-3)'}
+              onMouseOver={(e) => (e.currentTarget.style.color = '#ef4444')}
+              onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
             >
               <Trash2 style={{ height: '18px', width: '18px' }} />
             </button>
@@ -235,7 +281,10 @@ function DropZone() {
           >
             {uploading ? (
               <>
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                >
                   <Clock style={{ height: '16px', width: '16px' }} />
                 </motion.div>
                 Analyzing ATS keyword extraction...
@@ -293,17 +342,37 @@ function ResumeCard({ resume }: { resume: Resume }) {
       style={{ width: '100%' }}
     >
       <Card hoverEffect={true} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', justifyContent: 'space-between' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '16px',
+            justifyContent: 'space-between',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', minWidth: 0 }}>
             {/* ATS circular progress in brand color */}
             <ScoreRing score={score} />
 
             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
-                <p style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resume.title}</p>
+                <p
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    color: 'var(--text-1)',
+                    margin: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {resume.title}
+                </p>
                 {resume.isDefault && (
                   <Badge variant="brand">
-                    <Star style={{ height: '10px', width: '10px', fill: 'currentColor' }} /> Default CV
+                    <Star style={{ height: '10px', width: '10px', fill: 'currentColor' }} /> Default
+                    CV
                   </Badge>
                 )}
                 {grade && (
@@ -316,13 +385,21 @@ function ResumeCard({ resume }: { resume: Resume }) {
                 {resume.originalName} · {formatBytes(resume.fileSize)}
               </p>
               {hasAnalysis && resume.analysisResult && (
-                <p style={{ fontSize: '13px', color: 'var(--text-2)', fontWeight: 500, margin: '4px 0 0 0', lineHeight: 1.5 }}>
+                <p
+                  style={{
+                    fontSize: '13px',
+                    color: 'var(--text-2)',
+                    fontWeight: 500,
+                    margin: '4px 0 0 0',
+                    lineHeight: 1.5,
+                  }}
+                >
                   {resume.analysisResult.summary}
                 </p>
               )}
             </div>
           </div>
-          
+
           <button
             onClick={handleDelete}
             style={{
@@ -332,7 +409,7 @@ function ResumeCard({ resume }: { resume: Resume }) {
               cursor: 'pointer',
               padding: '8px',
               borderRadius: '6px',
-              transition: 'var(--transition)'
+              transition: 'var(--transition)',
             }}
             title="Delete CV"
             onMouseOver={(e) => {
@@ -349,10 +426,28 @@ function ResumeCard({ resume }: { resume: Resume }) {
         </div>
 
         {/* Actions: tailor/download buttons */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '8px',
+            paddingTop: '16px',
+            borderTop: '1px solid var(--border)',
+          }}
+        >
           {hasAnalysis && (
             <Link href={`/resumes/${resume.id}`} passHref style={{ textDecoration: 'none' }}>
-              <Button variant="primary" style={{ fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Button
+                variant="primary"
+                style={{
+                  fontSize: '12px',
+                  padding: '8px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
                 <TrendingUp style={{ height: '12px', width: '12px' }} /> View Score Report
                 <ChevronRight style={{ height: '12px', width: '12px' }} />
               </Button>
@@ -364,10 +459,19 @@ function ResumeCard({ resume }: { resume: Resume }) {
               variant="ghost"
               onClick={handleAnalyse}
               disabled={analysing}
-              style={{ fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{
+                fontSize: '12px',
+                padding: '8px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
             >
               {analysing ? (
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                >
                   <Zap style={{ height: '12px', width: '12px' }} />
                 </motion.div>
               ) : (
@@ -380,8 +484,19 @@ function ResumeCard({ resume }: { resume: Resume }) {
           {!resume.isDefault && (
             <Button
               variant="ghost"
-              onClick={() => setDefault.mutateAsync(resume.id).then(() => toast.success('Set as default CV')).catch(() => toast.error('Failed to set default'))}
-              style={{ fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              onClick={() =>
+                setDefault
+                  .mutateAsync(resume.id)
+                  .then(() => toast.success('Set as default CV'))
+                  .catch(() => toast.error('Failed to set default'))
+              }
+              style={{
+                fontSize: '12px',
+                padding: '8px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
             >
               <Star style={{ height: '12px', width: '12px' }} /> Set Default
             </Button>
@@ -394,7 +509,16 @@ function ResumeCard({ resume }: { resume: Resume }) {
             rel="noopener noreferrer"
             style={{ marginLeft: 'auto', textDecoration: 'none' }}
           >
-            <Button variant="ghost" style={{ fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Button
+              variant="ghost"
+              style={{
+                fontSize: '12px',
+                padding: '8px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
               <Download style={{ height: '14px', width: '14px' }} /> Download
             </Button>
           </a>
@@ -408,13 +532,37 @@ export default function ResumesPage() {
   const { data: resumes, isLoading } = useResumes();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '800px', margin: '0 auto' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '32px',
+        maxWidth: '800px',
+        margin: '0 auto',
+      }}
+    >
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-1.2px', color: 'var(--text-1)', margin: 0 }}>
+        <h1
+          style={{
+            fontSize: '32px',
+            fontWeight: 800,
+            letterSpacing: '-1.2px',
+            color: 'var(--text-1)',
+            margin: 0,
+          }}
+        >
           <span style={{ color: 'var(--brand)' }}>Resume</span> Manager
         </h1>
-        <p style={{ marginTop: '8px', color: 'var(--text-2)', fontSize: '14px', fontWeight: 500, margin: '8px 0 0 0' }}>
+        <p
+          style={{
+            marginTop: '8px',
+            color: 'var(--text-2)',
+            fontSize: '14px',
+            fontWeight: 500,
+            margin: '8px 0 0 0',
+          }}
+        >
           Upload resumes, extract CV details, and check your instant GPT-4o ATS score.
         </p>
       </motion.div>
@@ -431,34 +579,59 @@ export default function ResumesPage() {
           borderRadius: '10px',
           border: '1px solid rgba(79, 70, 229, 0.2)',
           backgroundColor: 'var(--brand-light)',
-          padding: '16px'
+          padding: '16px',
         }}
       >
-        <Zap style={{ height: '18px', width: '18px', color: 'var(--brand)', flexShrink: 0, marginTop: '2px' }} />
-        <p style={{ fontSize: '12px', color: 'var(--brand-dark)', lineHeight: 1.625, fontWeight: 600, margin: 0 }}>
-          ATS evaluation consumes 1 AI credit. Evaluations audit CV structure formatting, keyword density, role relevance, and deliver actionable writing improvements.
+        <Zap
+          style={{
+            height: '18px',
+            width: '18px',
+            color: 'var(--brand)',
+            flexShrink: 0,
+            marginTop: '2px',
+          }}
+        />
+        <p
+          style={{
+            fontSize: '12px',
+            color: 'var(--brand-dark)',
+            lineHeight: 1.625,
+            fontWeight: 600,
+            margin: 0,
+          }}
+        >
+          ATS evaluation consumes 1 AI credit. Evaluations audit CV structure formatting, keyword
+          density, role relevance, and deliver actionable writing improvements.
         </p>
       </motion.div>
 
       {/* Upload Zone */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
         <DropZone />
       </motion.div>
 
       {/* CV list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>Your Resumes</h2>
+          <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>
+            Your Resumes
+          </h2>
           {resumes && resumes.length > 0 && (
-            <span style={{
-              borderRadius: '999px',
-              border: '1px solid var(--border)',
-              backgroundColor: 'var(--surface)',
-              padding: '2px 10px',
-              fontSize: '11px',
-              fontWeight: 700,
-              color: 'var(--text-3)'
-            }}>
+            <span
+              style={{
+                borderRadius: '999px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--surface)',
+                padding: '2px 10px',
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'var(--text-3)',
+              }}
+            >
               {resumes.length} file{resumes.length !== 1 ? 's' : ''}
             </span>
           )}
@@ -467,26 +640,51 @@ export default function ResumesPage() {
         {isLoading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {[1, 2].map((i) => (
-              <div key={i} style={{ height: '140px', borderRadius: '10px', backgroundColor: 'var(--surface-2)', border: '1px solid var(--border)', animation: 'pulse 1.5s infinite' }} />
+              <div
+                key={i}
+                style={{
+                  height: '140px',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                  animation: 'pulse 1.5s infinite',
+                }}
+              />
             ))}
           </div>
         ) : !resumes || resumes.length === 0 ? (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '10px',
-            border: '1px dashed var(--border)',
-            backgroundColor: 'rgba(248, 249, 255, 0.2)',
-            padding: '64px 24px',
-            textAlign: 'center',
-            gap: '12px'
-          }}>
-            <FileText style={{ height: '40px', width: '40px', color: 'var(--text-3)', opacity: 0.5 }} />
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '10px',
+              border: '1px dashed var(--border)',
+              backgroundColor: 'rgba(248, 249, 255, 0.2)',
+              padding: '64px 24px',
+              textAlign: 'center',
+              gap: '12px',
+            }}
+          >
+            <FileText
+              style={{ height: '40px', width: '40px', color: 'var(--text-3)', opacity: 0.5 }}
+            />
             <div>
-              <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>No CV files uploaded</p>
-              <p style={{ fontSize: '12px', color: 'var(--text-3)', fontWeight: 600, marginTop: '4px', margin: '4px 0 0 0' }}>Upload your first resume file above to begin.</p>
+              <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>
+                No CV files uploaded
+              </p>
+              <p
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--text-3)',
+                  fontWeight: 600,
+                  marginTop: '4px',
+                  margin: '4px 0 0 0',
+                }}
+              >
+                Upload your first resume file above to begin.
+              </p>
             </div>
           </div>
         ) : (

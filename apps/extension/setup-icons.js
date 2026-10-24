@@ -1,30 +1,23 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const extensionDir = path.dirname(fileURLToPath(import.meta.url));
+const iconSizes = [16, 32, 48, 128];
 
-// Use the new square app icon (indigo/violet gradient with J+arrow mark)
-const srcPath = 'C:\\Users\\pilan\\.gemini\\antigravity\\brain\\6a19703d-7171-4e16-ae97-e976515fda12\\jobin_icon_square_1781455144559.png';
-const destDir = path.join(__dirname, 'icons');
+for (const size of iconSizes) {
+  const iconPath = path.join(extensionDir, 'icons', `icon${size}.png`);
+  if (!fs.existsSync(iconPath)) {
+    throw new Error(`Missing extension icon: ${iconPath}`);
+  }
 
-if (!fs.existsSync(srcPath)) {
-  console.error(`Error: Source logo not found at: ${srcPath}`);
-  process.exit(1);
+  const icon = fs.readFileSync(iconPath);
+  const isPng =
+    icon.length >= 24 &&
+    icon.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  if (!isPng || icon.readUInt32BE(16) !== size || icon.readUInt32BE(20) !== size) {
+    throw new Error(`Expected a valid ${size}x${size} PNG extension icon at ${iconPath}`);
+  }
 }
 
-if (!fs.existsSync(destDir)) {
-  fs.mkdirSync(destDir, { recursive: true });
-  console.log(`Created directory: ${destDir}`);
-}
-
-const targetIcons = ['icon16.png', 'icon32.png', 'icon48.png', 'icon128.png'];
-
-targetIcons.forEach(iconName => {
-  const destPath = path.join(destDir, iconName);
-  fs.copyFileSync(srcPath, destPath);
-  console.log(`Copied icon to: ${destPath}`);
-});
-
-console.log('Successfully set up all Chrome Extension icons!');
+console.log('Verified Chrome extension icons.');

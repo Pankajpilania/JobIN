@@ -3,6 +3,7 @@ import {
   Get,
   Patch,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -141,6 +142,18 @@ export class AdminController {
   @ApiOperation({ summary: 'Login history, resume history, AI usage for a user' })
   getUserActivity(@Param('id') id: string) {
     return this.adminService.getUserActivity(id);
+  }
+
+  @Delete('users/:id')
+  @HttpCode(HttpStatus.OK)
+  @RequireAdminRole('SUPER_ADMIN')
+  @ApiOperation({ summary: 'Permanently delete a user and their stored data' })
+  deleteUser(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.deleteUser(
+      req.adminUser.id,
+      id,
+      req.ip ?? req.headers?.['x-forwarded-for'],
+    );
   }
 
   // ─── PATCH /admin/users/:id ────────────────────────────────────────────────

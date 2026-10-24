@@ -1,6 +1,15 @@
 import {
-  Controller, Get, Post, Delete, Param, Body, UseGuards,
-  HttpCode, HttpStatus, ParseUUIDPipe, Res,
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  ParseUUIDPipe,
+  Res,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
@@ -69,7 +78,11 @@ export class CoverLettersController {
     @Res() res: Response,
   ) {
     const { buffer, filename } = await this.coverLettersService.exportPdf(user.id, id);
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"`, 'Content-Length': String(buffer.length) });
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': String(buffer.length),
+    });
     res.send(buffer);
   }
 
@@ -84,7 +97,11 @@ export class CoverLettersController {
     @Res() res: Response,
   ) {
     const { buffer, filename } = await this.coverLettersService.exportDocx(user.id, id);
-    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'Content-Disposition': `attachment; filename="${filename}"`, 'Content-Length': String(buffer.length) });
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': String(buffer.length),
+    });
     res.send(buffer);
   }
 }

@@ -1,13 +1,14 @@
-import type { AuthState, ExtensionSettings, DetectedJob, Resume, UserProfile, DEFAULT_SETTINGS } from './types';
+import { DEFAULT_SETTINGS } from './types';
+import type { AuthState, ExtensionSettings, DetectedJob, Resume, UserProfile } from './types';
 
 // ─── Type-safe storage keys ───────────────────────────────────────────────────
 
 const KEYS = {
-  AUTH:     'jobin_auth',
+  AUTH: 'jobin_auth',
   SETTINGS: 'jobin_settings',
-  PROFILE:  'jobin_profile',
-  RESUMES:  'jobin_resumes_cache',
-  JOB:      'jobin_detected_job',  // current detected job (session)
+  PROFILE: 'jobin_profile',
+  RESUMES: 'jobin_resumes_cache',
+  JOB: 'jobin_detected_job', // current detected job (session)
 } as const;
 
 // ─── Generic storage helpers ──────────────────────────────────────────────────
@@ -55,18 +56,11 @@ export async function getToken(): Promise<string | null> {
 
 export async function getSettings(): Promise<ExtensionSettings> {
   const stored = await get<ExtensionSettings>(KEYS.SETTINGS);
-  // Merge with defaults so new settings keys always have a value
-  const defaults: ExtensionSettings = {
-    apiUrl: import.meta.env?.VITE_API_URL ?? 'http://localhost:4000/api',
-    showBadge: true,
-    openSidePanelOnDetect: true,
-    autofill: {
-      enabled: true, fillName: true, fillEmail: true, fillPhone: true,
-      fillWorkHistory: true, fillEducation: true, fillVisaSponsorship: false,
-      workAuthorisation: 'yes',
-    },
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    autofill: { ...DEFAULT_SETTINGS.autofill, ...stored?.autofill },
   };
-  return stored ? { ...defaults, ...stored, autofill: { ...defaults.autofill, ...stored.autofill } } : defaults;
 }
 
 export async function setSettings(settings: Partial<ExtensionSettings>): Promise<void> {
@@ -103,7 +97,7 @@ export async function setDetectedJob(tabId: number, job: DetectedJob): Promise<v
 }
 
 export async function getDetectedJob(tabId: number): Promise<DetectedJob | null> {
-  const key    = `${KEYS.JOB}_${tabId}`;
+  const key = `${KEYS.JOB}_${tabId}`;
   const result = await chrome.storage.session.get(key);
   return (result[key] as DetectedJob) ?? null;
 }

@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -28,15 +24,17 @@ export class S3Service {
   private readonly endpoint: string;
 
   constructor(private readonly config: ConfigService) {
-    this.bucket = config.get<string>('R2_BUCKET_NAME') || process.env.R2_BUCKET_NAME || 'jobin-resumes';
+    this.bucket =
+      config.get<string>('R2_BUCKET_NAME') || process.env.R2_BUCKET_NAME || 'jobin-resumes';
     this.endpoint = config.get<string>('R2_ENDPOINT') || process.env.R2_ENDPOINT || '';
 
     this.client = new S3Client({
       region: 'auto',
       endpoint: this.endpoint,
       credentials: {
-        accessKeyId:     config.get<string>('R2_ACCESS_KEY_ID') || process.env.R2_ACCESS_KEY_ID || '',
-        secretAccessKey: config.get<string>('R2_SECRET_ACCESS_KEY') || process.env.R2_SECRET_ACCESS_KEY || '',
+        accessKeyId: config.get<string>('R2_ACCESS_KEY_ID') || process.env.R2_ACCESS_KEY_ID || '',
+        secretAccessKey:
+          config.get<string>('R2_SECRET_ACCESS_KEY') || process.env.R2_SECRET_ACCESS_KEY || '',
       },
     });
   }
@@ -49,15 +47,15 @@ export class S3Service {
     mimeType: string,
     folder = 'resumes',
   ): Promise<S3UploadResult> {
-    const ext  = originalName.split('.').pop() ?? 'bin';
-    const key  = `${folder}/${uuid()}.${ext}`;
+    const ext = originalName.split('.').pop() ?? 'bin';
+    const key = `${folder}/${uuid()}.${ext}`;
 
     try {
       await this.client.send(
         new PutObjectCommand({
-          Bucket:      this.bucket,
-          Key:         key,
-          Body:        buffer,
+          Bucket: this.bucket,
+          Key: key,
+          Body: buffer,
           ContentType: mimeType,
           // Removed ServerSideEncryption as R2 encrypts by default and AES256 param fails on R2
         }),
@@ -69,9 +67,9 @@ export class S3Service {
     } catch (err) {
       this.logger.error(
         `R2 upload failed — bucket: ${this.bucket}, endpoint: ${this.endpoint}, key: ${key}\n` +
-        `Error code: ${err.Code ?? err.code ?? 'unknown'}\n` +
-        `Error message: ${err.message}\n` +
-        `Full error: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`,
+          `Error code: ${err.Code ?? err.code ?? 'unknown'}\n` +
+          `Error message: ${err.message}\n` +
+          `Full error: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`,
       );
       throw new InternalServerErrorException(`File upload to Cloudflare R2 failed: ${err.message}`);
     }
@@ -113,9 +111,7 @@ export class S3Service {
 
   async deleteFile(key: string): Promise<void> {
     try {
-      await this.client.send(
-        new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
-      );
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
       this.logger.log(`Deleted R2 object: ${key}`);
     } catch (err) {
       // Log but don't throw — a missing file on delete is usually not fatal
@@ -123,13 +119,21 @@ export class S3Service {
     }
   }
 
+  async deleteFileOrThrow(key: string): Promise<void> {
+    try {
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+      this.logger.log(`Deleted R2 object: ${key}`);
+    } catch (err) {
+      this.logger.error(`R2 delete failed for ${key}: ${err.message}`);
+      throw new InternalServerErrorException(`Could not delete stored file: ${key}`);
+    }
+  }
+
   // ─── Exists check ─────────────────────────────────────────────────────────
 
   async fileExists(key: string): Promise<boolean> {
     try {
-      await this.client.send(
-        new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
-      );
+      await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
       return true;
     } catch {
       return false;

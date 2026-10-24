@@ -24,7 +24,7 @@ export const CTABanner: React.FC<CTABannerProps> = ({
     <Card
       className={cn(
         'relative overflow-hidden text-center py-12 px-6 md:px-12 flex flex-col items-center justify-center gap-6 border-brand border-2 dark:border-brand-mid shadow-lg shadow-brand/10',
-        className
+        className,
       )}
       hoverEffect={false}
     >
@@ -34,10 +34,8 @@ export const CTABanner: React.FC<CTABannerProps> = ({
       <h2 className="text-3xl md:text-4xl font-extrabold text-text-1 max-w-xl leading-tight">
         {title}
       </h2>
-      <p className="text-sm md:text-base text-text-2 max-w-md leading-relaxed">
-        {description}
-      </p>
-      
+      <p className="text-sm md:text-base text-text-2 max-w-md leading-relaxed">{description}</p>
+
       <Link href={buttonHref} passHref>
         <Button variant="hero" className="flex items-center gap-2">
           {buttonText} <ArrowRight className="h-4 w-4" />

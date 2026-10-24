@@ -10,12 +10,10 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
  *   @UseGuards(SupabaseAuthGuard)
  *   getProfile(@CurrentUser() user: SupabaseUserPayload) { ... }
  */
-export const CurrentUser = createParamDecorator(
-  (_data: unknown, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
-    return request.user;
-  },
-);
+export const CurrentUser = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
+  const request = ctx.switchToHttp().getRequest();
+  return request.user;
+});
 
 /** Shape of Supabase's user payload attached to request.user */
 export interface SupabaseUserPayload {

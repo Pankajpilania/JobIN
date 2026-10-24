@@ -6,9 +6,17 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, Zap, CheckCircle, AlertTriangle,
-  XCircle, Lightbulb, TrendingUp, Download,
-  RefreshCw, FileText, Star,
+  ArrowLeft,
+  Zap,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Lightbulb,
+  TrendingUp,
+  Download,
+  RefreshCw,
+  FileText,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useResume, useAnalyseResume } from '@/hooks/use-resumes';
@@ -18,37 +26,47 @@ import { Button } from '@/components/ui/button';
 // ─── Big Score Gauge ──────────────────────────────────────────────────────────
 
 function ScoreGauge({ score, grade }: { score: number; grade: string }) {
-  const size   = 200;
-  const r      = 80;
-  const circ   = 2 * Math.PI * r;
+  const size = 200;
+  const r = 80;
+  const circ = 2 * Math.PI * r;
   // Only draw the top 75% of the circle (semicircle gauge look)
-  const arc    = circ * 0.75;
+  const arc = circ * 0.75;
   const offset = arc - (score / 100) * arc;
 
   const { color, bg, label } =
-    score >= 90 ? { color: '#10B981', bg: 'rgba(16, 185, 129, 0.08)', label: 'Excellent' } :
-    score >= 80 ? { color: 'var(--brand)', bg: 'rgba(79, 70, 229, 0.08)', label: 'Good' } :
-    score >= 65 ? { color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.08)', label: 'Fair' } :
-    score >= 50 ? { color: '#F97316', bg: 'rgba(249, 115, 22, 0.08)', label: 'Poor' } :
-                  { color: '#EF4444', bg: 'rgba(239, 68, 68, 0.08)', label: 'Critical' };
+    score >= 90
+      ? { color: '#10B981', bg: 'rgba(16, 185, 129, 0.08)', label: 'Excellent' }
+      : score >= 80
+        ? { color: 'var(--brand)', bg: 'rgba(79, 70, 229, 0.08)', label: 'Good' }
+        : score >= 65
+          ? { color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.08)', label: 'Fair' }
+          : score >= 50
+            ? { color: '#F97316', bg: 'rgba(249, 115, 22, 0.08)', label: 'Poor' }
+            : { color: '#EF4444', bg: 'rgba(239, 68, 68, 0.08)', label: 'Critical' };
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: '16px',
-      backgroundColor: bg,
-      border: '1px solid var(--border)',
-      padding: '32px'
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: '16px',
+        backgroundColor: bg,
+        border: '1px solid var(--border)',
+        padding: '32px',
+      }}
+    >
       <div style={{ position: 'relative', width: size, height: size }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           {/* Track */}
           <circle
-            cx={size / 2} cy={size / 2} r={r}
-            fill="none" stroke="var(--border)" strokeWidth={12}
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke="var(--border)"
+            strokeWidth={12}
             strokeDasharray={`${arc} ${circ - arc}`}
             strokeDashoffset={circ * 0.125}
             strokeLinecap="round"
@@ -56,8 +74,12 @@ function ScoreGauge({ score, grade }: { score: number; grade: string }) {
           />
           {/* Score arc */}
           <motion.circle
-            cx={size / 2} cy={size / 2} r={r}
-            fill="none" stroke={color} strokeWidth={12}
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth={12}
             strokeDasharray={`${arc} ${circ - arc}`}
             strokeDashoffset={offset + circ * 0.125}
             strokeLinecap="round"
@@ -69,7 +91,16 @@ function ScoreGauge({ score, grade }: { score: number; grade: string }) {
         </svg>
 
         {/* Center text */}
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <motion.span
             style={{ fontSize: '48px', fontWeight: 900, color, letterSpacing: '-1.5px' }}
             initial={{ opacity: 0, scale: 0.6 }}
@@ -78,7 +109,18 @@ function ScoreGauge({ score, grade }: { score: number; grade: string }) {
           >
             {score}
           </motion.span>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '4px' }}>ATS Score</span>
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              color: 'var(--text-3)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              marginTop: '4px',
+            }}
+          >
+            ATS Score
+          </span>
         </div>
       </div>
 
@@ -101,11 +143,41 @@ interface SectionProps {
 }
 
 const variantStyles = {
-  error:   { color: '#EF4444', borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', badgeBg: '#FEE2E2', badgeBorder: '#FCA5A5' },
-  warning: { color: '#F59E0B', borderColor: '#FCD34D', backgroundColor: '#FFFBEB', badgeBg: '#FEF3C7', badgeBorder: '#FCD34D' },
-  success: { color: '#10B981', borderColor: '#6EE7B7', backgroundColor: '#ECFDF5', badgeBg: '#D1FAE5', badgeBorder: '#6EE7B7' },
-  info:    { color: '#3B82F6', borderColor: '#93C5FD', backgroundColor: '#EFF6FF', badgeBg: '#DBEAFE', badgeBorder: '#93C5FD' },
-  primary: { color: 'var(--brand)', borderColor: '#C7D2FE', backgroundColor: 'var(--brand-light)', badgeBg: '#DDE2FF', badgeBorder: '#C7D2FE' },
+  error: {
+    color: '#EF4444',
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+    badgeBg: '#FEE2E2',
+    badgeBorder: '#FCA5A5',
+  },
+  warning: {
+    color: '#F59E0B',
+    borderColor: '#FCD34D',
+    backgroundColor: '#FFFBEB',
+    badgeBg: '#FEF3C7',
+    badgeBorder: '#FCD34D',
+  },
+  success: {
+    color: '#10B981',
+    borderColor: '#6EE7B7',
+    backgroundColor: '#ECFDF5',
+    badgeBg: '#D1FAE5',
+    badgeBorder: '#6EE7B7',
+  },
+  info: {
+    color: '#3B82F6',
+    borderColor: '#93C5FD',
+    backgroundColor: '#EFF6FF',
+    badgeBg: '#DBEAFE',
+    badgeBorder: '#93C5FD',
+  },
+  primary: {
+    color: 'var(--brand)',
+    borderColor: '#C7D2FE',
+    backgroundColor: 'var(--brand-light)',
+    badgeBg: '#DDE2FF',
+    badgeBorder: '#C7D2FE',
+  },
 };
 
 function Section({ title, icon: Icon, items, variant, empty = 'None found.' }: SectionProps) {
@@ -119,41 +191,72 @@ function Section({ title, icon: Icon, items, variant, empty = 'None found.' }: S
         border: '1px solid',
         borderColor: s.borderColor,
         backgroundColor: s.backgroundColor,
-        padding: '20px'
+        padding: '20px',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
         <Icon style={{ height: '18px', width: '18px', flexShrink: 0, color: s.color }} />
-        <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{title}</h3>
+        <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
+          {title}
+        </h3>
         {items.length > 0 && (
-          <span style={{
-            marginLeft: 'auto',
-            borderRadius: '999px',
-            padding: '2px 8px',
-            fontSize: '10px',
-            fontWeight: 700,
-            backgroundColor: s.badgeBg,
-            borderColor: s.badgeBorder,
-            border: '1px solid',
-            color: s.color
-          }}>
+          <span
+            style={{
+              marginLeft: 'auto',
+              borderRadius: '999px',
+              padding: '2px 8px',
+              fontSize: '10px',
+              fontWeight: 700,
+              backgroundColor: s.badgeBg,
+              borderColor: s.badgeBorder,
+              border: '1px solid',
+              color: s.color,
+            }}
+          >
             {items.length}
           </span>
         )}
       </div>
       {items.length === 0 ? (
-        <p style={{ fontSize: '13px', color: 'var(--text-3)', fontStyle: 'italic', margin: 0 }}>{empty}</p>
+        <p style={{ fontSize: '13px', color: 'var(--text-3)', fontStyle: 'italic', margin: 0 }}>
+          {empty}
+        </p>
       ) : (
-        <ul style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: 0, margin: 0, listStyle: 'none' }}>
+        <ul
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            padding: 0,
+            margin: 0,
+            listStyle: 'none',
+          }}
+        >
           {items.map((item, i) => (
             <motion.li
               key={i}
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
-              style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '13px', color: 'var(--text-2)', fontWeight: 500 }}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+                fontSize: '13px',
+                color: 'var(--text-2)',
+                fontWeight: 500,
+              }}
             >
-              <span style={{ marginTop: '7px', height: '6px', width: '6px', flexShrink: 0, borderRadius: '50%', backgroundColor: s.color }} />
+              <span
+                style={{
+                  marginTop: '7px',
+                  height: '6px',
+                  width: '6px',
+                  flexShrink: 0,
+                  borderRadius: '50%',
+                  backgroundColor: s.color,
+                }}
+              />
               {item}
             </motion.li>
           ))}
@@ -166,10 +269,10 @@ function Section({ title, icon: Icon, items, variant, empty = 'None found.' }: S
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ResumeDetailPage() {
-  const params    = useParams<{ id: string }>();
-  const router    = useRouter();
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
   const { data: resume, isLoading } = useResume(params.id ?? null);
-  const analyse   = useAnalyseResume();
+  const analyse = useAnalyseResume();
   const [analysing, setAnalysing] = useState(false);
   const [estimatedProgress, setEstimatedProgress] = useState(0);
 
@@ -181,7 +284,9 @@ export default function ResumeDetailPage() {
 
     setEstimatedProgress(8);
     const timer = window.setInterval(() => {
-      setEstimatedProgress((progress) => Math.min(90, progress + Math.max(1, (90 - progress) * 0.06)));
+      setEstimatedProgress((progress) =>
+        Math.min(90, progress + Math.max(1, (90 - progress) * 0.06)),
+      );
     }, 500);
 
     return () => window.clearInterval(timer);
@@ -204,11 +309,53 @@ export default function ResumeDetailPage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '800px', margin: '0 auto' }}>
-        <div style={{ height: '32px', width: '192px', borderRadius: '8px', backgroundColor: 'var(--surface-2)', border: '1px solid var(--border)', animation: 'pulse 1.5s infinite' }} />
-        <div style={{ height: '256px', borderRadius: '16px', backgroundColor: 'var(--surface-2)', border: '1px solid var(--border)', animation: 'pulse 1.5s infinite' }} />
-        <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-          {[1,2,3,4].map(i => <div key={i} style={{ height: '160px', borderRadius: '12px', backgroundColor: 'var(--surface-2)', border: '1px solid var(--border)', animation: 'pulse 1.5s infinite' }} />)}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px',
+          maxWidth: '800px',
+          margin: '0 auto',
+        }}
+      >
+        <div
+          style={{
+            height: '32px',
+            width: '192px',
+            borderRadius: '8px',
+            backgroundColor: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            animation: 'pulse 1.5s infinite',
+          }}
+        />
+        <div
+          style={{
+            height: '256px',
+            borderRadius: '16px',
+            backgroundColor: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            animation: 'pulse 1.5s infinite',
+          }}
+        />
+        <div
+          style={{
+            display: 'grid',
+            gap: '16px',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          }}
+        >
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              style={{
+                height: '160px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                animation: 'pulse 1.5s infinite',
+              }}
+            />
+          ))}
         </div>
       </div>
     );
@@ -216,20 +363,66 @@ export default function ResumeDetailPage() {
 
   if (!resume) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '96px 24px', textAlign: 'center' }}>
-        <XCircle style={{ marginBottom: '12px', height: '48px', width: '48px', color: 'var(--text-3)', opacity: 0.5 }} />
-        <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-2)' }}>Resume not found</p>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '96px 24px',
+          textAlign: 'center',
+        }}
+      >
+        <XCircle
+          style={{
+            marginBottom: '12px',
+            height: '48px',
+            width: '48px',
+            color: 'var(--text-3)',
+            opacity: 0.5,
+          }}
+        />
+        <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-2)' }}>
+          Resume not found
+        </p>
         <Link href="/resumes" style={{ textDecoration: 'none' }}>
-          <button style={{ marginTop: '16px', fontSize: '12px', color: 'var(--brand)', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 700 }}>← Back to Resumes</button>
+          <button
+            style={{
+              marginTop: '16px',
+              fontSize: '12px',
+              color: 'var(--brand)',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              fontWeight: 700,
+            }}
+          >
+            ← Back to Resumes
+          </button>
         </Link>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '800px', margin: '0 auto' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '32px',
+        maxWidth: '800px',
+        margin: '0 auto',
+      }}
+    >
       {/* Back + actions */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+        }}
+      >
         <button
           onClick={() => router.push('/resumes')}
           style={{
@@ -242,17 +435,32 @@ export default function ResumeDetailPage() {
             border: 'none',
             cursor: 'pointer',
             fontWeight: 700,
-            transition: 'var(--transition)'
+            transition: 'var(--transition)',
           }}
-          onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-1)'}
-          onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-2)'}
+          onMouseOver={(e) => (e.currentTarget.style.color = 'var(--text-1)')}
+          onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-2)')}
         >
           <ArrowLeft style={{ height: '16px', width: '16px' }} /> All Resumes
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {resume.s3Url && (
-            <a href={resume.downloadUrl || resume.s3Url} download target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-              <Button variant="ghost" style={{ fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <a
+              href={resume.downloadUrl || resume.s3Url}
+              download
+              target="_blank"
+              rel="noreferrer"
+              style={{ textDecoration: 'none' }}
+            >
+              <Button
+                variant="ghost"
+                style={{
+                  fontSize: '12px',
+                  padding: '8px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
                 <Download style={{ height: '14px', width: '14px' }} /> Download
               </Button>
             </a>
@@ -261,10 +469,19 @@ export default function ResumeDetailPage() {
             <Button
               onClick={handleAnalyse}
               disabled={analysing}
-              style={{ fontSize: '12px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{
+                fontSize: '12px',
+                padding: '8px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
             >
               {analysing ? (
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                >
                   <RefreshCw style={{ height: '14px', width: '14px' }} />
                 </motion.div>
               ) : (
@@ -279,36 +496,59 @@ export default function ResumeDetailPage() {
       {/* Resume meta */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            display: 'flex',
-            height: '40px',
-            width: '40px',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '10px',
-            backgroundColor: 'var(--brand-light)',
-            border: '1px solid rgba(79, 70, 229, 0.2)'
-          }}>
+          <div
+            style={{
+              display: 'flex',
+              height: '40px',
+              width: '40px',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '10px',
+              backgroundColor: 'var(--brand-light)',
+              border: '1px solid rgba(79, 70, 229, 0.2)',
+            }}
+          >
             <FileText style={{ height: '20px', width: '20px', color: 'var(--brand)' }} />
           </div>
           <div>
-            <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.5px' }}>{resume.title}</h1>
-            <p style={{ fontSize: '12px', color: 'var(--text-3)', fontWeight: 600, margin: '2px 0 0 0' }}>{resume.originalName}</p>
+            <h1
+              style={{
+                fontSize: '24px',
+                fontWeight: 800,
+                color: 'var(--text-1)',
+                margin: 0,
+                letterSpacing: '-0.5px',
+              }}
+            >
+              {resume.title}
+            </h1>
+            <p
+              style={{
+                fontSize: '12px',
+                color: 'var(--text-3)',
+                fontWeight: 600,
+                margin: '2px 0 0 0',
+              }}
+            >
+              {resume.originalName}
+            </p>
           </div>
           {resume.isDefault && (
-            <span style={{
-              marginLeft: '8px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              borderRadius: '999px',
-              backgroundColor: 'rgba(245, 158, 11, 0.1)',
-              border: '1px solid rgba(245, 158, 11, 0.2)',
-              padding: '2px 8px',
-              fontSize: '10px',
-              fontWeight: 700,
-              color: '#F59E0B'
-            }}>
+            <span
+              style={{
+                marginLeft: '8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                borderRadius: '999px',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.2)',
+                padding: '2px 8px',
+                fontSize: '10px',
+                fontWeight: 700,
+                color: '#F59E0B',
+              }}
+            >
               <Star style={{ height: '10px', width: '10px', fill: 'currentColor' }} /> Default
             </span>
           )}
@@ -334,19 +574,45 @@ export default function ResumeDetailPage() {
             backgroundColor: 'var(--surface)',
           }}
         >
-          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}>
-            <RefreshCw aria-hidden="true" style={{ height: '28px', width: '28px', color: 'var(--brand)' }} />
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
+          >
+            <RefreshCw
+              aria-hidden="true"
+              style={{ height: '28px', width: '28px', color: 'var(--brand)' }}
+            />
           </motion.div>
           <div>
-            <p style={{ fontSize: '16px', fontWeight: 750, color: 'var(--text-1)', margin: 0 }}>Analyzing your resume</p>
-            <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: '6px 0 0', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '16px', fontWeight: 750, color: 'var(--text-1)', margin: 0 }}>
+              Analyzing your resume
+            </p>
+            <p
+              style={{
+                fontSize: '13px',
+                color: 'var(--text-3)',
+                margin: '6px 0 0',
+                lineHeight: 1.5,
+              }}
+            >
               The ATS analyser is preparing your score, formatting checks, and keyword suggestions…
             </p>
           </div>
           <div style={{ width: '100%', maxWidth: '420px', textAlign: 'left' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginBottom: '8px', fontSize: '12px', fontWeight: 650 }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '12px',
+                marginBottom: '8px',
+                fontSize: '12px',
+                fontWeight: 650,
+              }}
+            >
               <span style={{ color: 'var(--text-2)' }}>Estimated progress</span>
-              <span style={{ color: 'var(--brand)', fontVariantNumeric: 'tabular-nums' }}>{Math.floor(estimatedProgress)}%</span>
+              <span style={{ color: 'var(--brand)', fontVariantNumeric: 'tabular-nums' }}>
+                {Math.floor(estimatedProgress)}%
+              </span>
             </div>
             <div
               role="progressbar"
@@ -354,18 +620,41 @@ export default function ResumeDetailPage() {
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.floor(estimatedProgress)}
-              style={{ height: '8px', overflow: 'hidden', borderRadius: '999px', backgroundColor: 'var(--surface-2)', border: '1px solid var(--border)' }}
+              style={{
+                height: '8px',
+                overflow: 'hidden',
+                borderRadius: '999px',
+                backgroundColor: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+              }}
             >
-              <div style={{ height: '100%', width: `${estimatedProgress}%`, borderRadius: 'inherit', backgroundColor: 'var(--brand)', transition: 'width 500ms ease-out' }} />
+              <div
+                style={{
+                  height: '100%',
+                  width: `${estimatedProgress}%`,
+                  borderRadius: 'inherit',
+                  backgroundColor: 'var(--brand)',
+                  transition: 'width 500ms ease-out',
+                }}
+              />
             </div>
-            <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '8px 0 0', lineHeight: 1.5 }}>
-              This is an estimate while the ATS service works. The score will appear as soon as the analysis finishes.
+            <p
+              style={{
+                fontSize: '11px',
+                color: 'var(--text-3)',
+                margin: '8px 0 0',
+                lineHeight: 1.5,
+              }}
+            >
+              This is an estimate while the ATS service works. The score will appear as soon as the
+              analysis finishes.
             </p>
           </div>
         </motion.div>
       ) : !analysis ? (
         <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -375,13 +664,34 @@ export default function ResumeDetailPage() {
             border: '1px dashed var(--border)',
             padding: '80px 24px',
             textAlign: 'center',
-            backgroundColor: 'var(--surface)'
+            backgroundColor: 'var(--surface)',
           }}
         >
-          <TrendingUp style={{ marginBottom: '12px', height: '48px', width: '48px', color: 'var(--text-3)', opacity: 0.25 }} />
-          <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-2)' }}>No analysis yet</p>
-          <p style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '4px', margin: '4px auto 24px auto', maxWidth: '320px', lineHeight: 1.5, fontWeight: 500 }}>
-            Run the GPT-4o ATS analyser to get your resume health score, formatting issues, and keyword suggestions.
+          <TrendingUp
+            style={{
+              marginBottom: '12px',
+              height: '48px',
+              width: '48px',
+              color: 'var(--text-3)',
+              opacity: 0.25,
+            }}
+          />
+          <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-2)' }}>
+            No analysis yet
+          </p>
+          <p
+            style={{
+              fontSize: '12px',
+              color: 'var(--text-3)',
+              marginTop: '4px',
+              margin: '4px auto 24px auto',
+              maxWidth: '320px',
+              lineHeight: 1.5,
+              fontWeight: 500,
+            }}
+          >
+            Run the GPT-4o ATS analyser to get your resume health score, formatting issues, and
+            keyword suggestions.
           </p>
           <Button
             onClick={handleAnalyse}
@@ -399,22 +709,83 @@ export default function ResumeDetailPage() {
             <div style={{ flex: '1 1 200px' }}>
               <ScoreGauge score={analysis.healthScore} grade={analysis.grade} />
             </div>
-            <div style={{ flex: '2 1 400px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '16px' }}>
+            <div
+              style={{
+                flex: '2 1 400px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                gap: '16px',
+              }}
+            >
               <div>
-                <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-1)', margin: '0 0 8px 0' }}>Assessment Summary</h2>
-                <p style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.6, fontWeight: 500, margin: 0 }}>{analysis.summary}</p>
+                <h2
+                  style={{
+                    fontSize: '20px',
+                    fontWeight: 800,
+                    color: 'var(--text-1)',
+                    margin: '0 0 8px 0',
+                  }}
+                >
+                  Assessment Summary
+                </h2>
+                <p
+                  style={{
+                    fontSize: '14px',
+                    color: 'var(--text-2)',
+                    lineHeight: 1.6,
+                    fontWeight: 500,
+                    margin: 0,
+                  }}
+                >
+                  {analysis.summary}
+                </p>
               </div>
               {/* Quick stats */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                 {[
-                  { label: 'Issues Found',      value: analysis.formattingIssues.length,   color: '#EF4444'     },
-                  { label: 'Missing Sections',  value: analysis.missingSections.length,    color: '#F59E0B'   },
-                  { label: 'Keyword Gaps',       value: analysis.keywordSuggestions.length, color: '#3B82F6'    },
-                  { label: 'Improvements',       value: analysis.improvements.length,        color: 'var(--brand)'  },
+                  {
+                    label: 'Issues Found',
+                    value: analysis.formattingIssues.length,
+                    color: '#EF4444',
+                  },
+                  {
+                    label: 'Missing Sections',
+                    value: analysis.missingSections.length,
+                    color: '#F59E0B',
+                  },
+                  {
+                    label: 'Keyword Gaps',
+                    value: analysis.keywordSuggestions.length,
+                    color: '#3B82F6',
+                  },
+                  {
+                    label: 'Improvements',
+                    value: analysis.improvements.length,
+                    color: 'var(--brand)',
+                  },
                 ].map(({ label, value, color }) => (
-                  <div key={label} style={{ borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--surface-2)', padding: '12px' }}>
+                  <div
+                    key={label}
+                    style={{
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      backgroundColor: 'var(--surface-2)',
+                      padding: '12px',
+                    }}
+                  >
                     <p style={{ fontSize: '24px', fontWeight: 800, color, margin: 0 }}>{value}</p>
-                    <p style={{ fontSize: '12px', color: 'var(--text-3)', fontWeight: 600, marginTop: '2px', margin: '2px 0 0 0' }}>{label}</p>
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--text-3)',
+                        fontWeight: 600,
+                        marginTop: '2px',
+                        margin: '2px 0 0 0',
+                      }}
+                    >
+                      {label}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -422,7 +793,13 @@ export default function ResumeDetailPage() {
           </div>
 
           {/* Detail sections */}
-          <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+          <div
+            style={{
+              display: 'grid',
+              gap: '16px',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            }}
+          >
             <Section
               title="Formatting Issues"
               icon={XCircle}

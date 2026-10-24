@@ -22,13 +22,38 @@ export interface ExportOptions {
 }
 
 const SECTION_HEADINGS = new Set([
-  'summary', 'professional summary', 'profile', 'professional profile', 'objective',
-  'experience', 'work experience', 'professional experience', 'employment history',
-  'education', 'skills', 'technical skills', 'core skills', 'certifications',
-  'licenses', 'projects', 'personal projects', 'achievements', 'awards', 'publications',
-  'volunteer experience', 'languages', 'interests', 'references',
-  'additional information', 'additional skills', 'areas of expertise', 'career summary',
-  'core competencies', 'key achievements', 'selected projects', 'soft skills',
+  'summary',
+  'professional summary',
+  'profile',
+  'professional profile',
+  'objective',
+  'experience',
+  'work experience',
+  'professional experience',
+  'employment history',
+  'education',
+  'skills',
+  'technical skills',
+  'core skills',
+  'certifications',
+  'licenses',
+  'projects',
+  'personal projects',
+  'achievements',
+  'awards',
+  'publications',
+  'volunteer experience',
+  'languages',
+  'interests',
+  'references',
+  'additional information',
+  'additional skills',
+  'areas of expertise',
+  'career summary',
+  'core competencies',
+  'key achievements',
+  'selected projects',
+  'soft skills',
   'technical proficiencies',
 ]);
 
@@ -57,10 +82,7 @@ function getResumeLines(content: string): string[] {
 function isSectionHeading(line: string): boolean {
   const text = line.replace(/:$/, '').trim();
   const lower = text.toLowerCase();
-  return (
-    SECTION_HEADINGS.has(lower) ||
-    (line.endsWith(':') && text.length > 2 && text.length < 60)
-  );
+  return SECTION_HEADINGS.has(lower) || (line.endsWith(':') && text.length > 2 && text.length < 60);
 }
 
 function isBullet(line: string): boolean {
@@ -73,15 +95,19 @@ function bulletText(line: string): string {
 
 function isLikelyName(line: string): boolean {
   return (
-    line.length > 0 && line.length <= 72 &&
-    !isSectionHeading(line) && !isBullet(line) &&
+    line.length > 0 &&
+    line.length <= 72 &&
+    !isSectionHeading(line) &&
+    !isBullet(line) &&
     !/[.!?]$/.test(line) &&
     /^[\p{L}\p{M}0-9 ,.'&()-]+$/u.test(line)
   );
 }
 
 function isLikelyContact(line: string): boolean {
-  return line.length <= 160 && (/@|https?:\/\/|linkedin\.com|github\.com|\+?\d[\d\s().-]{7,}/i.test(line));
+  return (
+    line.length <= 160 && /@|https?:\/\/|linkedin\.com|github\.com|\+?\d[\d\s().-]{7,}/i.test(line)
+  );
 }
 
 function splitResumePair(line: string): [string, string] | null {
@@ -99,11 +125,11 @@ function latexEscape(value: string): string {
     '\\': '\\textbackslash{}',
     '{': '\\{',
     '}': '\\}',
-    '$': '\\$',
+    $: '\\$',
     '&': '\\&',
     '#': '\\#',
     '%': '\\%',
-    '_': '\\_',
+    _: '\\_',
     '~': '\\textasciitilde{}',
     '^': '\\textasciicircum{}',
   };
@@ -199,7 +225,11 @@ export class ExportService {
     const { title, subtitle, content, author } = options;
 
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ margin: 72, size: 'A4', info: { Title: title, Author: author ?? 'JobIN' } });
+      const doc = new PDFDocument({
+        margin: 72,
+        size: 'A4',
+        info: { Title: title, Author: author ?? 'JobIN' },
+      });
       const chunks: Buffer[] = [];
 
       doc.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -211,33 +241,54 @@ export class ExportService {
         doc.fillColor('#6b7280').font('Helvetica').fontSize(11).text(subtitle, { align: 'center' });
       }
       doc.moveDown(0.5);
-      doc.moveTo(72, doc.y).lineTo(doc.page.width - 72, doc.y).strokeColor('#e5e7eb').lineWidth(0.5).stroke();
+      doc
+        .moveTo(72, doc.y)
+        .lineTo(doc.page.width - 72, doc.y)
+        .strokeColor('#e5e7eb')
+        .lineWidth(0.5)
+        .stroke();
       doc.moveDown(0.8);
 
       for (const rawLine of content.split('\n')) {
         const line = rawLine.trim();
-        if (!line) { doc.moveDown(0.4); continue; }
+        if (!line) {
+          doc.moveDown(0.4);
+          continue;
+        }
         const isHeader =
           (line === line.toUpperCase() && line.length > 2 && line.length < 60) ||
           (line.endsWith(':') && line.length < 50);
         if (isHeader) {
           doc.moveDown(0.5).fillColor('#111827').font('Helvetica-Bold').fontSize(12).text(line);
           const width = doc.widthOfString(line);
-          doc.moveTo(72, doc.y + 1).lineTo(72 + width, doc.y + 1).strokeColor('#93c5fd').lineWidth(1).stroke();
+          doc
+            .moveTo(72, doc.y + 1)
+            .lineTo(72 + width, doc.y + 1)
+            .strokeColor('#93c5fd')
+            .lineWidth(1)
+            .stroke();
           doc.moveDown(0.3);
         } else if (/^[•*-]/.test(line)) {
-          doc.fillColor('#374151').font('Helvetica').fontSize(10).text(line, { indent: 14, lineGap: 2 });
+          doc
+            .fillColor('#374151')
+            .font('Helvetica')
+            .fontSize(10)
+            .text(line, { indent: 14, lineGap: 2 });
         } else {
           doc.fillColor('#374151').font('Helvetica').fontSize(10).text(line, { lineGap: 2 });
         }
       }
 
-      doc.fillColor('#9ca3af').font('Helvetica').fontSize(8).text(
-        `Generated by JobIN · ${new Date().toLocaleDateString('en-GB', { dateStyle: 'long' })}`,
-        72,
-        doc.page.height - 48,
-        { align: 'center', width: doc.page.width - 144 },
-      );
+      doc
+        .fillColor('#9ca3af')
+        .font('Helvetica')
+        .fontSize(8)
+        .text(
+          `Generated by JobIN · ${new Date().toLocaleDateString('en-GB', { dateStyle: 'long' })}`,
+          72,
+          doc.page.height - 48,
+          { align: 'center', width: doc.page.width - 144 },
+        );
       doc.end();
     });
   }
@@ -263,7 +314,11 @@ export class ExportService {
         writePdfText(doc, lines[0], { align: 'center' });
         start = 1;
         if (lines[start] && !isLikelyContact(lines[start]) && !isSectionHeading(lines[start])) {
-          doc.moveDown(0.1).font('Helvetica-Bold').fontSize(10).text(lines[start], { align: 'center' });
+          doc
+            .moveDown(0.1)
+            .font('Helvetica-Bold')
+            .fontSize(10)
+            .text(lines[start], { align: 'center' });
           start += 1;
         }
         while (lines[start] && isLikelyContact(lines[start])) {
@@ -273,17 +328,26 @@ export class ExportService {
         }
         doc.moveDown(0.25);
       } else {
-        doc.font('Helvetica-Bold').fontSize(16).fillColor('#111111').text(options.title, { align: 'center' });
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(16)
+          .fillColor('#111111')
+          .text(options.title, { align: 'center' });
         doc.moveDown(0.25);
       }
 
       for (const line of lines.slice(start)) {
         if (isSectionHeading(line)) {
           inSkills = /skills/i.test(line);
-          doc.moveDown(0.3).font('Helvetica-Bold').fontSize(10).fillColor('#111111')
+          doc
+            .moveDown(0.3)
+            .font('Helvetica-Bold')
+            .fontSize(10)
+            .fillColor('#111111')
             .text(line.replace(/:$/, '').toUpperCase());
           const y = doc.y + 1;
-          doc.moveTo(doc.page.margins.left, y)
+          doc
+            .moveTo(doc.page.margins.left, y)
             .lineTo(doc.page.width - doc.page.margins.right, y)
             .lineWidth(0.6)
             .stroke();
@@ -303,7 +367,11 @@ export class ExportService {
           } else {
             const label = inSkills ? splitLabeledLine(line) : null;
             if (label) {
-              doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#111111').text(`${label[0]}: `, { continued: true });
+              doc
+                .font('Helvetica-Bold')
+                .fontSize(9.5)
+                .fillColor('#111111')
+                .text(`${label[0]}: `, { continued: true });
               doc.font('Helvetica');
               writePdfText(doc, label[1], { lineGap: 1 });
             } else {
@@ -406,53 +474,88 @@ export class ExportService {
     ];
 
     if (subtitle) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: subtitle, size: 20, color: '6b7280' })],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 240 },
-        border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: 'e5e7eb' } },
-      }));
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: subtitle, size: 20, color: '6b7280' })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 240 },
+          border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: 'e5e7eb' } },
+        }),
+      );
     }
 
     for (const rawLine of content.split('\n')) {
       const line = rawLine.trim();
-      if (!line) { children.push(new Paragraph({ spacing: { before: 60, after: 60 } })); continue; }
+      if (!line) {
+        children.push(new Paragraph({ spacing: { before: 60, after: 60 } }));
+        continue;
+      }
       const isHeader =
         (line === line.toUpperCase() && line.length > 2 && line.length < 60) ||
         (line.endsWith(':') && line.length < 50);
       if (isHeader) {
-        children.push(new Paragraph({
-          heading: HeadingLevel.HEADING_2,
-          children: [new TextRun({ text: line, bold: true, size: 24, color: '111827' })],
-          spacing: { before: 240, after: 80 },
-          border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: '93c5fd' } },
-        }));
+        children.push(
+          new Paragraph({
+            heading: HeadingLevel.HEADING_2,
+            children: [new TextRun({ text: line, bold: true, size: 24, color: '111827' })],
+            spacing: { before: 240, after: 80 },
+            border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: '93c5fd' } },
+          }),
+        );
       } else if (/^[•*-]/.test(line)) {
-        children.push(new Paragraph({
-          bullet: { level: 0 },
-          children: [new TextRun({ text: line.replace(/^[•*-]\s*/, ''), size: 20, color: '374151' })],
-          spacing: { after: 40 },
-          indent: { left: convertInchesToTwip(0.25) },
-        }));
+        children.push(
+          new Paragraph({
+            bullet: { level: 0 },
+            children: [
+              new TextRun({ text: line.replace(/^[•*-]\s*/, ''), size: 20, color: '374151' }),
+            ],
+            spacing: { after: 40 },
+            indent: { left: convertInchesToTwip(0.25) },
+          }),
+        );
       } else {
-        children.push(new Paragraph({ children: [new TextRun({ text: line, size: 20, color: '374151' })], spacing: { after: 60 } }));
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: line, size: 20, color: '374151' })],
+            spacing: { after: 60 },
+          }),
+        );
       }
     }
 
-    children.push(new Paragraph({
-      children: [new TextRun({ text: `Generated by JobIN · ${new Date().toLocaleDateString('en-GB', { dateStyle: 'long' })}`, size: 16, color: '9ca3af' })],
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 480 },
-    }));
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: `Generated by JobIN · ${new Date().toLocaleDateString('en-GB', { dateStyle: 'long' })}`,
+            size: 16,
+            color: '9ca3af',
+          }),
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 480 },
+      }),
+    );
 
     const doc = new Document({
       creator: 'JobIN',
       title,
       description: 'Generated by JobIN AI',
-      sections: [{ properties: { page: { margin: {
-        top: convertInchesToTwip(1), bottom: convertInchesToTwip(1),
-        left: convertInchesToTwip(1), right: convertInchesToTwip(1),
-      } } }, children }],
+      sections: [
+        {
+          properties: {
+            page: {
+              margin: {
+                top: convertInchesToTwip(1),
+                bottom: convertInchesToTwip(1),
+                left: convertInchesToTwip(1),
+                right: convertInchesToTwip(1),
+              },
+            },
+          },
+          children,
+        },
+      ],
     });
     return Packer.toBuffer(doc);
   }
@@ -463,73 +566,96 @@ export class ExportService {
     let start = 0;
 
     if (lines.length && isLikelyName(lines[0])) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: lines[0], bold: true, size: 34, font: 'Arial' })],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 80 },
-      }));
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: lines[0], bold: true, size: 34, font: 'Arial' })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 80 },
+        }),
+      );
       start = 1;
       if (lines[start] && !isLikelyContact(lines[start]) && !isSectionHeading(lines[start])) {
-        children.push(new Paragraph({
-          children: [new TextRun({ text: lines[start], bold: true, size: 20, font: 'Arial' })],
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 60 },
-        }));
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: lines[start], bold: true, size: 20, font: 'Arial' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 60 },
+          }),
+        );
         start += 1;
       }
       while (lines[start] && isLikelyContact(lines[start])) {
-        children.push(new Paragraph({
-          children: [new TextRun({ text: lines[start], size: 17, font: 'Arial' })],
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 40 },
-        }));
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: lines[start], size: 17, font: 'Arial' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 40 },
+          }),
+        );
         start += 1;
       }
     } else {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: options.title, bold: true, size: 32, font: 'Arial' })],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 180 },
-      }));
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: options.title, bold: true, size: 32, font: 'Arial' })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 180 },
+        }),
+      );
     }
 
     let inSkills = false;
     for (const line of lines.slice(start)) {
       if (isSectionHeading(line)) {
         inSkills = /skills/i.test(line);
-        children.push(new Paragraph({
-          heading: HeadingLevel.HEADING_2,
-          children: [new TextRun({ text: line.replace(/:$/, '').toUpperCase(), bold: true, size: 20, font: 'Arial' })],
-          spacing: { before: 140, after: 35 },
-          border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '111111' } },
-        }));
+        children.push(
+          new Paragraph({
+            heading: HeadingLevel.HEADING_2,
+            children: [
+              new TextRun({
+                text: line.replace(/:$/, '').toUpperCase(),
+                bold: true,
+                size: 20,
+                font: 'Arial',
+              }),
+            ],
+            spacing: { before: 140, after: 35 },
+            border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '111111' } },
+          }),
+        );
       } else if (isBullet(line)) {
-        children.push(new Paragraph({
-          children: [new TextRun({ text: `- ${bulletText(line)}`, size: 19, font: 'Arial' })],
-          spacing: { after: 25 },
-          indent: { left: convertInchesToTwip(0.25) },
-        }));
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: `- ${bulletText(line)}`, size: 19, font: 'Arial' })],
+            spacing: { after: 25 },
+            indent: { left: convertInchesToTwip(0.25) },
+          }),
+        );
       } else {
         const pair = splitResumePair(line);
         const label = inSkills ? splitLabeledLine(line) : null;
-        children.push(new Paragraph({
-          children: pair
-            ? [
-                new TextRun({ text: pair[0], bold: true, size: 19, font: 'Arial' }),
-                new TextRun({ text: '\t' }),
-                new TextRun({ text: `| ${pair[1]}`, size: 19, font: 'Arial' }),
-              ]
-            : label
+        children.push(
+          new Paragraph({
+            children: pair
               ? [
-                  new TextRun({ text: `${label[0]}: `, bold: true, size: 19, font: 'Arial' }),
-                  new TextRun({ text: label[1], size: 19, font: 'Arial' }),
+                  new TextRun({ text: pair[0], bold: true, size: 19, font: 'Arial' }),
+                  new TextRun({ text: '\t' }),
+                  new TextRun({ text: `| ${pair[1]}`, size: 19, font: 'Arial' }),
                 ]
-              : [new TextRun({ text: line, size: 19, font: 'Arial' })],
-          ...(pair ? {
-            tabStops: [{ type: TabStopType.RIGHT, position: convertInchesToTwip(6.95) }],
-          } : {}),
-          spacing: { after: 35 },
-        }));
+              : label
+                ? [
+                    new TextRun({ text: `${label[0]}: `, bold: true, size: 19, font: 'Arial' }),
+                    new TextRun({ text: label[1], size: 19, font: 'Arial' }),
+                  ]
+                : [new TextRun({ text: line, size: 19, font: 'Arial' })],
+            ...(pair
+              ? {
+                  tabStops: [{ type: TabStopType.RIGHT, position: convertInchesToTwip(6.95) }],
+                }
+              : {}),
+            spacing: { after: 35 },
+          }),
+        );
       }
     }
 
@@ -538,15 +664,30 @@ export class ExportService {
       title: options.title,
       description: 'ATS-friendly tailored resume',
       styles: { default: { document: { run: { font: 'Arial', size: 19 } } } },
-      sections: [{ properties: { page: { margin: {
-        top: convertInchesToTwip(0.65), bottom: convertInchesToTwip(0.65),
-        left: convertInchesToTwip(0.65), right: convertInchesToTwip(0.65),
-      } } }, children }],
+      sections: [
+        {
+          properties: {
+            page: {
+              margin: {
+                top: convertInchesToTwip(0.65),
+                bottom: convertInchesToTwip(0.65),
+                left: convertInchesToTwip(0.65),
+                right: convertInchesToTwip(0.65),
+              },
+            },
+          },
+          children,
+        },
+      ],
     });
     return Packer.toBuffer(doc);
   }
 
   toFilename(base: string, ext: 'pdf' | 'docx' | 'tex'): string {
-    return `${base.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '_').slice(0, 80)}.${ext}`;
+    return `${base
+      .replace(/[^a-zA-Z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .slice(0, 80)}.${ext}`;
   }
 }

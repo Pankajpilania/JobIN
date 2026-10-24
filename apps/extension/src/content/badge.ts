@@ -6,9 +6,9 @@
 const BADGE_ID = 'jobin-badge-root';
 
 interface BadgeOptions {
-  score?:      number | null;   // 0–100, null = loading
-  label?:      string;
-  onOpen?:     () => void;      // callback when user clicks "Open JobIN"
+  score?: number | null; // 0–100, null = loading
+  label?: string;
+  onOpen?: () => void; // callback when user clicks "Open JobIN"
 }
 
 export function injectBadge(options: BadgeOptions = {}): () => void {
@@ -20,11 +20,11 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
   host.id = BADGE_ID;
   host.setAttribute('aria-label', 'JobIN Copilot');
   Object.assign(host.style, {
-    position:  'fixed',
-    bottom:    '24px',
-    right:     '24px',
-    zIndex:    '2147483647',
-    fontFamily:'sans-serif',
+    position: 'fixed',
+    bottom: '24px',
+    right: '24px',
+    zIndex: '2147483647',
+    fontFamily: 'sans-serif',
   });
 
   // Shadow DOM for CSS isolation
@@ -137,11 +137,11 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
   badge.setAttribute('role', 'button');
   badge.setAttribute('tabindex', '0');
 
-  const score      = options.score;
-  const isLoading  = score === null || score === undefined;
-  const grade      = !isLoading ? getGrade(score!) : '';
+  const score = options.score;
+  const isLoading = score === null || score === undefined;
+  const grade = !isLoading ? getGrade(score!) : '';
   const scoreClass = isLoading ? 'loading' : `grade-${grade.toLowerCase()}`;
-  const scoreText  = isLoading ? 'Analysing…' : `${score}/100`;
+  const scoreText = isLoading ? 'Analysing…' : `${score}/100`;
 
   badge.innerHTML = `
     <div class="logo">J</div>
@@ -161,7 +161,10 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
   dismiss.textContent = '✕';
   dismiss.setAttribute('role', 'button');
   dismiss.setAttribute('aria-label', 'Dismiss JobIN badge');
-  dismiss.addEventListener('click', (e) => { e.stopPropagation(); removeBadge(); });
+  dismiss.addEventListener('click', (e) => {
+    e.stopPropagation();
+    removeBadge();
+  });
   badge.appendChild(dismiss);
 
   badge.addEventListener('click', () => {

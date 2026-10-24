@@ -295,7 +295,11 @@ export class ResumesService {
     versionId?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
     const { resume, content } = await this.getExportContent(supabaseId, resumeId, versionId);
-    const buffer = await this.exporter.generatePdf({ title: resume.title, content, atsFriendly: true });
+    const buffer = await this.exporter.generatePdf({
+      title: resume.title,
+      content,
+      atsFriendly: true,
+    });
     return { buffer, filename: this.exporter.toFilename(resume.title, 'pdf') };
   }
 
@@ -305,7 +309,11 @@ export class ResumesService {
     versionId?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
     const { resume, content } = await this.getExportContent(supabaseId, resumeId, versionId);
-    const buffer = await this.exporter.generateDocx({ title: resume.title, content, atsFriendly: true });
+    const buffer = await this.exporter.generateDocx({
+      title: resume.title,
+      content,
+      atsFriendly: true,
+    });
     return { buffer, filename: this.exporter.toFilename(resume.title, 'docx') };
   }
 

@@ -42,6 +42,11 @@ export function PlanCreditsPanel({ source }: PlanCreditsPanelProps) {
       router.push('/upgrade');
       return;
     }
+    if (!usage.canManagePlan) {
+      toast.error('This subscription is managed by JobIN. Contact support to change it.');
+      setOpeningBilling(false);
+      return;
+    }
 
     try {
       const token = await getToken();
@@ -59,18 +64,34 @@ export function PlanCreditsPanel({ source }: PlanCreditsPanelProps) {
 
   const isLoading = source ? source.isLoading : !isReady || (isSignedIn && usageQuery.isLoading);
   const error = source?.error ?? (usageQuery.isError ? usageQuery.error.message : undefined);
-  const retry = source?.retry ?? (() => { void usageQuery.refetch(); });
+  const retry =
+    source?.retry ??
+    (() => {
+      void usageQuery.refetch();
+    });
   const limit = usage?.creditsIncluded;
-  const usedPercentage = usage && limit && limit > 0
-    ? Math.min((usage.creditsUsed / limit) * 100, 100)
-    : 0;
+  const usedPercentage =
+    usage && limit && limit > 0 ? Math.min((usage.creditsUsed / limit) * 100, 100) : 0;
 
   return (
     <Card hoverEffect={false} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '16px',
+          flexWrap: 'wrap',
+        }}
+      >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-1)' }}>
-            <Zap aria-hidden="true" style={{ height: '18px', width: '18px', color: 'var(--brand)' }} />
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-1)' }}
+          >
+            <Zap
+              aria-hidden="true"
+              style={{ height: '18px', width: '18px', color: 'var(--brand)' }}
+            />
             <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Plan &amp; AI credits</h2>
           </div>
           <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '6px 0 0 0' }}>
@@ -81,7 +102,18 @@ export function PlanCreditsPanel({ source }: PlanCreditsPanelProps) {
           <button
             type="button"
             onClick={retry}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: 0, background: 'transparent', color: 'var(--brand)', cursor: 'pointer', font: 'inherit', fontSize: '12px', fontWeight: 700 }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              border: 0,
+              background: 'transparent',
+              color: 'var(--brand)',
+              cursor: 'pointer',
+              font: 'inherit',
+              fontSize: '12px',
+              fontWeight: 700,
+            }}
           >
             <RefreshCw aria-hidden="true" size={14} /> Retry
           </button>
@@ -98,24 +130,75 @@ export function PlanCreditsPanel({ source }: PlanCreditsPanelProps) {
         </p>
       ) : usage ? (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--border)', backgroundColor: 'var(--surface-2)' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '16px',
+              flexWrap: 'wrap',
+              padding: '14px 16px',
+              borderRadius: '10px',
+              border: '1px solid var(--border)',
+              backgroundColor: 'var(--surface-2)',
+            }}
+          >
             <div>
-              <p style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-3)', margin: 0 }}>Current plan</p>
-              <p style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-1)', textTransform: 'capitalize', margin: '4px 0 0 0' }}>
+              <p
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  color: 'var(--text-3)',
+                  margin: 0,
+                }}
+              >
+                Current plan
+              </p>
+              <p
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 800,
+                  color: 'var(--text-1)',
+                  textTransform: 'capitalize',
+                  margin: '4px 0 0 0',
+                }}
+              >
                 {usage.planName.toLowerCase()}
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--brand)', fontSize: '13px', fontWeight: 700 }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: 'var(--brand)',
+                fontSize: '13px',
+                fontWeight: 700,
+              }}
+            >
               <CreditCard aria-hidden="true" size={16} />
               {usage.hasActiveSubscription ? 'Subscription active' : 'Free plan'}
             </div>
           </div>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
-              <span style={{ color: 'var(--text-2)', fontSize: '13px', fontWeight: 600 }}>AI credits used</span>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                gap: '12px',
+                marginBottom: '8px',
+              }}
+            >
+              <span style={{ color: 'var(--text-2)', fontSize: '13px', fontWeight: 600 }}>
+                AI credits used
+              </span>
               <strong style={{ color: 'var(--text-1)', fontSize: '14px' }}>
-                {usage.creditsUsed}{limit === null ? ' used · unlimited plan' : ` / ${limit}`}
+                {usage.creditsUsed}
+                {limit === null ? ' used · unlimited plan' : ` / ${limit}`}
               </strong>
             </div>
             <div
@@ -124,30 +207,73 @@ export function PlanCreditsPanel({ source }: PlanCreditsPanelProps) {
               aria-valuemin={0}
               aria-valuemax={limit ?? Math.max(usage.creditsUsed, 1)}
               aria-valuenow={usage.creditsUsed}
-              style={{ height: '8px', overflow: 'hidden', borderRadius: '999px', backgroundColor: 'var(--surface-2)' }}
+              style={{
+                height: '8px',
+                overflow: 'hidden',
+                borderRadius: '999px',
+                backgroundColor: 'var(--surface-2)',
+              }}
             >
-              <div style={{ height: '100%', width: `${limit === null ? 0 : usedPercentage}%`, borderRadius: 'inherit', backgroundColor: 'var(--brand)', transition: 'width 250ms ease' }} />
+              <div
+                style={{
+                  height: '100%',
+                  width: `${limit === null ? 0 : usedPercentage}%`,
+                  borderRadius: 'inherit',
+                  backgroundColor: 'var(--brand)',
+                  transition: 'width 250ms ease',
+                }}
+              />
             </div>
             <p style={{ fontSize: '12px', color: 'var(--text-3)', margin: '7px 0 0 0' }}>
               {usage.creditsRemaining === null
                 ? 'Unlimited AI credits'
                 : `${usage.creditsRemaining} credits remaining`}
-              {' · Resets '}{new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(usage.periodEnd))}
+              {' · Resets '}
+              {new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(
+                new Date(usage.periodEnd),
+              )}
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '16px',
+              flexWrap: 'wrap',
+            }}
+          >
             <p style={{ fontSize: '12px', color: 'var(--text-3)', margin: 0 }}>
-              Usage counts completed AI analyses and generations.
+              {usage.hasActiveSubscription && !usage.canManagePlan
+                ? 'This plan is managed by JobIN. Contact support to change it.'
+                : 'Usage counts completed AI analyses and generations.'}
             </p>
             <Button
               type="button"
               onClick={openBilling}
-              disabled={openingBilling || isLoading}
-              style={{ opacity: openingBilling || isLoading ? 0.7 : 1 }}
+              disabled={
+                openingBilling || isLoading || (usage.hasActiveSubscription && !usage.canManagePlan)
+              }
+              style={{
+                opacity:
+                  openingBilling ||
+                  isLoading ||
+                  (usage.hasActiveSubscription && !usage.canManagePlan)
+                    ? 0.7
+                    : 1,
+              }}
             >
-              {openingBilling ? <Loader2 aria-hidden="true" size={16} className="animate-spin" /> : null}
-              {openingBilling ? 'Opening…' : usage.hasActiveSubscription ? 'Manage plan' : 'Upgrade to Premium'}
+              {openingBilling ? (
+                <Loader2 aria-hidden="true" size={16} className="animate-spin" />
+              ) : null}
+              {openingBilling
+                ? 'Opening…'
+                : usage.hasActiveSubscription
+                  ? usage.canManagePlan
+                    ? 'Manage plan'
+                    : 'Managed by JobIN'
+                  : 'Upgrade to Premium'}
               {!openingBilling ? <ArrowUpRight aria-hidden="true" size={15} /> : null}
             </Button>
           </div>

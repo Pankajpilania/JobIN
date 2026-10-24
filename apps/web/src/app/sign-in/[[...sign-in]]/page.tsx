@@ -28,7 +28,7 @@ function SignInPageContent() {
   const [errorMsg, setErrorMsg] = useState(
     searchParams.get('error') === 'auth-code-exchange-failed'
       ? 'Authentication failed. The sign-in or confirmation link may have expired. Please try again.'
-      : ''
+      : '',
   );
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -81,8 +81,18 @@ function SignInPageContent() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--surface)', color: 'var(--text-1)', fontFamily: 'var(--font-sans)' }}>
-      <style dangerouslySetInnerHTML={{ __html: `
+    <div
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        backgroundColor: 'var(--surface)',
+        color: 'var(--text-1)',
+        fontFamily: 'var(--font-sans)',
+      }}
+    >
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         @media (max-width: 1023px) {
           .desktop-only { display: none !important; }
         }
@@ -96,60 +106,86 @@ function SignInPageContent() {
         .animate-spin {
           animation: spin 1s linear infinite;
         }
-      `}} />
+      `,
+        }}
+      />
 
       {/* ── Left branding panel (Desktop only) ────────────────────────────────── */}
-      <div className="desktop-only" style={{
-        position: 'relative',
-        width: '45%',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '48px',
-        borderRight: '1px solid var(--border)',
-        backgroundColor: 'var(--surface-2)',
-      }}>
+      <div
+        className="desktop-only"
+        style={{
+          position: 'relative',
+          width: '45%',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '48px',
+          borderRight: '1px solid var(--border)',
+          backgroundColor: 'var(--surface-2)',
+        }}
+      >
         {/* Decorative elements without gradients */}
-        <div style={{
-          position: 'absolute',
-          top: '25%',
-          left: '-96px',
-          height: '384px',
-          width: '384px',
-          borderRadius: '50%',
-          backgroundColor: 'rgba(79, 70, 229, 0.05)',
-          filter: 'blur(64px)',
-          zIndex: 1,
-        }} />
-        <div style={{
-          position: 'absolute',
-          bottom: '25%',
-          right: '0',
-          height: '256px',
-          width: '256px',
-          borderRadius: '50%',
-          backgroundColor: 'rgba(79, 70, 229, 0.04)',
-          filter: 'blur(64px)',
-          zIndex: 1,
-        }} />
+        <div
+          style={{
+            position: 'absolute',
+            top: '25%',
+            left: '-96px',
+            height: '384px',
+            width: '384px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(79, 70, 229, 0.05)',
+            filter: 'blur(64px)',
+            zIndex: 1,
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '25%',
+            right: '0',
+            height: '256px',
+            width: '256px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(79, 70, 229, 0.04)',
+            filter: 'blur(64px)',
+            zIndex: 1,
+          }}
+        />
 
         {/* Logo: 32px square brand bg + wordmark weight 800 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', userSelect: 'none', zIndex: 2 }}>
-          <div style={{
+        <div
+          style={{
             display: 'flex',
-            height: '32px',
-            width: '32px',
             alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '8px',
-            backgroundColor: 'var(--brand)',
-            color: 'white',
-            fontWeight: 900,
-            fontSize: '18px',
-            boxShadow: 'var(--shadow-sm)'
-          }}>
+            gap: '10px',
+            userSelect: 'none',
+            zIndex: 2,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              height: '32px',
+              width: '32px',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '8px',
+              backgroundColor: 'var(--brand)',
+              color: 'white',
+              fontWeight: 900,
+              fontSize: '18px',
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
             J
           </div>
-          <span style={{ fontWeight: 800, fontSize: '20px', letterSpacing: '-0.5px', color: 'var(--text-1)' }}>
+          <span
+            style={{
+              fontWeight: 800,
+              fontSize: '20px',
+              letterSpacing: '-0.5px',
+              color: 'var(--text-1)',
+            }}
+          >
             JobIN
           </span>
         </div>
@@ -157,18 +193,52 @@ function SignInPageContent() {
         {/* Brand details */}
         <div style={{ zIndex: 2, display: 'flex', flexDirection: 'column', gap: '32px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h1 style={{ fontSize: '36px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: '1.2' }}>
-              Apply Smarter. <span style={{ color: 'var(--brand)', fontWeight: 800 }}>Get Hired Faster.</span>
+            <h1
+              style={{
+                fontSize: '36px',
+                fontWeight: 800,
+                letterSpacing: '-1.5px',
+                lineHeight: '1.2',
+              }}
+            >
+              Apply Smarter.{' '}
+              <span style={{ color: 'var(--brand)', fontWeight: 800 }}>Get Hired Faster.</span>
             </h1>
-            <p style={{ fontSize: '14px', color: 'var(--text-2)', maxWidth: '448px', lineHeight: '1.625' }}>
-              The AI job-search assistant trusted by thousands of candidates to land more interviews.
+            <p
+              style={{
+                fontSize: '14px',
+                color: 'var(--text-2)',
+                maxWidth: '448px',
+                lineHeight: '1.625',
+              }}
+            >
+              The AI job-search assistant trusted by thousands of candidates to land more
+              interviews.
             </p>
           </div>
 
           {/* Highlights */}
-          <ul style={{ display: 'flex', flexDirection: 'column', gap: '14px', listStyle: 'none', padding: 0 }}>
+          <ul
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              listStyle: 'none',
+              padding: 0,
+            }}
+          >
             {highlights.map((h) => (
-              <li key={h} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: 'var(--text-2)', fontWeight: 500 }}>
+              <li
+                key={h}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  fontSize: '14px',
+                  color: 'var(--text-2)',
+                  fontWeight: 500,
+                }}
+              >
                 <CheckCircle className="h-4 w-4" style={{ flexShrink: 0, color: '#10B981' }} />
                 {h}
               </li>
@@ -176,22 +246,54 @@ function SignInPageContent() {
           </ul>
 
           {/* Stats Bar metrics */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', paddingTop: '8px' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '16px',
+              paddingTop: '8px',
+            }}
+          >
             {[
               { v: '94%', l: 'ATS pass rate' },
-              { v: '3×',  l: 'More interviews' },
+              { v: '3×', l: 'More interviews' },
               { v: '10s', l: 'Resume tailor' },
             ].map(({ v, l }) => (
-              <div key={l} style={{
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--surface)',
-                padding: '16px',
-                textAlign: 'center',
-                boxShadow: 'var(--shadow-sm)'
-              }}>
-                <p style={{ fontSize: '20px', fontWeight: 800, color: 'var(--brand)', lineHeight: '1', margin: 0 }}>{v}</p>
-                <p style={{ fontSize: '10px', color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '8px', margin: '8px 0 0 0' }}>{l}</p>
+              <div
+                key={l}
+                style={{
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface)',
+                  padding: '16px',
+                  textAlign: 'center',
+                  boxShadow: 'var(--shadow-sm)',
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: '20px',
+                    fontWeight: 800,
+                    color: 'var(--brand)',
+                    lineHeight: '1',
+                    margin: 0,
+                  }}
+                >
+                  {v}
+                </p>
+                <p
+                  style={{
+                    fontSize: '10px',
+                    color: 'var(--text-3)',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    marginTop: '8px',
+                    margin: '8px 0 0 0',
+                  }}
+                >
+                  {l}
+                </p>
               </div>
             ))}
           </div>
@@ -203,64 +305,127 @@ function SignInPageContent() {
       </div>
 
       {/* ── Right Panel: Sign In Form ────────────────────────────────────────── */}
-      <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', padding: '32px', backgroundColor: 'var(--surface)' }}>
+      <div
+        style={{
+          display: 'flex',
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '32px',
+          backgroundColor: 'var(--surface)',
+        }}
+      >
         <div style={{ width: '100%', maxWidth: '448px' }}>
           {/* Mobile logo */}
-          <div className="mobile-only" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '32px', userSelect: 'none' }}>
-            <div style={{
+          <div
+            className="mobile-only"
+            style={{
               display: 'flex',
-              height: '32px',
-              width: '32px',
               alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '8px',
-              backgroundColor: 'var(--brand)',
-              color: 'white',
-              fontWeight: 900,
-              fontSize: '18px'
-            }}>
+              gap: '8px',
+              marginBottom: '32px',
+              userSelect: 'none',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                height: '32px',
+                width: '32px',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '8px',
+                backgroundColor: 'var(--brand)',
+                color: 'white',
+                fontWeight: 900,
+                fontSize: '18px',
+              }}
+            >
               J
             </div>
-            <span style={{ fontWeight: 800, fontSize: '20px', letterSpacing: '-0.5px', color: 'var(--text-1)' }}>JobIN</span>
+            <span
+              style={{
+                fontWeight: 800,
+                fontSize: '20px',
+                letterSpacing: '-0.5px',
+                color: 'var(--text-1)',
+              }}
+            >
+              JobIN
+            </span>
           </div>
 
-          <Card style={{
-            boxShadow: 'var(--shadow-card)',
-            border: '1px solid var(--border)',
-            backgroundColor: 'var(--surface)',
-            padding: '32px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '24px'
-          }} hoverEffect={false}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>Sign in to JobIN</h2>
-              <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: 0 }}>Welcome back! Please enter your details.</p>
+          <Card
+            style={{
+              boxShadow: 'var(--shadow-card)',
+              border: '1px solid var(--border)',
+              backgroundColor: 'var(--surface)',
+              padding: '32px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '24px',
+            }}
+            hoverEffect={false}
+          >
+            <div
+              style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}
+            >
+              <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>
+                Sign in to JobIN
+              </h2>
+              <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: 0 }}>
+                Welcome back! Please enter your details.
+              </p>
             </div>
 
             {searchParams.get('passwordReset') === 'true' && (
-              <div role="status" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.25)', color: '#15803d', fontSize: 13, fontWeight: 600, borderRadius: 6, padding: 12 }}>
+              <div
+                role="status"
+                style={{
+                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                  border: '1px solid rgba(34, 197, 94, 0.25)',
+                  color: '#15803d',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 6,
+                  padding: 12,
+                }}
+              >
                 Your password has been updated. Sign in with your new password.
               </div>
             )}
 
             {errorMsg && (
-              <div style={{
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
-                color: '#EF4444',
-                fontSize: '13px',
-                fontWeight: 600,
-                borderRadius: '6px',
-                padding: '12px'
-              }}>
+              <div
+                style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  color: '#EF4444',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  borderRadius: '6px',
+                  padding: '12px',
+                }}
+              >
                 {errorMsg}
               </div>
             )}
 
-            <form onSubmit={handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form
+              onSubmit={handleSignIn}
+              style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+            >
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }} htmlFor="email">
+                <label
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: 'var(--text-2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}
+                  htmlFor="email"
+                >
                   Email address
                 </label>
                 <input
@@ -280,15 +445,24 @@ function SignInPageContent() {
                     fontSize: '14px',
                     fontWeight: 500,
                     outline: 'none',
-                    transition: 'var(--transition)'
+                    transition: 'var(--transition)',
                   }}
-                  onFocus={(e) => e.target.style.borderColor = 'var(--brand)'}
-                  onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+                  onFocus={(e) => (e.target.style.borderColor = 'var(--brand)')}
+                  onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
                 />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }} htmlFor="password">
+                <label
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: 'var(--text-2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}
+                  htmlFor="password"
+                >
                   Password
                 </label>
                 <div style={{ position: 'relative' }}>
@@ -309,10 +483,10 @@ function SignInPageContent() {
                       fontSize: '14px',
                       fontWeight: 500,
                       outline: 'none',
-                      transition: 'var(--transition)'
+                      transition: 'var(--transition)',
                     }}
-                    onFocus={(e) => e.target.style.borderColor = 'var(--brand)'}
-                    onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+                    onFocus={(e) => (e.target.style.borderColor = 'var(--brand)')}
+                    onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
                   />
                   <button
                     type="button"
@@ -331,7 +505,7 @@ function SignInPageContent() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      padding: 0
+                      padding: 0,
                     }}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -339,7 +513,13 @@ function SignInPageContent() {
                 </div>
                 <Link
                   href={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}
-                  style={{ alignSelf: 'flex-end', color: 'var(--brand)', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
+                  style={{
+                    alignSelf: 'flex-end',
+                    color: 'var(--brand)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                  }}
                 >
                   Forgot password?
                 </Link>
@@ -348,15 +528,41 @@ function SignInPageContent() {
               <Button
                 type="submit"
                 disabled={loading || googleLoading}
-                style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                }}
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continue'}
               </Button>
             </form>
 
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', margin: '8px 0', userSelect: 'none' }}>
+            <div
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                margin: '8px 0',
+                userSelect: 'none',
+              }}
+            >
               <div style={{ flexGrow: 1, borderTop: '1px solid var(--border)' }}></div>
-              <span style={{ padding: '0 16px', color: 'var(--text-3)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>or</span>
+              <span
+                style={{
+                  padding: '0 16px',
+                  color: 'var(--text-3)',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                or
+              </span>
               <div style={{ flexGrow: 1, borderTop: '1px solid var(--border)' }}></div>
             </div>
 
@@ -377,7 +583,7 @@ function SignInPageContent() {
                 fontSize: '14px',
                 fontWeight: 600,
                 cursor: 'pointer',
-                transition: 'var(--transition)'
+                transition: 'var(--transition)',
               }}
               onMouseOver={(e) => {
                 e.currentTarget.style.backgroundColor = 'var(--surface-2)';
@@ -391,7 +597,10 @@ function SignInPageContent() {
               {googleLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <svg style={{ height: '16px', width: '16px', marginRight: '6px' }} viewBox="0 0 24 24">
+                <svg
+                  style={{ height: '16px', width: '16px', marginRight: '6px' }}
+                  viewBox="0 0 24 24"
+                >
                   <path
                     fill="currentColor"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -413,9 +622,16 @@ function SignInPageContent() {
               Sign in with Google
             </button>
 
-            <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: 500, userSelect: 'none' }}>
+            <div
+              style={{ textAlign: 'center', fontSize: '14px', fontWeight: 500, userSelect: 'none' }}
+            >
               <span style={{ color: 'var(--text-3)' }}>Don&apos;t have an account? </span>
-              <Link href="/sign-up" style={{ color: 'var(--brand)', fontWeight: 700, textDecoration: 'none' }} onMouseOver={(e) => e.currentTarget.style.textDecoration = 'underline'} onMouseOut={(e) => e.currentTarget.style.textDecoration = 'none'}>
+              <Link
+                href="/sign-up"
+                style={{ color: 'var(--brand)', fontWeight: 700, textDecoration: 'none' }}
+                onMouseOver={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
+              >
                 Sign up
               </Link>
             </div>
@@ -428,11 +644,22 @@ function SignInPageContent() {
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={
-      <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--surface)', color: 'var(--brand)' }}>
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div
+          style={{
+            display: 'flex',
+            minHeight: '100vh',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'var(--surface)',
+            color: 'var(--brand)',
+          }}
+        >
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      }
+    >
       <SignInPageContent />
     </Suspense>
   );

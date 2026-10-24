@@ -39,45 +39,74 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      minHeight: '100vh',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: 'var(--surface-2)',
-      padding: '24px',
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '420px',
-        backgroundColor: 'var(--surface)',
-        borderRadius: '16px',
-        border: '1px solid var(--border)',
-        boxShadow: '0 8px 32px rgba(79, 70, 229, 0.08)',
-        padding: '40px',
+    <div
+      style={{
         display: 'flex',
-        flexDirection: 'column',
-        gap: '28px',
-      }}>
+        minHeight: '100vh',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'var(--surface-2)',
+        padding: '24px',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '420px',
+          backgroundColor: 'var(--surface)',
+          borderRadius: '16px',
+          border: '1px solid var(--border)',
+          boxShadow: '0 8px 32px rgba(79, 70, 229, 0.08)',
+          padding: '40px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '28px',
+        }}
+      >
         {/* Header */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', textAlign: 'center' }}>
-          <div style={{
+        <div
+          style={{
             display: 'flex',
-            height: '52px',
-            width: '52px',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '14px',
-            backgroundColor: 'var(--brand)',
-            boxShadow: '0 4px 14px rgba(79, 70, 229, 0.3)',
-          }}>
+            gap: '12px',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              height: '52px',
+              width: '52px',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '14px',
+              backgroundColor: 'var(--brand)',
+              boxShadow: '0 4px 14px rgba(79, 70, 229, 0.3)',
+            }}
+          >
             <ShieldCheck style={{ height: '28px', width: '28px', color: 'white' }} />
           </div>
           <div>
-            <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.5px' }}>
+            <h1
+              style={{
+                fontSize: '22px',
+                fontWeight: 800,
+                color: 'var(--text-1)',
+                margin: 0,
+                letterSpacing: '-0.5px',
+              }}
+            >
               Admin Portal
             </h1>
-            <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: '4px 0 0 0', fontWeight: 500 }}>
+            <p
+              style={{
+                fontSize: '13px',
+                color: 'var(--text-3)',
+                margin: '4px 0 0 0',
+                fontWeight: 500,
+              }}
+            >
               JobIN — Restricted Access
             </p>
           </div>
@@ -85,23 +114,36 @@ export default function AdminLoginPage() {
 
         {/* Error */}
         {error && (
-          <div style={{
-            backgroundColor: 'rgba(239,68,68,0.08)',
-            border: '1px solid rgba(239,68,68,0.25)',
-            color: '#DC2626',
-            fontSize: '13px',
-            fontWeight: 600,
-            borderRadius: '8px',
-            padding: '12px 14px',
-          }}>
+          <div
+            style={{
+              backgroundColor: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.25)',
+              color: '#DC2626',
+              fontSize: '13px',
+              fontWeight: 600,
+              borderRadius: '8px',
+              padding: '12px 14px',
+            }}
+          >
             {error}
           </div>
         )}
 
         {/* Form */}
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form
+          onSubmit={handleLogin}
+          style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <label
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'var(--text-2)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}
+            >
               Admin Email
             </label>
             <input
@@ -110,7 +152,7 @@ export default function AdminLoginPage() {
               autoComplete="email"
               placeholder="admin@example.com"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               style={{
                 width: '100%',
                 padding: '11px 14px',
@@ -123,13 +165,21 @@ export default function AdminLoginPage() {
                 outline: 'none',
                 boxSizing: 'border-box',
               }}
-              onFocus={e => e.target.style.borderColor = 'var(--brand)'}
-              onBlur={e => e.target.style.borderColor = 'var(--border)'}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--brand)')}
+              onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
             />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <label
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'var(--text-2)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}
+            >
               Password
             </label>
             <div style={{ position: 'relative' }}>
@@ -139,7 +189,7 @@ export default function AdminLoginPage() {
                 autoComplete="current-password"
                 placeholder="••••••••"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '11px 42px 11px 14px',
@@ -152,19 +202,31 @@ export default function AdminLoginPage() {
                   outline: 'none',
                   boxSizing: 'border-box',
                 }}
-                onFocus={e => e.target.style.borderColor = 'var(--brand)'}
-                onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--brand)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 style={{
-                  position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)',
-                  display: 'flex', alignItems: 'center', padding: 0,
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: 0,
                 }}
               >
-                {showPassword ? <EyeOff style={{ height: '16px', width: '16px' }} /> : <Eye style={{ height: '16px', width: '16px' }} />}
+                {showPassword ? (
+                  <EyeOff style={{ height: '16px', width: '16px' }} />
+                ) : (
+                  <Eye style={{ height: '16px', width: '16px' }} />
+                )}
               </button>
             </div>
           </div>
@@ -192,7 +254,9 @@ export default function AdminLoginPage() {
           >
             {loading ? (
               <>
-                <Loader2 style={{ height: '16px', width: '16px', animation: 'spin 1s linear infinite' }} />
+                <Loader2
+                  style={{ height: '16px', width: '16px', animation: 'spin 1s linear infinite' }}
+                />
                 Signing in…
               </>
             ) : (
@@ -204,9 +268,21 @@ export default function AdminLoginPage() {
           </button>
         </form>
 
-        <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { to { transform: rotate(360deg); } }` }} />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `@keyframes spin { to { transform: rotate(360deg); } }`,
+          }}
+        />
 
-        <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-3)', margin: 0, fontWeight: 500 }}>
+        <p
+          style={{
+            textAlign: 'center',
+            fontSize: '12px',
+            color: 'var(--text-3)',
+            margin: 0,
+            fontWeight: 500,
+          }}
+        >
           This area is restricted to authorised administrators only.
         </p>
       </div>

@@ -17,7 +17,7 @@ export const StatsBar: React.FC<StatsBarProps> = ({ items, className }) => {
     <Card
       className={cn(
         'grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 divide-y md:divide-y-0 md:divide-x divide-border p-6 md:p-8',
-        className
+        className,
       )}
       hoverEffect={false}
     >
@@ -27,7 +27,7 @@ export const StatsBar: React.FC<StatsBarProps> = ({ items, className }) => {
           className={cn(
             'flex flex-col items-center justify-center text-center gap-1.5',
             i >= 2 ? 'pt-6 md:pt-0' : '', // Mobile top padding for items 3, 4
-            i === 1 ? 'pt-6 md:pt-0 border-t md:border-t-0 border-border md:border-none' : '' // Mobile top padding for item 2
+            i === 1 ? 'pt-6 md:pt-0 border-t md:border-t-0 border-border md:border-none' : '', // Mobile top padding for item 2
           )}
         >
           <span className="font-extrabold text-3xl md:text-4xl text-brand dark:text-brand-mid tracking-tight">

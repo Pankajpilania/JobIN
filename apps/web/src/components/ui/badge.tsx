@@ -8,7 +8,7 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   ({ style, variant = 'neutral', ...props }, ref) => {
     const isBrand = variant === 'brand';
     const isSuccess = variant === 'success';
-    
+
     return (
       <span
         ref={ref}
@@ -22,15 +22,19 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
           fontWeight: 600,
           border: '1px solid',
           transition: 'var(--transition)',
-          backgroundColor: isSuccess ? '#F0FDF4' : isBrand ? 'var(--brand-light)' : 'var(--surface-2)',
+          backgroundColor: isSuccess
+            ? '#F0FDF4'
+            : isBrand
+              ? 'var(--brand-light)'
+              : 'var(--surface-2)',
           color: isSuccess ? '#16A34A' : isBrand ? 'var(--brand)' : 'var(--text-2)',
           borderColor: isSuccess ? '#BBF7D0' : isBrand ? '#C7D2FE' : 'var(--border)',
-          ...style
+          ...style,
         }}
         {...props}
       />
     );
-  }
+  },
 );
 
 Badge.displayName = 'Badge';

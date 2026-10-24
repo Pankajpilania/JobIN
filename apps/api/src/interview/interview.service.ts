@@ -40,15 +40,21 @@ export class InterviewService {
       include: { plan: { include: { features: { where: { featureKey: PLAN_CREDIT_FEATURE } } } } },
       orderBy: { createdAt: 'desc' },
     });
-    const periodStart = subscription?.currentPeriodStart ??
+    const periodStart =
+      subscription?.currentPeriodStart ??
       new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const periodEnd = subscription?.currentPeriodEnd ??
+    const periodEnd =
+      subscription?.currentPeriodEnd ??
       new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-    const allowanceValue = subscription?.plan.features[0]?.value ??
-      (await this.prisma.planFeature.findFirst({
-        where: { featureKey: PLAN_CREDIT_FEATURE, plan: { name: 'FREE' } },
-        select: { value: true },
-      }))?.value ?? '20';
+    const allowanceValue =
+      subscription?.plan.features[0]?.value ??
+      (
+        await this.prisma.planFeature.findFirst({
+          where: { featureKey: PLAN_CREDIT_FEATURE, plan: { name: 'FREE' } },
+          select: { value: true },
+        })
+      )?.value ??
+      '20';
     const allowance = Number.parseInt(allowanceValue, 10);
     const usage = await this.prisma.aIUsage.aggregate({
       where: { userId, createdAt: { gte: periodStart, lt: periodEnd } },
@@ -61,15 +67,20 @@ export class InterviewService {
     };
   }
 
-  private async recordUsage(userId: string, resumeId: string, usage: {
-    modelName: string;
-    feature: string;
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-    estimatedCostUsd: number;
-    tier?: string;
-  }, creditUnits: number) {
+  private async recordUsage(
+    userId: string,
+    resumeId: string,
+    usage: {
+      modelName: string;
+      feature: string;
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+      estimatedCostUsd: number;
+      tier?: string;
+    },
+    creditUnits: number,
+  ) {
     await this.prisma.aIUsage.create({
       data: { userId, resumeId, ...usage, creditUnits },
     });
@@ -107,7 +118,13 @@ export class InterviewService {
 
   async evaluateAnswer(
     supabaseId: string,
-    dto: { resumeId: string; roleTitle: string; companyName: string; question: string; answer: string },
+    dto: {
+      resumeId: string;
+      roleTitle: string;
+      companyName: string;
+      question: string;
+      answer: string;
+    },
   ) {
     const user = await this.prisma.user.findUnique({
       where: { supabaseId },

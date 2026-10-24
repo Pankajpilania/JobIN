@@ -1,12 +1,30 @@
 import {
-  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards,
-  UseInterceptors, UploadedFile, HttpCode, HttpStatus, ParseUUIDPipe, Res, Query,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  HttpCode,
+  HttpStatus,
+  ParseUUIDPipe,
+  Res,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Response } from 'express';
 import {
-  ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody, ApiParam,
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
+  ApiParam,
 } from '@nestjs/swagger';
 import { ResumesService } from './resumes.service';
 import { UpdateResumeDto } from './dto/update-resume.dto';
@@ -29,15 +47,27 @@ export class ResumesController {
   @UseInterceptors(
     FileInterceptor('resume', {
       storage: memoryStorage(),
-      limits:  { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: 10 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
-        const allowed = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-        cb(allowed.includes(file.mimetype) ? null : new Error('Unsupported type'), allowed.includes(file.mimetype));
+        const allowed = [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ];
+        cb(
+          allowed.includes(file.mimetype) ? null : new Error('Unsupported type'),
+          allowed.includes(file.mimetype),
+        );
       },
     }),
   )
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', required: ['resume'], properties: { resume: { type: 'string', format: 'binary' } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['resume'],
+      properties: { resume: { type: 'string', format: 'binary' } },
+    },
+  })
   @ApiOperation({ summary: 'Upload a resume (PDF or DOCX)' })
   upload(@CurrentUser() user: SupabaseUserPayload, @UploadedFile() file: Express.Multer.File) {
     return this.resumesService.upload(user.id, file);
@@ -61,7 +91,11 @@ export class ResumesController {
   @Patch(':id')
   @ApiParam({ name: 'id', description: 'Resume UUID' })
   @ApiOperation({ summary: 'Update resume title or set as default' })
-  update(@CurrentUser() user: SupabaseUserPayload, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateResumeDto) {
+  update(
+    @CurrentUser() user: SupabaseUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateResumeDto,
+  ) {
     return this.resumesService.update(user.id, id, dto);
   }
 
@@ -88,7 +122,8 @@ export class ResumesController {
   @ApiParam({ name: 'id', description: 'Resume UUID' })
   @ApiOperation({
     summary: 'Tailor resume for a job using Gemini XYZ formula',
-    description: 'Rewrites bullet points using the XYZ achievement formula, embeds job keywords, and returns before/after ATS score with a list of changes applied. Saves a new resume_version record.',
+    description:
+      'Rewrites bullet points using the XYZ achievement formula, embeds job keywords, and returns before/after ATS score with a list of changes applied. Saves a new resume_version record.',
   })
   tailor(
     @CurrentUser() user: SupabaseUserPayload,
@@ -120,9 +155,9 @@ export class ResumesController {
   ) {
     const { buffer, filename } = await this.resumesService.exportPdf(user.id, id, versionId);
     res.set({
-      'Content-Type':        'application/pdf',
+      'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Length':      String(buffer.length),
+      'Content-Length': String(buffer.length),
     });
     res.send(buffer);
   }
@@ -140,9 +175,9 @@ export class ResumesController {
   ) {
     const { buffer, filename } = await this.resumesService.exportDocx(user.id, id, versionId);
     res.set({
-      'Content-Type':        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Length':      String(buffer.length),
+      'Content-Length': String(buffer.length),
     });
     res.send(buffer);
   }

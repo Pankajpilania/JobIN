@@ -4,7 +4,7 @@ import { ResumesService } from './resumes.service';
 
 @Module({
   controllers: [ResumesController],
-  providers:   [ResumesService],
-  exports:     [ResumesService],
+  providers: [ResumesService],
+  exports: [ResumesService],
 })
 export class ResumesModule {}

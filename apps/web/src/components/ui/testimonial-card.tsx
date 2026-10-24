@@ -33,11 +33,9 @@ export const TestimonialCard: React.FC<TestimonialCardProps> = ({
             <Star key={i} className="h-4 w-4 fill-current" />
           ))}
         </div>
-        <p className="text-sm text-text-2 italic leading-relaxed">
-          &ldquo;{quote}&rdquo;
-        </p>
+        <p className="text-sm text-text-2 italic leading-relaxed">&ldquo;{quote}&rdquo;</p>
       </div>
-      
+
       <div className="flex items-center gap-3 pt-2 border-t border-border/50">
         {avatarUrl ? (
           <Image

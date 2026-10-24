@@ -11,7 +11,7 @@ export const TrustBadge: React.FC<TrustBadgeProps> = ({ label, className }) => {
     <div
       className={cn(
         'inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand-light/40 dark:bg-brand-dark/15 px-3 py-1 text-[11px] font-semibold tracking-wide text-brand-dark dark:text-brand-light uppercase',
-        className
+        className,
       )}
     >
       <span className="relative flex h-1.5 w-1.5">

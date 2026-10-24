@@ -9,12 +9,7 @@ export interface StepCardProps {
   className?: string;
 }
 
-export const StepCard: React.FC<StepCardProps> = ({
-  number,
-  title,
-  description,
-  className,
-}) => {
+export const StepCard: React.FC<StepCardProps> = ({ number, title, description, className }) => {
   return (
     <Card className={cn('relative overflow-hidden flex flex-col gap-3', className)}>
       <span className="font-mono text-5xl font-black text-brand-light dark:text-brand-dark/20 select-none">

@@ -1,6 +1,4 @@
-import {
-  Injectable, NotFoundException, ForbiddenException, Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateApplicationDto, ApplicationStatusDto } from './dto/create-application.dto';
 import { UpdateApplicationDto } from './dto/update-application.dto';
@@ -31,7 +29,7 @@ export class JobTrackerService {
 
   private async assertOwnership(id: string, userId: string) {
     const app = await this.prisma.jobApplication.findUnique({ where: { id } });
-    if (!app)             throw new NotFoundException(`Application ${id} not found`);
+    if (!app) throw new NotFoundException(`Application ${id} not found`);
     if (app.userId !== userId) throw new ForbiddenException('Access denied');
     return app;
   }
@@ -45,7 +43,7 @@ export class JobTrackerService {
     let company: { id: string } | null = null;
     if (dto.companyName) {
       company = await this.prisma.company.upsert({
-        where:  { name: dto.companyName },
+        where: { name: dto.companyName },
         create: { name: dto.companyName, website: dto.jobUrl },
         update: {},
       });
@@ -54,20 +52,20 @@ export class JobTrackerService {
     const application = await this.prisma.jobApplication.create({
       data: {
         userId,
-        companyId:     company?.id,
-        jobTitle:      dto.jobTitle,
-        companyName:   dto.companyName,
-        location:      dto.location,
-        jobUrl:        dto.jobUrl,
-        salary:        dto.salary,
-        status:        (dto.status ?? 'SAVED') as any,
-        appliedDate:   dto.appliedDate ? new Date(dto.appliedDate) : null,
-        followUpDate:  dto.followUpDate ? new Date(dto.followUpDate) : null,
-        notes:         dto.notes,
-        source:        dto.source,
-        resumeId:      dto.resumeId,
+        companyId: company?.id,
+        jobTitle: dto.jobTitle,
+        companyName: dto.companyName,
+        location: dto.location,
+        jobUrl: dto.jobUrl,
+        salary: dto.salary,
+        status: (dto.status ?? 'SAVED') as any,
+        appliedDate: dto.appliedDate ? new Date(dto.appliedDate) : null,
+        followUpDate: dto.followUpDate ? new Date(dto.followUpDate) : null,
+        notes: dto.notes,
+        source: dto.source,
+        resumeId: dto.resumeId,
         coverLetterId: dto.coverLetterId,
-        jobDescription:dto.jobDescription,
+        jobDescription: dto.jobDescription,
       },
     });
 
@@ -80,7 +78,7 @@ export class JobTrackerService {
   async findAll(supabaseId: string, status?: AppStatus) {
     const userId = await this.resolveUserId(supabaseId);
     return this.prisma.jobApplication.findMany({
-      where:   { userId, ...(status ? { status: status as any } : {}) },
+      where: { userId, ...(status ? { status: status as any } : {}) },
       orderBy: { updatedAt: 'desc' },
       include: { company: { select: { id: true, name: true, logoUrl: true, website: true } } },
     });
@@ -90,7 +88,7 @@ export class JobTrackerService {
 
   async findOne(supabaseId: string, id: string) {
     const userId = await this.resolveUserId(supabaseId);
-    const app    = await this.assertOwnership(id, userId);
+    const app = await this.assertOwnership(id, userId);
     return app;
   }
 
@@ -102,19 +100,23 @@ export class JobTrackerService {
 
     return this.prisma.jobApplication.update({
       where: { id },
-      data:  {
-        ...(dto.status        && { status:       dto.status as any }),
-        ...(dto.jobTitle      && { jobTitle:      dto.jobTitle      }),
-        ...(dto.companyName   && { companyName:   dto.companyName   }),
-        ...(dto.location      !== undefined && { location:      dto.location      }),
-        ...(dto.jobUrl        !== undefined && { jobUrl:        dto.jobUrl        }),
-        ...(dto.salary        !== undefined && { salary:        dto.salary        }),
-        ...(dto.notes         !== undefined && { notes:         dto.notes         }),
-        ...(dto.source        !== undefined && { source:        dto.source        }),
-        ...(dto.resumeId      !== undefined && { resumeId:      dto.resumeId      }),
+      data: {
+        ...(dto.status && { status: dto.status as any }),
+        ...(dto.jobTitle && { jobTitle: dto.jobTitle }),
+        ...(dto.companyName && { companyName: dto.companyName }),
+        ...(dto.location !== undefined && { location: dto.location }),
+        ...(dto.jobUrl !== undefined && { jobUrl: dto.jobUrl }),
+        ...(dto.salary !== undefined && { salary: dto.salary }),
+        ...(dto.notes !== undefined && { notes: dto.notes }),
+        ...(dto.source !== undefined && { source: dto.source }),
+        ...(dto.resumeId !== undefined && { resumeId: dto.resumeId }),
         ...(dto.coverLetterId !== undefined && { coverLetterId: dto.coverLetterId }),
-        ...(dto.appliedDate   !== undefined && { appliedDate:   dto.appliedDate ? new Date(dto.appliedDate) : null  }),
-        ...(dto.followUpDate  !== undefined && { followUpDate:  dto.followUpDate ? new Date(dto.followUpDate) : null }),
+        ...(dto.appliedDate !== undefined && {
+          appliedDate: dto.appliedDate ? new Date(dto.appliedDate) : null,
+        }),
+        ...(dto.followUpDate !== undefined && {
+          followUpDate: dto.followUpDate ? new Date(dto.followUpDate) : null,
+        }),
       },
     });
   }
@@ -147,7 +149,8 @@ export class JobTrackerService {
     for (const row of statusRows) byStatus[row.status] = row._count._all;
 
     const applied = byStatus['APPLIED'] ?? 0;
-    const totalApplied = applied +
+    const totalApplied =
+      applied +
       (byStatus['PHONE_SCREEN'] ?? 0) +
       (byStatus['INTERVIEW'] ?? 0) +
       (byStatus['TECHNICAL_ASSESSMENT'] ?? 0) +
@@ -157,14 +160,11 @@ export class JobTrackerService {
       (byStatus['WITHDRAWN'] ?? 0);
 
     const inInterview = INTERVIEW_STATUSES.reduce((sum, s) => sum + (byStatus[s] ?? 0), 0);
-    const offers      = byStatus['OFFER'] ?? 0;
+    const offers = byStatus['OFFER'] ?? 0;
 
-    const interviewRate = totalApplied > 0
-      ? Math.round((inInterview + offers) / totalApplied * 100)
-      : 0;
-    const offerRate = totalApplied > 0
-      ? Math.round(offers / totalApplied * 100)
-      : 0;
+    const interviewRate =
+      totalApplied > 0 ? Math.round(((inInterview + offers) / totalApplied) * 100) : 0;
+    const offerRate = totalApplied > 0 ? Math.round((offers / totalApplied) * 100) : 0;
 
     const total = statusRows.reduce((sum, row) => sum + row._count._all, 0);
 
@@ -183,10 +183,18 @@ export class JobTrackerService {
   async getRecentActivity(supabaseId: string, limit = 8) {
     const userId = await this.resolveUserId(supabaseId);
     return this.prisma.jobApplication.findMany({
-      where:   { userId },
+      where: { userId },
       orderBy: { updatedAt: 'desc' },
-      take:    limit,
-      select:  { id: true, jobTitle: true, companyName: true, status: true, updatedAt: true, appliedDate: true, location: true },
+      take: limit,
+      select: {
+        id: true,
+        jobTitle: true,
+        companyName: true,
+        status: true,
+        updatedAt: true,
+        appliedDate: true,
+        location: true,
+      },
     });
   }
 }

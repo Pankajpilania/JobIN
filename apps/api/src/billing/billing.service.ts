@@ -5,6 +5,7 @@ import {
   ConflictException,
   BadRequestException,
   InternalServerErrorException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
@@ -89,6 +90,11 @@ export class BillingService {
       periodStart,
       periodEnd,
       hasActiveSubscription: Boolean(subscription),
+      canManagePlan: Boolean(
+        subscription &&
+        !subscription.isComplimentary &&
+        subscription.stripeSubscriptionId.startsWith('sub_'),
+      ),
     };
   }
 
@@ -342,19 +348,38 @@ export class BillingService {
     const user = await this.resolveUser(supabaseId);
     const sub = user.subscriptions[0];
     if (!sub) throw new BadRequestException('No active subscription found');
+    if (sub.isComplimentary || !sub.stripeSubscriptionId.startsWith('sub_')) {
+      throw new BadRequestException(
+        'This subscription is managed by JobIN, not Stripe. Contact support to change it.',
+      );
+    }
+    if (!this.config.get<string>('STRIPE_SECRET_KEY')?.trim()) {
+      throw new ServiceUnavailableException(
+        'Stripe billing is not configured on the API. Please contact the JobIN administrator.',
+      );
+    }
 
     const appUrl = this.config.get<string>('NEXT_PUBLIC_URL', 'http://localhost:3000');
 
-    // Retrieve the Stripe customer from the subscription
-    const stripeSub = await this.stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
-    const customerId = stripeSub.customer as string;
-
-    const session = await this.stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${appUrl}/settings`,
-    });
-
-    return { url: session.url };
+    try {
+      const stripeSub = await this.stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
+      const customerId = stripeSub.customer as string;
+      const session = await this.stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${appUrl}/settings`,
+      });
+      return { url: session.url };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const errorType = error instanceof Error ? error.name : 'unknown error';
+      this.logger.error(`Failed to create Stripe billing portal session (${errorType}).`);
+      if (/api key|authentication/i.test(message)) {
+        throw new ServiceUnavailableException(
+          'Stripe rejected the API credentials. Ask the JobIN administrator to check STRIPE_SECRET_KEY.',
+        );
+      }
+      throw new InternalServerErrorException('Could not open Stripe billing management.');
+    }
   }
 
   // ─── Webhook handler ──────────────────────────────────────────────────────

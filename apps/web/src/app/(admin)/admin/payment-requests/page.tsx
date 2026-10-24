@@ -33,7 +33,10 @@ export default function AdminPaymentRequestsPage() {
       return;
     }
     try {
-      const result = await apiClient.get<ManualPaymentRequest[]>('/billing/manual-payment-requests?status=PENDING', token);
+      const result = await apiClient.get<ManualPaymentRequest[]>(
+        '/billing/manual-payment-requests?status=PENDING',
+        token,
+      );
       setRequests(result);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not load payment requests.');
@@ -55,7 +58,9 @@ export default function AdminPaymentRequestsPage() {
     setProcessing(id);
     try {
       await apiClient.post(`/billing/manual-payment-requests/${id}/review`, { action }, token);
-      toast.success(action === 'approve' ? 'Payment verified and plan activated.' : 'Payment request rejected.');
+      toast.success(
+        action === 'approve' ? 'Payment verified and plan activated.' : 'Payment request rejected.',
+      );
       await loadRequests();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not review payment request.');
@@ -68,7 +73,9 @@ export default function AdminPaymentRequestsPage() {
     <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gap: 20 }}>
       <header>
         <h1 style={{ color: 'var(--text-1)', margin: 0 }}>Manual payment requests</h1>
-        <p style={{ color: 'var(--text-2)' }}>Verify the user and transaction reference before approving a plan.</p>
+        <p style={{ color: 'var(--text-2)' }}>
+          Verify the user and transaction reference before approving a plan.
+        </p>
       </header>
       {loading ? (
         <Card hoverEffect={false}>Loading payment requests…</Card>
@@ -76,7 +83,14 @@ export default function AdminPaymentRequestsPage() {
         <Card hoverEffect={false}>There are no pending payment requests.</Card>
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)', color: 'var(--text-1)' }}>
+          <table
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              background: 'var(--surface)',
+              color: 'var(--text-1)',
+            }}
+          >
             <thead>
               <tr style={{ textAlign: 'left', background: 'var(--surface-2)' }}>
                 <th style={{ padding: 12 }}>Account</th>
@@ -92,17 +106,36 @@ export default function AdminPaymentRequestsPage() {
               {requests.map((request) => (
                 <tr key={request.id} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ padding: 12 }}>
-                    <strong>{request.user.fullName}</strong><br />
+                    <strong>{request.user.fullName}</strong>
+                    <br />
                     <a href={`mailto:${request.user.email}`}>{request.user.email}</a>
                   </td>
-                  <td style={{ padding: 12 }}>{request.plan.name === 'PREMIUM' ? 'Pro' : 'Pro Max'}</td>
-                  <td style={{ padding: 12 }}>{request.currency === 'INR' ? '₹' : '£'}{request.amount} {request.currency}</td>
+                  <td style={{ padding: 12 }}>
+                    {request.plan.name === 'PREMIUM' ? 'Pro' : 'Pro Max'}
+                  </td>
+                  <td style={{ padding: 12 }}>
+                    {request.currency === 'INR' ? '₹' : '£'}
+                    {request.amount} {request.currency}
+                  </td>
                   <td style={{ padding: 12 }}>{request.paymentMethodLabel ?? 'Manual payment'}</td>
-                  <td style={{ padding: 12, fontFamily: 'monospace' }}>{request.transactionReference}</td>
+                  <td style={{ padding: 12, fontFamily: 'monospace' }}>
+                    {request.transactionReference}
+                  </td>
                   <td style={{ padding: 12 }}>{new Date(request.createdAt).toLocaleString()}</td>
                   <td style={{ padding: 12, display: 'flex', gap: 8 }}>
-                    <Button disabled={processing === request.id} onClick={() => review(request.id, 'approve')}>Approve</Button>
-                    <Button variant="ghost" disabled={processing === request.id} onClick={() => review(request.id, 'reject')}>Decline</Button>
+                    <Button
+                      disabled={processing === request.id}
+                      onClick={() => review(request.id, 'approve')}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      disabled={processing === request.id}
+                      onClick={() => review(request.id, 'reject')}
+                    >
+                      Decline
+                    </Button>
                     <Badge variant="neutral">{request.status}</Badge>
                   </td>
                 </tr>

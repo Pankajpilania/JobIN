@@ -6,10 +6,10 @@ import { apiClient } from '@/lib/api-client';
 import type { TailorResult } from '@/types';
 
 interface TailorPayload {
-  resumeId:       string;
+  resumeId: string;
   jobDescription: string;
-  jobTitle?:      string;
-  companyName?:   string;
+  jobTitle?: string;
+  companyName?: string;
 }
 
 export function useTailorResume() {

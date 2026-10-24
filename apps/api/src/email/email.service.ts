@@ -4,19 +4,24 @@ import { Resend } from 'resend';
 
 @Injectable()
 export class EmailService {
-  private readonly logger   = new Logger(EmailService.name);
-  private readonly resend:    Resend;
+  private readonly logger = new Logger(EmailService.name);
+  private readonly resend: Resend;
   private readonly fromEmail: string;
-  private readonly fromName:  string;
-  private readonly appUrl:    string;
-  private readonly enabled:   boolean;
+  private readonly fromName: string;
+  private readonly appUrl: string;
+  private readonly enabled: boolean;
 
   constructor(private readonly config: ConfigService) {
     const key = config.get<string>('RESEND_API_KEY') || process.env.RESEND_API_KEY || '';
-    this.fromEmail = config.get<string>('RESEND_FROM_EMAIL') || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-    this.fromName  = config.get<string>('RESEND_FROM_NAME') || process.env.RESEND_FROM_NAME || 'JobIN';
-    this.appUrl    = config.get<string>('NEXT_PUBLIC_URL') || process.env.NEXT_PUBLIC_URL || 'https://jobin.ai';
-    this.enabled   = !!key;
+    this.fromEmail =
+      config.get<string>('RESEND_FROM_EMAIL') ||
+      process.env.RESEND_FROM_EMAIL ||
+      'onboarding@resend.dev';
+    this.fromName =
+      config.get<string>('RESEND_FROM_NAME') || process.env.RESEND_FROM_NAME || 'JobIN';
+    this.appUrl =
+      config.get<string>('NEXT_PUBLIC_URL') || process.env.NEXT_PUBLIC_URL || 'https://jobin.ai';
+    this.enabled = !!key;
 
     if (this.enabled) {
       this.resend = new Resend(key);
@@ -101,7 +106,8 @@ export class EmailService {
   // ─── 1. Welcome email ─────────────────────────────────────────────────────
 
   async sendWelcome(to: string, firstName: string): Promise<void> {
-    const html = this.wrap(`
+    const html = this.wrap(
+      `
       <h1>Welcome to JobIN, ${firstName}! 🎉</h1>
       <p>You're now part of the smartest job search platform in the UK. Here's what you can do:</p>
       <ul style="color:#94a3b8;line-height:2;padding-left:20px;">
@@ -113,7 +119,9 @@ export class EmailService {
       <div class="divider"></div>
       <a href="${this.appUrl}/resumes" class="btn">Upload Your First Resume →</a>
       <p style="margin-top:20px;font-size:13px;">Need help? Reply to this email or visit our <a href="${this.appUrl}/support" style="color:#6366f1;">support centre</a>.</p>
-    `, `Welcome to JobIN, ${firstName}!`);
+    `,
+      `Welcome to JobIN, ${firstName}!`,
+    );
 
     await this.send(to, `Welcome to JobIN, ${firstName}! 🚀`, html);
   }
@@ -121,15 +129,16 @@ export class EmailService {
   // ─── 2. Subscription confirmation ─────────────────────────────────────────
 
   async sendSubscriptionConfirmation(
-    to:        string,
+    to: string,
     firstName: string,
-    planName:  string,
-    amount:    number,
-    currency:  string,
+    planName: string,
+    amount: number,
+    currency: string,
     nextBillingDate: string,
   ): Promise<void> {
     const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
-    const html = this.wrap(`
+    const html = this.wrap(
+      `
       <h1>Subscription Confirmed ✅</h1>
       <p>Hi ${firstName}, your <span class="highlight">${planName} plan</span> is now active. Thank you!</p>
       <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:10px;padding:16px 20px;margin:16px 0;">
@@ -139,7 +148,9 @@ export class EmailService {
       </div>
       <a href="${this.appUrl}/settings" class="btn">Manage Subscription →</a>
       <p style="margin-top:20px;font-size:13px;">To cancel or change your plan, visit <a href="${this.appUrl}/settings" style="color:#6366f1;">Account Settings</a>.</p>
-    `, `Your ${planName} subscription is confirmed`);
+    `,
+      `Your ${planName} subscription is confirmed`,
+    );
 
     await this.send(to, `JobIN ${planName} — Subscription Confirmed`, html);
   }
@@ -147,71 +158,106 @@ export class EmailService {
   // ─── 3. Password reset ────────────────────────────────────────────────────
 
   async sendPasswordReset(to: string, firstName: string, resetLink: string): Promise<void> {
-    const html = this.wrap(`
+    const html = this.wrap(
+      `
       <h1>Reset Your Password 🔐</h1>
       <p>Hi ${firstName}, we received a request to reset your JobIN password.</p>
       <p>Click the button below to choose a new password. This link expires in <strong style="color:#f1f5f9;">1 hour</strong>.</p>
       <a href="${resetLink}" class="btn">Reset Password →</a>
       <div class="divider"></div>
       <p style="font-size:13px;">If you didn't request this, you can safely ignore this email. Your password won't change.</p>
-    `, 'Reset your JobIN password');
+    `,
+      'Reset your JobIN password',
+    );
 
     await this.send(to, 'Reset your JobIN password', html);
   }
 
   // ─── 4. Subscription expiry alert ─────────────────────────────────────────
 
-  async sendExpiryAlert(to: string, firstName: string, expiryDate: string, planName: string): Promise<void> {
-    const html = this.wrap(`
+  async sendExpiryAlert(
+    to: string,
+    firstName: string,
+    expiryDate: string,
+    planName: string,
+  ): Promise<void> {
+    const html = this.wrap(
+      `
       <h1>Your Subscription Expires Soon ⚠️</h1>
       <p>Hi ${firstName}, your <span class="highlight">${planName}</span> subscription expires on <strong style="color:#f1f5f9;">${expiryDate}</strong>.</p>
       <p>After that date, you'll lose access to AI tailoring, cover letter generation, and premium features.</p>
       <a href="${this.appUrl}/settings" class="btn">Renew Now →</a>
       <div class="divider"></div>
       <p style="font-size:13px;">Not sure if you want to renew? <a href="${this.appUrl}/pricing" style="color:#6366f1;">Compare plans</a> or <a href="${this.appUrl}/support" style="color:#6366f1;">contact us</a>.</p>
-    `, `Your ${planName} expires on ${expiryDate}`);
+    `,
+      `Your ${planName} expires on ${expiryDate}`,
+    );
 
     await this.send(to, `⚠️ Your JobIN ${planName} expires on ${expiryDate}`, html);
   }
 
   // ─── 5. Admin campaign ────────────────────────────────────────────────────
 
-  async sendCampaign(to: string, firstName: string, subject: string, content: string): Promise<void> {
-    const html = this.wrap(`
+  async sendCampaign(
+    to: string,
+    firstName: string,
+    subject: string,
+    content: string,
+  ): Promise<void> {
+    const html = this.wrap(
+      `
       <h1>Hi ${firstName},</h1>
       <div style="white-space:pre-line;font-size:15px;line-height:1.8;color:#94a3b8;">${content}</div>
       <div class="divider"></div>
       <a href="${this.appUrl}/dashboard" class="btn">Open JobIN →</a>
-    `, subject);
+    `,
+      subject,
+    );
 
     await this.send(to, subject, html);
   }
 
   // ─── 6. Support ticket reply ──────────────────────────────────────────────
 
-  async sendSupportReply(to: string, firstName: string, ticketSubject: string, reply: string): Promise<void> {
-    const html = this.wrap(`
+  async sendSupportReply(
+    to: string,
+    firstName: string,
+    ticketSubject: string,
+    reply: string,
+  ): Promise<void> {
+    const html = this.wrap(
+      `
       <h1>New Reply on Your Support Ticket</h1>
       <p>Hi ${firstName}, our team has replied to your ticket: <strong style="color:#f1f5f9;">${ticketSubject}</strong></p>
       <div style="background:rgba(255,255,255,0.04);border-left:3px solid #6366f1;padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0;">
         <p style="margin:0;white-space:pre-line;">${reply}</p>
       </div>
       <a href="${this.appUrl}/support" class="btn">View Full Ticket →</a>
-    `, `Reply on: ${ticketSubject}`);
+    `,
+      `Reply on: ${ticketSubject}`,
+    );
 
     await this.send(to, `Re: ${ticketSubject} — JobIN Support`, html);
   }
 
   // ─── 7. Subscription cancellation ────────────────────────────────────────
 
-  async sendCancellationConfirm(to: string, firstName: string, planName: string, endDate: string): Promise<void> {
-    const html = this.wrap(`
+  async sendCancellationConfirm(
+    to: string,
+    firstName: string,
+    planName: string,
+    endDate: string,
+  ): Promise<void> {
+    const html = this.wrap(
+      `
       <h1>Subscription Cancelled</h1>
       <p>Hi ${firstName}, your <span class="highlight">${planName}</span> subscription has been cancelled.</p>
       <p>You'll retain access to premium features until <strong style="color:#f1f5f9;">${endDate}</strong>.</p>
       <p>We're sorry to see you go. If you'd like to share feedback, <a href="${this.appUrl}/support" style="color:#6366f1;">let us know</a> — it helps us improve.</p>
       <a href="${this.appUrl}/settings" class="btn">Reactivate Anytime →</a>
-    `, `Your ${planName} is cancelled`);
+    `,
+      `Your ${planName} is cancelled`,
+    );
 
     await this.send(to, `JobIN — Subscription Cancellation Confirmed`, html);
   }

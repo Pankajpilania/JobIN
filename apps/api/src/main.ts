@@ -10,8 +10,8 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, {
-    logger:  ['log', 'warn', 'error'],
-    rawBody: true,   // needed for Stripe webhook signature verification
+    logger: ['log', 'warn', 'error'],
+    rawBody: true, // needed for Stripe webhook signature verification
   });
 
   const config = app.get(ConfigService);

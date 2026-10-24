@@ -4,7 +4,7 @@ import { JobTrackerService } from './job-tracker.service';
 
 @Module({
   controllers: [JobTrackerController],
-  providers:   [JobTrackerService],
-  exports:     [JobTrackerService],
+  providers: [JobTrackerService],
+  exports: [JobTrackerService],
 })
 export class JobTrackerModule {}

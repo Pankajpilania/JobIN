@@ -5,10 +5,7 @@ import type { JobBoard } from '../shared/types';
 const PATTERNS: { board: JobBoard; patterns: RegExp[] }[] = [
   {
     board: 'linkedin',
-    patterns: [
-      /linkedin\.com\/jobs\/(view|search)/i,
-      /linkedin\.com\/jobs\/collections/i,
-    ],
+    patterns: [/linkedin\.com\/jobs\/(view|search)/i, /linkedin\.com\/jobs\/collections/i],
   },
   {
     board: 'indeed',
@@ -21,42 +18,27 @@ const PATTERNS: { board: JobBoard; patterns: RegExp[] }[] = [
   },
   {
     board: 'reed',
-    patterns: [
-      /reed\.co\.uk\/jobs\//i,
-    ],
+    patterns: [/reed\.co\.uk\/jobs\//i],
   },
   {
     board: 'totaljobs',
-    patterns: [
-      /totaljobs\.com\/job\//i,
-      /totaljobs\.com\/jobs\//i,
-    ],
+    patterns: [/totaljobs\.com\/job\//i, /totaljobs\.com\/jobs\//i],
   },
   {
     board: 'glassdoor',
-    patterns: [
-      /glassdoor\.co\.uk\/job-listing\//i,
-      /glassdoor\.com\/job-listing\//i,
-    ],
+    patterns: [/glassdoor\.co\.uk\/job-listing\//i, /glassdoor\.com\/job-listing\//i],
   },
   {
     board: 'greenhouse',
-    patterns: [
-      /boards\.greenhouse\.io\//i,
-    ],
+    patterns: [/boards\.greenhouse\.io\//i],
   },
   {
     board: 'lever',
-    patterns: [
-      /jobs\.lever\.co\//i,
-    ],
+    patterns: [/jobs\.lever\.co\//i],
   },
   {
     board: 'workday',
-    patterns: [
-      /\.myworkdayjobs\.com\//i,
-      /\.workday\.com\/.*\/job\//i,
-    ],
+    patterns: [/\.myworkdayjobs\.com\//i, /\.workday\.com\/.*\/job\//i],
   },
 ];
 
@@ -66,7 +48,7 @@ const PATTERNS: { board: JobBoard; patterns: RegExp[] }[] = [
  */
 export function detectBoard(url: string = location.href): JobBoard {
   for (const { board, patterns } of PATTERNS) {
-    if (patterns.some(p => p.test(url))) return board;
+    if (patterns.some((p) => p.test(url))) return board;
   }
   return 'unknown';
 }

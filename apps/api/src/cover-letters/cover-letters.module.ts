@@ -4,7 +4,7 @@ import { CoverLettersService } from './cover-letters.service';
 
 @Module({
   controllers: [CoverLettersController],
-  providers:   [CoverLettersService],
-  exports:     [CoverLettersService],
+  providers: [CoverLettersService],
+  exports: [CoverLettersService],
 })
 export class CoverLettersModule {}

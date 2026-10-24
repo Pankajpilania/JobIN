@@ -39,7 +39,7 @@ export const Topbar: React.FC<TopbarProps> = ({ isMobileNavOpen, onMobileMenuCli
   };
 
   const searchResults = searchItems.filter((item) =>
-    item.label.toLowerCase().includes(search.trim().toLowerCase())
+    item.label.toLowerCase().includes(search.trim().toLowerCase()),
   );
 
   const navigateToSearchResult = (href: string) => {
@@ -49,20 +49,23 @@ export const Topbar: React.FC<TopbarProps> = ({ isMobileNavOpen, onMobileMenuCli
   };
 
   return (
-    <header className="dashboard-topbar" style={{
-      position: 'sticky',
-      top: 0,
-      zIndex: 40,
-      display: 'flex',
-      height: '64px',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: '16px',
-      borderBottom: '1px solid var(--border)',
-      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-      backdropFilter: 'blur(8px)',
-      padding: '0 24px'
-    }}>
+    <header
+      className="dashboard-topbar"
+      style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 40,
+        display: 'flex',
+        height: '64px',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '16px',
+        borderBottom: '1px solid var(--border)',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        backdropFilter: 'blur(8px)',
+        padding: '0 24px',
+      }}
+    >
       <button
         type="button"
         className="dashboard-menu-button"
@@ -73,17 +76,24 @@ export const Topbar: React.FC<TopbarProps> = ({ isMobileNavOpen, onMobileMenuCli
         <Menu size={21} />
       </button>
       {/* Topbar Search */}
-      <div className="dashboard-search" style={{ position: 'relative', width: '256px', maxWidth: '100%' }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          backgroundColor: 'var(--surface-2)',
-          border: '1px solid var(--border)',
-          borderRadius: '8px',
-          padding: '6px 12px',
-        }}>
-          <Search style={{ height: '16px', width: '16px', color: 'var(--text-3)', flexShrink: 0 }} />
+      <div
+        className="dashboard-search"
+        style={{ position: 'relative', width: '256px', maxWidth: '100%' }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            padding: '6px 12px',
+          }}
+        >
+          <Search
+            style={{ height: '16px', width: '16px', color: 'var(--text-3)', flexShrink: 0 }}
+          />
           <input
             type="search"
             placeholder="Search pages..."
@@ -103,12 +113,12 @@ export const Topbar: React.FC<TopbarProps> = ({ isMobileNavOpen, onMobileMenuCli
             }}
             aria-label="Search dashboard pages"
             style={{
-            backgroundColor: 'transparent',
-            border: 'none',
-            outline: 'none',
-            fontSize: '13px',
-            color: 'var(--text-1)',
-            width: '100%'
+              backgroundColor: 'transparent',
+              border: 'none',
+              outline: 'none',
+              fontSize: '13px',
+              color: 'var(--text-1)',
+              width: '100%',
             }}
           />
         </div>

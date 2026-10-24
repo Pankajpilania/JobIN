@@ -17,12 +17,12 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
           transition: 'var(--transition)',
           color: 'var(--text-1)',
           boxShadow: hoverEffect ? 'var(--shadow-sm)' : 'none',
-          ...style
+          ...style,
         }}
         {...props}
       />
     );
-  }
+  },
 );
 
 Card.displayName = 'Card';

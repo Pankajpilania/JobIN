@@ -1,12 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { EmailService }  from '../email/email.service';
-import { CreateUserDto } from './dto/create-user.dto';
+import { EmailService } from '../email/email.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AccountStatus } from '@prisma/client';
 

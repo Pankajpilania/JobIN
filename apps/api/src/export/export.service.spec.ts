@@ -66,7 +66,11 @@ Portfolio: [GitHub](https://github.com/jordantaylor)`;
     expect(latex).toContain('\\usepackage[colorlinks=true,urlcolor=blue]{hyperref}');
     expect(latex).toContain('\\href{mailto:jordan.taylor@example.com}{jordan.taylor@example.com}');
     expect(latex).toContain('\\href{tel:+4402079460958}{+44 (0)20 7946 0958}');
-    expect(latex).toContain('\\href{https://linkedin.com/in/jordantaylor}{linkedin.com/in/jordantaylor}');
-    expect(latex).toContain('\\href{https://github.com/jordantaylor}{https://github.com/jordantaylor}');
+    expect(latex).toContain(
+      '\\href{https://linkedin.com/in/jordantaylor}{linkedin.com/in/jordantaylor}',
+    );
+    expect(latex).toContain(
+      '\\href{https://github.com/jordantaylor}{https://github.com/jordantaylor}',
+    );
   });
 });

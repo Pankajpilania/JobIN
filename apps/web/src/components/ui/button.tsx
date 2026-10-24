@@ -8,7 +8,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ style, variant = 'primary', ...props }, ref) => {
     const isHero = variant === 'hero';
     const isGhost = variant === 'ghost';
-    
+
     return (
       <button
         ref={ref}
@@ -28,12 +28,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           backgroundColor: isGhost ? 'transparent' : 'var(--brand)',
           color: isGhost ? 'var(--text-2)' : 'white',
           boxShadow: isGhost ? 'none' : 'var(--shadow-sm)',
-          ...style
+          ...style,
         }}
         {...props}
       />
     );
-  }
+  },
 );
 
 Button.displayName = 'Button';

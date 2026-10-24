@@ -42,7 +42,7 @@ export function useUploadResume() {
   return useMutation({
     mutationFn: async (file: File) => {
       const token = await getToken();
-      const form  = new FormData();
+      const form = new FormData();
       form.append('resume', file);
       return apiClient.post<Resume>('/resumes/upload', form, token ?? undefined);
     },
@@ -59,7 +59,11 @@ export function useAnalyseResume() {
   return useMutation({
     mutationFn: async (resumeId: string) => {
       const token = await getToken();
-      return apiClient.post<AnalyseResult>(`/resumes/${resumeId}/analyse`, undefined, token ?? undefined);
+      return apiClient.post<AnalyseResult>(
+        `/resumes/${resumeId}/analyse`,
+        undefined,
+        token ?? undefined,
+      );
     },
     onSuccess: (_, resumeId) => {
       qc.invalidateQueries({ queryKey: ['resumes'] });

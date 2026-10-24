@@ -7,17 +7,17 @@ async function main() {
 
   // ─── Roles ─────────────────────────────────────────────────────────────────
   const roles = [
-    { name: 'CANDIDATE',        description: 'Standard job-seeker account' },
-    { name: 'RECRUITER',        description: 'Hiring-side recruiter account' },
-    { name: 'SUPER_ADMIN',      description: 'Full platform access' },
+    { name: 'CANDIDATE', description: 'Standard job-seeker account' },
+    { name: 'RECRUITER', description: 'Hiring-side recruiter account' },
+    { name: 'SUPER_ADMIN', description: 'Full platform access' },
     { name: 'OPERATIONS_ADMIN', description: 'Ops and user management' },
-    { name: 'SUPPORT_ADMIN',    description: 'Support ticket handling' },
-    { name: 'FINANCE_ADMIN',    description: 'Billing and revenue reporting' },
+    { name: 'SUPPORT_ADMIN', description: 'Support ticket handling' },
+    { name: 'FINANCE_ADMIN', description: 'Billing and revenue reporting' },
   ];
 
   for (const role of roles) {
     await prisma.role.upsert({
-      where:  { name: role.name },
+      where: { name: role.name },
       update: { description: role.description },
       create: { name: role.name, description: role.description },
     });
@@ -26,22 +26,22 @@ async function main() {
 
   // ─── Permissions ────────────────────────────────────────────────────────────
   const permissions = [
-    { action: 'users:read',            description: 'Read user profiles' },
-    { action: 'users:write',           description: 'Create or update users' },
-    { action: 'users:delete',          description: 'Soft-delete users' },
-    { action: 'users:suspend',         description: 'Suspend user accounts' },
-    { action: 'billing:read',          description: 'View billing and subscriptions' },
-    { action: 'billing:write',         description: 'Manage billing plans' },
-    { action: 'ai:use',                description: 'Use AI features' },
-    { action: 'ai:bypass_limits',      description: 'Bypass AI rate limits' },
-    { action: 'admin:access',          description: 'Access the admin portal' },
-    { action: 'support:read_tickets',  description: 'Read support tickets' },
+    { action: 'users:read', description: 'Read user profiles' },
+    { action: 'users:write', description: 'Create or update users' },
+    { action: 'users:delete', description: 'Soft-delete users' },
+    { action: 'users:suspend', description: 'Suspend user accounts' },
+    { action: 'billing:read', description: 'View billing and subscriptions' },
+    { action: 'billing:write', description: 'Manage billing plans' },
+    { action: 'ai:use', description: 'Use AI features' },
+    { action: 'ai:bypass_limits', description: 'Bypass AI rate limits' },
+    { action: 'admin:access', description: 'Access the admin portal' },
+    { action: 'support:read_tickets', description: 'Read support tickets' },
     { action: 'support:write_tickets', description: 'Respond to support tickets' },
   ];
 
   for (const perm of permissions) {
     await prisma.permission.upsert({
-      where:  { action: perm.action },
+      where: { action: perm.action },
       update: { description: perm.description },
       create: { action: perm.action, description: perm.description },
     });
@@ -56,9 +56,9 @@ async function main() {
       priceMonthly: 0,
       priceYearly: 0,
       features: [
-        { featureKey: 'ai_credits_monthly', value: '20'  },
-        { featureKey: 'resume_uploads',     value: '2'   },
-        { featureKey: 'tracker_entries',    value: '25'  },
+        { featureKey: 'ai_credits_monthly', value: '20' },
+        { featureKey: 'resume_uploads', value: '2' },
+        { featureKey: 'tracker_entries', value: '25' },
       ],
     },
     {
@@ -68,8 +68,8 @@ async function main() {
       priceYearly: 144,
       features: [
         { featureKey: 'ai_credits_monthly', value: '100' },
-        { featureKey: 'resume_uploads',     value: '10'  },
-        { featureKey: 'tracker_entries',    value: '200' },
+        { featureKey: 'resume_uploads', value: '10' },
+        { featureKey: 'tracker_entries', value: '200' },
       ],
     },
     {
@@ -79,8 +79,8 @@ async function main() {
       priceYearly: 276,
       features: [
         { featureKey: 'ai_credits_monthly', value: '500' },
-        { featureKey: 'resume_uploads',     value: '50'   },
-        { featureKey: 'tracker_entries',    value: '-1'   }, // unlimited
+        { featureKey: 'resume_uploads', value: '50' },
+        { featureKey: 'tracker_entries', value: '-1' }, // unlimited
       ],
     },
   ];
@@ -88,7 +88,7 @@ async function main() {
   for (const plan of plans) {
     const { features, ...planData } = plan;
     const upserted = await prisma.plan.upsert({
-      where:  { name: planData.name },
+      where: { name: planData.name },
       update: planData,
       create: planData,
     });
@@ -105,5 +105,8 @@ async function main() {
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());

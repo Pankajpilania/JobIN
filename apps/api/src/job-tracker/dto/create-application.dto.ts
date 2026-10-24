@@ -1,18 +1,16 @@
-import {
-  IsString, IsOptional, IsEnum, IsUrl, IsDateString, MaxLength,
-} from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsUrl, IsDateString, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum ApplicationStatusDto {
-  SAVED                = 'SAVED',
-  APPLIED              = 'APPLIED',
-  PHONE_SCREEN         = 'PHONE_SCREEN',
-  INTERVIEW            = 'INTERVIEW',
+  SAVED = 'SAVED',
+  APPLIED = 'APPLIED',
+  PHONE_SCREEN = 'PHONE_SCREEN',
+  INTERVIEW = 'INTERVIEW',
   TECHNICAL_ASSESSMENT = 'TECHNICAL_ASSESSMENT',
-  FINAL_ROUND          = 'FINAL_ROUND',
-  OFFER                = 'OFFER',
-  REJECTED             = 'REJECTED',
-  WITHDRAWN            = 'WITHDRAWN',
+  FINAL_ROUND = 'FINAL_ROUND',
+  OFFER = 'OFFER',
+  REJECTED = 'REJECTED',
+  WITHDRAWN = 'WITHDRAWN',
 }
 
 export class CreateApplicationDto {
@@ -35,6 +33,7 @@ export class CreateApplicationDto {
   @ApiPropertyOptional({ example: 'https://linkedin.com/jobs/...' })
   @IsOptional()
   @IsString()
+  @IsUrl()
   jobUrl?: string;
 
   @ApiPropertyOptional({ example: '£80,000 - £100,000' })

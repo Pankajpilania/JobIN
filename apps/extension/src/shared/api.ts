@@ -3,7 +3,8 @@ import type { Resume, TailorResult, CoverLetterResult, CoverLetterVariant } from
 
 // ─── Supabase Configuration ──────────────────────────────────────────────────
 const SUPABASE_URL = 'https://duccxvuwdoqqgaowplrs.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1Y2N4dnV3ZG9xcWdhb3dwbHJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODMzMDMsImV4cCI6MjA5Njk1OTMwM30.x651PDjYrsYkxMZRMWmsq5Pq7YAN8_YjOEwyl1Dx8Xk';
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1Y2N4dnV3ZG9xcWdhb3dwbHJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODMzMDMsImV4cCI6MjA5Njk1OTMwM30.x651PDjYrsYkxMZRMWmsq5Pq7YAN8_YjOEwyl1Dx8Xk';
 
 async function getBaseUrl(): Promise<string> {
   const settings = await getSettings();
@@ -14,7 +15,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
   const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: {
-      'apikey': SUPABASE_ANON_KEY,
+      apikey: SUPABASE_ANON_KEY,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ email, password }),
@@ -26,11 +27,15 @@ export async function signInWithEmail(email: string, password: string): Promise<
   return res.json();
 }
 
-export async function signUpWithEmail(email: string, password: string, fullName: string): Promise<any> {
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  fullName: string,
+): Promise<any> {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
     method: 'POST',
     headers: {
-      'apikey': SUPABASE_ANON_KEY,
+      apikey: SUPABASE_ANON_KEY,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -59,16 +64,13 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
-  const base  = await getBaseUrl();
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const base = await getBaseUrl();
   const token = await getToken();
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> ?? {}),
+    ...((options.headers as Record<string, string>) ?? {}),
   };
 
   if (token) {
@@ -79,7 +81,10 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: res.statusText }));
-    throw new ApiError(res.status, Array.isArray(body.message) ? body.message.join(', ') : body.message);
+    throw new ApiError(
+      res.status,
+      Array.isArray(body.message) ? body.message.join(', ') : body.message,
+    );
   }
 
   if (res.status === 204) return undefined as T;
@@ -102,47 +107,51 @@ export async function tailorResume(
 ): Promise<TailorResult> {
   return request<TailorResult>(`/resumes/${resumeId}/tailor`, {
     method: 'POST',
-    body:   JSON.stringify({ jobDescription, jobTitle, companyName }),
+    body: JSON.stringify({ jobDescription, jobTitle, companyName }),
   });
 }
 
 // ─── Cover letter generation ──────────────────────────────────────────────────
 
 export async function generateCoverLetter(params: {
-  resumeId:          string;
-  jobTitle:          string;
-  companyName:       string;
-  jobDescription:    string;
-  variant:           CoverLetterVariant;
+  resumeId: string;
+  jobTitle: string;
+  companyName: string;
+  jobDescription: string;
+  variant: CoverLetterVariant;
   hiringManagerName?: string;
 }): Promise<CoverLetterResult> {
   return request<CoverLetterResult>('/cover-letters/generate', {
     method: 'POST',
-    body:   JSON.stringify(params),
+    body: JSON.stringify(params),
   });
 }
 
 // ─── Job application tracker ──────────────────────────────────────────────────
 
 export async function saveApplication(data: {
-  jobTitle:       string;
-  companyName:    string;
-  location?:      string;
-  jobUrl?:        string;
-  status?:        string;
+  jobTitle: string;
+  companyName: string;
+  location?: string;
+  jobUrl?: string;
+  status?: string;
   jobDescription?: string;
-  source?:        string;
+  source?: string;
 }): Promise<{ id: string }> {
   return request<{ id: string }>('/applications', {
     method: 'POST',
-    body:   JSON.stringify({ ...data, source: data.source ?? 'Extension' }),
+    body: JSON.stringify({ ...data, source: data.source ?? 'Extension' }),
   });
 }
 
 // ─── User profile ─────────────────────────────────────────────────────────────
 
 export async function getUserProfile(): Promise<{
-  id: string; email: string; fullName: string; avatarUrl?: string; country?: string;
+  id: string;
+  email: string;
+  fullName: string;
+  avatarUrl?: string;
+  country?: string;
 }> {
   return request('/users/me');
 }

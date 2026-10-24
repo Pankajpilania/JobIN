@@ -6,8 +6,8 @@
 
 import { detectBoard } from '../detector';
 import { autofillGreenhouse } from './greenhouse';
-import { autofillLever }      from './lever';
-import { MSG }                from '../../shared/messages';
+import { autofillLever } from './lever';
+import { MSG } from '../../shared/messages';
 import type { UserProfile, AutofillSettings } from '../../shared/types';
 
 // ─── Listen for autofill trigger ─────────────────────────────────────────────
@@ -16,7 +16,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== MSG.AUTOFILL_FORM) return;
 
   const { profile, settings } = message.payload as {
-    profile:  UserProfile;
+    profile: UserProfile;
     settings: AutofillSettings;
   };
 
@@ -26,23 +26,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   const board = detectBoard();
-  const opts  = {
+  const opts = {
     fillWorkHistory: settings.fillWorkHistory,
-    fillEducation:   settings.fillEducation,
+    fillEducation: settings.fillEducation,
     workAuthorisation: settings.workAuthorisation,
   };
 
   if (board === 'greenhouse') {
     autofillGreenhouse(profile, opts)
-      .then(result => sendResponse({ ok: true, result }))
-      .catch(err  => sendResponse({ ok: false, error: err.message }));
+      .then((result) => sendResponse({ ok: true, result }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
     return true; // async
   }
 
   if (board === 'lever') {
     autofillLever(profile, opts)
-      .then(result => sendResponse({ ok: true, result }))
-      .catch(err  => sendResponse({ ok: false, error: err.message }));
+      .then((result) => sendResponse({ ok: true, result }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
     return true; // async
   }
 
@@ -55,32 +55,35 @@ const board = detectBoard();
 if (board === 'greenhouse' || board === 'lever') {
   const tip = document.createElement('div');
   Object.assign(tip.style, {
-    position:        'fixed',
-    bottom:          '12px',
-    right:           '12px',
-    background:      'linear-gradient(135deg,#0f0f1a,#1a1a2e)',
-    border:          '1px solid rgba(99,102,241,0.4)',
-    borderRadius:    '12px',
-    padding:         '8px 14px',
-    color:           'rgba(255,255,255,0.85)',
-    fontSize:        '12px',
-    fontFamily:      'system-ui, sans-serif',
-    fontWeight:      '600',
-    zIndex:          '2147483647',
-    cursor:          'pointer',
-    boxShadow:       '0 4px 16px rgba(0,0,0,0.4)',
-    transition:      'opacity 0.3s ease',
-    display:         'flex',
-    alignItems:      'center',
-    gap:             '8px',
+    position: 'fixed',
+    bottom: '12px',
+    right: '12px',
+    background: 'linear-gradient(135deg,#0f0f1a,#1a1a2e)',
+    border: '1px solid rgba(99,102,241,0.4)',
+    borderRadius: '12px',
+    padding: '8px 14px',
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: '12px',
+    fontFamily: 'system-ui, sans-serif',
+    fontWeight: '600',
+    zIndex: '2147483647',
+    cursor: 'pointer',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+    transition: 'opacity 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
   });
   tip.innerHTML = `<span style="font-size:16px">⚡</span> JobIN Autofill ready`;
-  tip.title     = 'Click to open JobIN and autofill this form';
+  tip.title = 'Click to open JobIN and autofill this form';
   tip.addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: MSG.OPEN_SIDE_PANEL });
   });
   document.body.appendChild(tip);
 
   // Auto-hide after 5 seconds
-  setTimeout(() => { tip.style.opacity = '0'; setTimeout(() => tip.remove(), 300); }, 5000);
+  setTimeout(() => {
+    tip.style.opacity = '0';
+    setTimeout(() => tip.remove(), 300);
+  }, 5000);
 }

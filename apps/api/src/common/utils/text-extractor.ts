@@ -22,20 +22,14 @@ export type SupportedMimeType = (typeof SUPPORTED_MIME_TYPES)[number];
  * @param mimeType MIME type to determine which parser to use
  * @returns        Extracted plain text, trimmed and cleaned
  */
-export async function extractTextFromBuffer(
-  buffer: Buffer,
-  mimeType: string,
-): Promise<string> {
+export async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<string> {
   try {
     if (mimeType === 'application/pdf') {
       const data = await pdfParse(buffer);
       return cleanText(data.text);
     }
 
-    if (
-      mimeType ===
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ) {
+    if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       const { value } = await mammoth.extractRawText({ buffer });
       return cleanText(value);
     }
@@ -52,8 +46,8 @@ export async function extractTextFromBuffer(
 /** Remove excess whitespace and control characters from extracted text */
 function cleanText(raw: string): string {
   return raw
-    .replace(/\r\n/g, '\n')           // normalise line endings
-    .replace(/[ \t]+/g, ' ')          // collapse horizontal whitespace
-    .replace(/\n{3,}/g, '\n\n')       // max two consecutive blank lines
+    .replace(/\r\n/g, '\n') // normalise line endings
+    .replace(/[ \t]+/g, ' ') // collapse horizontal whitespace
+    .replace(/\n{3,}/g, '\n\n') // max two consecutive blank lines
     .trim();
 }

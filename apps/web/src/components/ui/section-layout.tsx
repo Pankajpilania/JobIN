@@ -21,29 +21,33 @@ export const SectionLayout: React.FC<SectionLayoutProps> = ({
   return (
     <div className={cn('space-y-12', className)}>
       {/* Header section */}
-      <div className={cn('flex flex-col gap-3', centered ? 'text-center items-center' : 'text-left items-start')}>
+      <div
+        className={cn(
+          'flex flex-col gap-3',
+          centered ? 'text-center items-center' : 'text-left items-start',
+        )}
+      >
         {eyebrow && (
           <span className="text-[13px] font-bold text-brand dark:text-brand-mid uppercase tracking-[0.08em] leading-none select-none">
             {eyebrow}
           </span>
         )}
-        <h2 
+        <h2
           className="text-3xl md:text-[38px] font-extrabold text-text-1 tracking-tight leading-tight"
-          dangerouslySetInnerHTML={{ __html: title.replace(/<strong>(.*?)<\/strong>/g, `<strong class="text-brand dark:text-brand-mid font-extrabold">$1</strong>`) }}
+          dangerouslySetInnerHTML={{
+            __html: title.replace(
+              /<strong>(.*?)<\/strong>/g,
+              `<strong class="text-brand dark:text-brand-mid font-extrabold">$1</strong>`,
+            ),
+          }}
         />
         {subtitle && (
-          <p className="text-text-2 text-base max-w-[480px] leading-relaxed">
-            {subtitle}
-          </p>
+          <p className="text-text-2 text-base max-w-[480px] leading-relaxed">{subtitle}</p>
         )}
       </div>
 
       {/* Content section */}
-      {children && (
-        <div className="w-full">
-          {children}
-        </div>
-      )}
+      {children && <div className="w-full">{children}</div>}
     </div>
   );
 };

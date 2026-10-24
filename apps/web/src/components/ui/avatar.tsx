@@ -43,7 +43,13 @@ export const Avatar: React.FC<AvatarProps> = ({
       }}
     >
       {src ? (
-        <Image src={src} alt={alt} width={36} height={36} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <Image
+          src={src}
+          alt={alt}
+          width={36}
+          height={36}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
       ) : (
         <span>{fallback}</span>
       )}

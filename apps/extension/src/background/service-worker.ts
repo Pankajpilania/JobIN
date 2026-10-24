@@ -11,12 +11,20 @@
 
 import { MSG } from '../shared/messages';
 import {
-  getAuth, getSettings, setSettings, getCachedResumes, setCachedResumes,
-  getDetectedJob, setDetectedJob,
+  getAuth,
+  getSettings,
+  setSettings,
+  getCachedResumes,
+  setCachedResumes,
+  getDetectedJob,
+  setDetectedJob,
 } from '../shared/storage';
 import {
-  listResumes, tailorResume, generateCoverLetter,
-  saveApplication, ApiError,
+  listResumes,
+  tailorResume,
+  generateCoverLetter,
+  saveApplication,
+  ApiError,
 } from '../shared/api';
 
 // ─── Extension install / update ───────────────────────────────────────────────
@@ -97,7 +105,10 @@ async function handleMessage(
       // ── Get detected job for a tab ─────────────────────────────────────────
       case MSG.GET_DETECTED_JOB: {
         const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!activeTab?.id) { sendResponse({ job: null }); break; }
+        if (!activeTab?.id) {
+          sendResponse({ job: null });
+          break;
+        }
         const job = await getDetectedJob(activeTab.id);
         sendResponse({ job });
         break;
@@ -108,7 +119,10 @@ async function handleMessage(
         try {
           // Try cache first (5-minute TTL)
           const cached = await getCachedResumes();
-          if (cached) { sendResponse({ resumes: cached }); break; }
+          if (cached) {
+            sendResponse({ resumes: cached });
+            break;
+          }
 
           const resumes = await listResumes();
           await setCachedResumes(resumes);
@@ -166,11 +180,18 @@ async function handleMessage(
       // ── Trigger autofill on current tab ───────────────────────────────────
       case MSG.START_AUTOFILL: {
         const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!activeTab?.id) { sendResponse({ error: 'No active tab' }); break; }
-        chrome.tabs.sendMessage(activeTab.id, {
-          type:    MSG.AUTOFILL_FORM,
-          payload: message.payload,
-        }, (res) => sendResponse(res));
+        if (!activeTab?.id) {
+          sendResponse({ error: 'No active tab' });
+          break;
+        }
+        chrome.tabs.sendMessage(
+          activeTab.id,
+          {
+            type: MSG.AUTOFILL_FORM,
+            payload: message.payload,
+          },
+          (res) => sendResponse(res),
+        );
         break;
       }
 

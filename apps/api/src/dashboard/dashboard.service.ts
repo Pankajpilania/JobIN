@@ -64,10 +64,17 @@ export class DashboardService {
 
     const total = statusRows.reduce((sum, row) => sum + row._count._all, 0);
     const totalApplied = total - (byStatus.SAVED ?? 0);
-    const interviewCount = INTERVIEW_STATUSES.reduce((sum, status) => sum + (byStatus[status] ?? 0), 0);
+    const interviewCount = INTERVIEW_STATUSES.reduce(
+      (sum, status) => sum + (byStatus[status] ?? 0),
+      0,
+    );
     const offers = byStatus.OFFER ?? 0;
-    const periodStart = subscription?.currentPeriodStart ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const periodEnd = subscription?.currentPeriodEnd ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    const periodStart =
+      subscription?.currentPeriodStart ??
+      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const periodEnd =
+      subscription?.currentPeriodEnd ??
+      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
     const [usage, allowanceRow] = await Promise.all([
       this.prisma.aIUsage.aggregate({
         where: { userId: user.id, createdAt: { gte: periodStart, lt: periodEnd } },
@@ -75,10 +82,12 @@ export class DashboardService {
       }),
       subscription
         ? Promise.resolve(subscription.plan.features[0]?.value)
-        : this.prisma.planFeature.findFirst({
-            where: { featureKey: 'ai_credits_monthly', plan: { name: 'FREE' } },
-            select: { value: true },
-          }).then((feature) => feature?.value),
+        : this.prisma.planFeature
+            .findFirst({
+              where: { featureKey: 'ai_credits_monthly', plan: { name: 'FREE' } },
+              select: { value: true },
+            })
+            .then((feature) => feature?.value),
     ]);
 
     const parsedAllowance = Number.parseInt(allowanceRow ?? '20', 10);
@@ -91,8 +100,9 @@ export class DashboardService {
         total,
         totalApplied,
         byStatus,
-        interviewRate: totalApplied > 0 ? Math.round((interviewCount + offers) / totalApplied * 100) : 0,
-        offerRate: totalApplied > 0 ? Math.round(offers / totalApplied * 100) : 0,
+        interviewRate:
+          totalApplied > 0 ? Math.round(((interviewCount + offers) / totalApplied) * 100) : 0,
+        offerRate: totalApplied > 0 ? Math.round((offers / totalApplied) * 100) : 0,
         thisWeek,
       },
       activity,

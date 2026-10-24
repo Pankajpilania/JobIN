@@ -36,7 +36,9 @@ async function request<T>(
     res = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
   } catch (fetchErr: unknown) {
     console.error('API request failed', { path, error: fetchErr });
-    throw new Error('Unable to reach the server. Check the API connection and NEXT_PUBLIC_API_URL.');
+    throw new Error(
+      'Unable to reach the server. Check the API connection and NEXT_PUBLIC_API_URL.',
+    );
   }
 
   if (!res.ok) {
@@ -63,7 +65,9 @@ async function download(path: string, token?: string) {
     res = await fetch(`${API_BASE}${path}`, { method: 'GET', headers, cache: 'no-store' });
   } catch (fetchErr: unknown) {
     console.error('API download failed', { path, error: fetchErr });
-    throw new Error('Unable to reach the server. Check the API connection and NEXT_PUBLIC_API_URL.');
+    throw new Error(
+      'Unable to reach the server. Check the API connection and NEXT_PUBLIC_API_URL.',
+    );
   }
 
   if (!res.ok) {
@@ -82,8 +86,7 @@ async function download(path: string, token?: string) {
 }
 
 export const apiClient = {
-  get: <T>(path: string, token?: string) =>
-    request<T>(path, { method: 'GET', token }),
+  get: <T>(path: string, token?: string) => request<T>(path, { method: 'GET', token }),
 
   post: <T>(path: string, body?: unknown, token?: string) =>
     request<T>(path, {
@@ -99,8 +102,7 @@ export const apiClient = {
       token,
     }),
 
-  delete: <T>(path: string, token?: string) =>
-    request<T>(path, { method: 'DELETE', token }),
+  delete: <T>(path: string, token?: string) => request<T>(path, { method: 'DELETE', token }),
 
   download,
 };

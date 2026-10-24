@@ -1,6 +1,14 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 
@@ -29,7 +37,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       eventVersion.current += 1;
       if (active) {
         setSession(nextSession);
@@ -53,7 +63,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const getToken = useCallback(async () => {
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    const {
+      data: { session: currentSession },
+    } = await supabase.auth.getSession();
     return currentSession?.access_token ?? null;
   }, []);
 
@@ -66,13 +78,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [session]);
 
-  const value = useMemo<AuthContextValue>(() => ({
-    isReady,
-    isSignedIn: Boolean(session),
-    userId: session?.user.id ?? null,
-    getToken,
-    profile,
-  }), [getToken, isReady, profile, session]);
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      isReady,
+      isSignedIn: Boolean(session),
+      userId: session?.user.id ?? null,
+      getToken,
+      profile,
+    }),
+    [getToken, isReady, profile, session],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

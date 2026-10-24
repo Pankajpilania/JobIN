@@ -1,9 +1,20 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  ServiceUnavailableException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { AISettingsCrypto } from '../ai/ai-settings-crypto';
+import { S3Service } from '../s3/s3.service';
 import type {
   ListUsersDto,
   AdminUpdateUserDto,
@@ -25,6 +36,7 @@ export class AdminService {
     private readonly email: EmailService,
     private readonly config: ConfigService,
     private readonly aiSettingsCrypto: AISettingsCrypto,
+    private readonly s3: S3Service,
   ) {}
 
   // ─── Audit logging ────────────────────────────────────────────────────────
@@ -249,6 +261,115 @@ export class AdminService {
       totalTokens,
       totalCostUsd: Math.round(totalCostUsd * 100) / 100,
     };
+  }
+
+  async deleteUser(adminId: string, userId: string, ipAddress?: string) {
+    if (adminId === userId) {
+      throw new ForbiddenException('You cannot delete your own admin account.');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roles: { include: { role: true } },
+        subscriptions: {
+          where: { status: { in: ['ACTIVE', 'PAST_DUE'] } },
+          select: { stripeSubscriptionId: true },
+        },
+        resumes: {
+          select: {
+            s3Key: true,
+            versions: { select: { s3Key: true } },
+          },
+        },
+      },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const protectedRoles = ['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN', 'FINANCE_ADMIN'];
+    if (user.roles.some(({ role }) => protectedRoles.includes(role.name))) {
+      throw new ForbiddenException('Admin accounts cannot be deleted from user management.');
+    }
+
+    const stripeSubscriptionIds = user.subscriptions
+      .map(({ stripeSubscriptionId }) => stripeSubscriptionId)
+      .filter((id) => id.startsWith('sub_'));
+    const stripeSecretKey = this.config.get<string>('STRIPE_SECRET_KEY')?.trim();
+    if (stripeSubscriptionIds.length && !stripeSecretKey) {
+      throw new ServiceUnavailableException(
+        'Stripe billing is not configured. Configure STRIPE_SECRET_KEY before deleting users with Stripe subscriptions.',
+      );
+    }
+
+    const supabaseId = user.supabaseId;
+    const supabaseUrl = this.config.get<string>('NEXT_PUBLIC_SUPABASE_URL')?.trim();
+    const supabaseServiceKey = this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY')?.trim();
+    if (supabaseId && (!supabaseUrl || !supabaseServiceKey)) {
+      throw new ServiceUnavailableException(
+        'Supabase admin access is not configured. Configure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before deleting this user.',
+      );
+    }
+
+    if (stripeSubscriptionIds.length && stripeSecretKey) {
+      const stripe = new Stripe(stripeSecretKey, { apiVersion: '2024-06-20' as any });
+      try {
+        for (const subscriptionId of stripeSubscriptionIds) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          if (
+            ['active', 'trialing', 'past_due', 'unpaid', 'incomplete'].includes(subscription.status)
+          ) {
+            await stripe.subscriptions.cancel(subscriptionId);
+          }
+        }
+      } catch (error) {
+        const errorType = error instanceof Error ? error.name : 'unknown error';
+        this.logger.error(
+          `Failed to cancel Stripe subscriptions for user ${userId} (${errorType}).`,
+        );
+        throw new InternalServerErrorException(
+          'Could not cancel the user’s Stripe subscription. The account was not deleted.',
+        );
+      }
+    }
+
+    if (supabaseId && supabaseUrl && supabaseServiceKey) {
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { error } = await supabase.auth.admin.deleteUser(supabaseId);
+      if (error && error.status !== 404) {
+        this.logger.error(`Failed to delete Supabase user ${supabaseId}: ${error.message}`);
+        throw new InternalServerErrorException(
+          'Could not delete the user’s authentication account. The application data was not deleted.',
+        );
+      }
+    }
+
+    const objectKeys = new Set<string>();
+    for (const resume of user.resumes) {
+      objectKeys.add(resume.s3Key);
+      for (const version of resume.versions) {
+        if (version.s3Key) objectKeys.add(version.s3Key);
+      }
+    }
+    await Promise.all(Array.from(objectKeys, (key) => this.s3.deleteFileOrThrow(key)));
+
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.auditLog.updateMany({ where: { userId }, data: { userId: null } });
+      await transaction.user.delete({ where: { id: userId } });
+    });
+
+    await this.audit(
+      adminId,
+      'ADMIN_DELETE_USER',
+      'User',
+      userId,
+      { email: user.email, fullName: user.fullName },
+      undefined,
+      { deletedSupabaseAccount: Boolean(supabaseId) },
+      ipAddress,
+    );
+    return { deleted: true };
   }
 
   async updateUser(adminId: string, userId: string, dto: AdminUpdateUserDto, ipAddress?: string) {

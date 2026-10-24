@@ -15,35 +15,35 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const ROLES = [
-  { name: 'CANDIDATE',        description: 'Standard job seeker account' },
-  { name: 'SUPER_ADMIN',      description: 'Full platform access — all admin functions' },
+  { name: 'CANDIDATE', description: 'Standard job seeker account' },
+  { name: 'SUPER_ADMIN', description: 'Full platform access — all admin functions' },
   { name: 'OPERATIONS_ADMIN', description: 'Can manage users, send notifications, view AI usage' },
-  { name: 'SUPPORT_ADMIN',    description: 'Can view and respond to support tickets' },
-  { name: 'FINANCE_ADMIN',    description: 'Can view billing, subscriptions, payments' },
+  { name: 'SUPPORT_ADMIN', description: 'Can view and respond to support tickets' },
+  { name: 'FINANCE_ADMIN', description: 'Can view billing, subscriptions, payments' },
 ];
 
 const PERMISSIONS = [
-  { action: 'users:read',         description: 'View user profiles and activity' },
-  { action: 'users:write',        description: 'Modify user accounts' },
-  { action: 'billing:read',       description: 'View billing and payment data' },
-  { action: 'billing:write',      description: 'Modify subscriptions and issue refunds' },
-  { action: 'ai:read',            description: 'View AI usage metrics' },
-  { action: 'ai:bypass_limits',   description: 'Bypass AI rate limits' },
-  { action: 'tickets:read',       description: 'View support tickets' },
-  { action: 'tickets:write',      description: 'Respond to and close support tickets' },
+  { action: 'users:read', description: 'View user profiles and activity' },
+  { action: 'users:write', description: 'Modify user accounts' },
+  { action: 'billing:read', description: 'View billing and payment data' },
+  { action: 'billing:write', description: 'Modify subscriptions and issue refunds' },
+  { action: 'ai:read', description: 'View AI usage metrics' },
+  { action: 'ai:bypass_limits', description: 'Bypass AI rate limits' },
+  { action: 'tickets:read', description: 'View support tickets' },
+  { action: 'tickets:write', description: 'Respond to and close support tickets' },
   { action: 'notifications:send', description: 'Send email campaigns and notifications' },
-  { action: 'audit:read',         description: 'View audit logs' },
+  { action: 'audit:read', description: 'View audit logs' },
 ];
 
 async function seed() {
-  const targetEmail = process.argv.find(a => a.startsWith('--email='))?.split('=')[1];
+  const targetEmail = process.argv.find((a) => a.startsWith('--email='))?.split('=')[1];
 
   console.log('🌱 Seeding admin roles and permissions…');
 
   // Create/upsert all roles
   for (const role of ROLES) {
     await prisma.role.upsert({
-      where:  { name: role.name },
+      where: { name: role.name },
       create: role,
       update: { description: role.description },
     });
@@ -53,7 +53,7 @@ async function seed() {
   // Create/upsert all permissions
   for (const perm of PERMISSIONS) {
     await prisma.permission.upsert({
-      where:  { action: perm.action },
+      where: { action: perm.action },
       create: perm,
       update: { description: perm.description },
     });
@@ -62,11 +62,11 @@ async function seed() {
 
   // Assign all permissions to SUPER_ADMIN
   const superAdmin = await prisma.role.findUnique({ where: { name: 'SUPER_ADMIN' } });
-  const allPerms   = await prisma.permission.findMany();
+  const allPerms = await prisma.permission.findMany();
   if (superAdmin) {
     for (const perm of allPerms) {
       await prisma.rolePermission.upsert({
-        where:  { roleId_permissionId: { roleId: superAdmin.id, permissionId: perm.id } },
+        where: { roleId_permissionId: { roleId: superAdmin.id, permissionId: perm.id } },
         create: { roleId: superAdmin.id, permissionId: perm.id },
         update: {},
       });
@@ -77,10 +77,12 @@ async function seed() {
   // Assign SUPPORT_ADMIN permissions
   const supportAdmin = await prisma.role.findUnique({ where: { name: 'SUPPORT_ADMIN' } });
   if (supportAdmin) {
-    const supportPerms = allPerms.filter(p => ['tickets:read', 'tickets:write', 'users:read'].includes(p.action));
+    const supportPerms = allPerms.filter((p) =>
+      ['tickets:read', 'tickets:write', 'users:read'].includes(p.action),
+    );
     for (const perm of supportPerms) {
       await prisma.rolePermission.upsert({
-        where:  { roleId_permissionId: { roleId: supportAdmin.id, permissionId: perm.id } },
+        where: { roleId_permissionId: { roleId: supportAdmin.id, permissionId: perm.id } },
         create: { roleId: supportAdmin.id, permissionId: perm.id },
         update: {},
       });
@@ -90,10 +92,12 @@ async function seed() {
   // Assign FINANCE_ADMIN permissions
   const financeAdmin = await prisma.role.findUnique({ where: { name: 'FINANCE_ADMIN' } });
   if (financeAdmin) {
-    const financePerms = allPerms.filter(p => ['billing:read', 'billing:write', 'users:read', 'audit:read'].includes(p.action));
+    const financePerms = allPerms.filter((p) =>
+      ['billing:read', 'billing:write', 'users:read', 'audit:read'].includes(p.action),
+    );
     for (const perm of financePerms) {
       await prisma.rolePermission.upsert({
-        where:  { roleId_permissionId: { roleId: financeAdmin.id, permissionId: perm.id } },
+        where: { roleId_permissionId: { roleId: financeAdmin.id, permissionId: perm.id } },
         create: { roleId: financeAdmin.id, permissionId: perm.id },
         update: {},
       });
@@ -110,7 +114,7 @@ async function seed() {
       const role = await prisma.role.findUnique({ where: { name: 'SUPER_ADMIN' } });
       if (role) {
         await prisma.userRole.upsert({
-          where:  { userId_roleId: { userId: user.id, roleId: role.id } },
+          where: { userId_roleId: { userId: user.id, roleId: role.id } },
           create: { userId: user.id, roleId: role.id },
           update: {},
         });
@@ -126,7 +130,7 @@ async function seed() {
   await prisma.$disconnect();
 }
 
-seed().catch(async err => {
+seed().catch(async (err) => {
   console.error('❌ Seed failed:', err);
   await prisma.$disconnect();
   process.exit(1);

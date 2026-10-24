@@ -36,7 +36,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       onSubmit={handleFormSubmit}
       className={cn(
         'w-full flex flex-col md:flex-row items-stretch md:items-center bg-surface border-[1.5px] border-border rounded-lg p-2 gap-2 md:gap-3 shadow-[0_4px_24px_rgba(79,70,229,0.08)] hover:border-brand-mid focus-within:border-brand transition-all duration-200',
-        className
+        className,
       )}
     >
       {/* Input container */}
