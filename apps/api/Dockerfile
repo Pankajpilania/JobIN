@@ -34,6 +34,7 @@ COPY apps/extension/package.json apps/extension/package.json
 COPY apps/api/prisma ./apps/api/prisma
 
 RUN npm ci --omit=dev --workspace=apps/api --include-workspace-root=false \
+  && npm run db:generate --workspace=apps/api \
   && npm cache clean --force \
   && chown -R node:node /workspace
 
