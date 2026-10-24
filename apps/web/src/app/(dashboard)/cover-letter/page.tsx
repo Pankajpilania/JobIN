@@ -11,13 +11,12 @@ import {
   useCoverLetters,
   useDeleteCoverLetter,
 } from '@/hooks/use-cover-letters';
-import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
 import type { CoverLetter, CoverLetterListItem, CoverLetterVariant } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-const supabase = createClient();
 const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'https://jobin-tmvb.onrender.com/api';
 
 async function downloadCoverLetter(
@@ -182,6 +181,7 @@ function CoverLetterListItemCard({
 }
 
 export default function CoverLetterPage() {
+  const { getToken } = useAuth();
   const { data: resumes } = useResumes();
   const { data: letters } = useCoverLetters();
   const generate = useGenerateCoverLetter();
@@ -203,8 +203,7 @@ export default function CoverLetterPage() {
       if (selected) {
         // Fetch full letter contents
         const fetchLetter = async () => {
-          const session = await supabase.auth.getSession();
-          const token = session.data.session?.access_token;
+          const token = await getToken();
           if (token) {
             const res = await fetch(`${apiBase}/cover-letters/${selectedHistoryId}`, {
               headers: { Authorization: `Bearer ${token}` },
@@ -220,7 +219,7 @@ export default function CoverLetterPage() {
     } else if (!selectedHistoryId) {
       setGenerated(null);
     }
-  }, [selectedHistoryId, letters]);
+  }, [getToken, selectedHistoryId, letters]);
 
   const handleGenerate = async () => {
     if (!selectedResumeId) {

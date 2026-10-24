@@ -12,6 +12,7 @@ describe('AdminService deleteUser', () => {
     $transaction: jest.Mock;
   };
   let config: { get: jest.Mock };
+  let s3: { deleteFileOrThrow: jest.Mock };
   let service: AdminService;
 
   beforeEach(() => {
@@ -20,12 +21,13 @@ describe('AdminService deleteUser', () => {
       $transaction: jest.fn(),
     };
     config = { get: jest.fn() };
+    s3 = { deleteFileOrThrow: jest.fn() };
     service = new AdminService(
       prisma as unknown as PrismaService,
       {} as EmailService,
       config as unknown as ConfigService,
       {} as AISettingsCrypto,
-      { deleteFileOrThrow: jest.fn() } as unknown as S3Service,
+      s3 as unknown as S3Service,
     );
   });
 
@@ -63,6 +65,116 @@ describe('AdminService deleteUser', () => {
       ServiceUnavailableException,
     );
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('deletes an Auth0-only account without requiring legacy Supabase credentials', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'target-id',
+      supabaseId: 'auth0|subject',
+      auth0Sub: 'auth0|subject',
+      email: 'user@example.com',
+      fullName: 'Test User',
+      roles: [],
+      subscriptions: [],
+      resumes: [],
+    });
+    config.get.mockImplementation(
+      (key: string) =>
+        ({
+          AUTH0_DOMAIN: 'tenant.example.auth0.com',
+          AUTH0_MANAGEMENT_CLIENT_ID: 'management-client-id',
+          AUTH0_MANAGEMENT_CLIENT_SECRET: 'management-client-secret',
+        })[key],
+    );
+    prisma.$transaction.mockImplementation(async (callback: (transaction: unknown) => unknown) =>
+      callback({
+        auditLog: { updateMany: jest.fn() },
+        user: { delete: jest.fn() },
+      }),
+    );
+    jest.spyOn(service, 'audit').mockResolvedValue(undefined);
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: 'management-token' }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 204 } as Response);
+
+    try {
+      await expect(service.deleteUser('admin-id', 'target-id')).resolves.toEqual({ deleted: true });
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(s3.deleteFileOrThrow).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('requires OCI management credentials before deleting an OCI-linked user', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'target-id',
+      supabaseId: 'oci-user-subject',
+      ociSub: 'oci-user-subject',
+      email: 'user@example.com',
+      fullName: 'Test User',
+      roles: [],
+      subscriptions: [],
+      resumes: [],
+    });
+
+    await expect(service.deleteUser('admin-id', 'target-id')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('deletes the OCI identity without treating its compatibility ID as a Supabase user', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'target-id',
+      supabaseId: 'oci-user-subject',
+      ociSub: 'oci-user-subject',
+      email: 'user@example.com',
+      fullName: 'Test User',
+      roles: [],
+      subscriptions: [],
+      resumes: [],
+    });
+    config.get.mockImplementation(
+      (key: string) =>
+        ({
+          OCI_DOMAIN_URL: 'https://idcs.example.identity.oraclecloud.com',
+          OCI_MANAGEMENT_CLIENT_ID: 'management-client-id',
+          OCI_MANAGEMENT_CLIENT_SECRET: 'management-client-secret',
+        })[key],
+    );
+    prisma.$transaction.mockImplementation(async (callback: (transaction: unknown) => unknown) =>
+      callback({
+        auditLog: { updateMany: jest.fn() },
+        user: { delete: jest.fn() },
+      }),
+    );
+    jest.spyOn(service, 'audit').mockResolvedValue(undefined);
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: 'management-token' }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 204 } as Response);
+
+    try {
+      await expect(service.deleteUser('admin-id', 'target-id')).resolves.toEqual({ deleted: true });
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(fetchSpy.mock.calls[0][0]).toBe(
+        'https://idcs.example.identity.oraclecloud.com/oauth2/v1/token',
+      );
+      expect(fetchSpy.mock.calls[1][0]).toBe(
+        'https://idcs.example.identity.oraclecloud.com/admin/v1/Users/oci-user-subject',
+      );
+      expect(s3.deleteFileOrThrow).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 });
 

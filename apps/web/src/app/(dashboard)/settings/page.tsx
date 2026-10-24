@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/hooks/use-auth';
 import {
   User,
   Lock,
@@ -167,6 +168,7 @@ function Input({
 // ── Main Settings Page ─────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const router = useRouter();
+  const { getToken, signOut, isReady, isSignedIn } = useAuth();
 
   // Profile state
   const [fullName, setFullName] = useState('');
@@ -187,18 +189,36 @@ export default function SettingsPage() {
 
   // Load current user
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const u = data?.user;
-      if (!u) {
-        router.push('/sign-in');
-        return;
-      }
-      setEmail(u.email ?? '');
-      setFullName(u.user_metadata?.full_name ?? '');
-      setCountry(u.user_metadata?.country ?? '');
-      setLoaded(true);
-    });
-  }, [router]);
+    if (!isReady) return;
+    if (!isSignedIn) {
+      router.push('/sign-in');
+      return;
+    }
+    let active = true;
+    void getToken()
+      .then(async (token) => {
+        if (!token) throw new Error('Your session has expired. Sign in again.');
+        const user = await apiClient.get<{
+          email?: string;
+          fullName?: string;
+          country?: string;
+        }>('/users/me', token);
+        if (!active) return;
+        setEmail(user.email ?? '');
+        setFullName(user.fullName ?? '');
+        setCountry(user.country ?? '');
+        setLoaded(true);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          toast.error(error instanceof Error ? error.message : 'Could not load your profile.');
+          setLoaded(true);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [getToken, isReady, isSignedIn, router]);
 
   // Show loading skeleton while session is being fetched
   if (!loaded) {
@@ -305,10 +325,9 @@ export default function SettingsPage() {
   const handleSaveProfile = async () => {
     setSavingProfile(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: { full_name: fullName, country },
-      });
-      if (error) throw error;
+      const token = await getToken();
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+      await apiClient.patch('/users/me', { fullName, country }, token);
       toast.success('Profile updated successfully!');
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to update profile');
@@ -328,6 +347,18 @@ export default function SettingsPage() {
       return;
     }
     setSavingPw(true);
+    if (
+      process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
+      process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci'
+    ) {
+      toast.error(
+        `Password changes are managed by ${
+          process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci' ? 'OCI' : 'Auth0'
+        }. Use “Forgot password?” on the sign-in page.`,
+      );
+      setSavingPw(false);
+      return;
+    }
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
@@ -343,13 +374,14 @@ export default function SettingsPage() {
 
   // ── Sign out ─────────────────────────────────────────────────────────────────
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error(error.message);
+    try {
+      await signOut();
+      router.push('/sign-in');
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not sign out.');
       return;
     }
-    router.push('/sign-in');
-    router.refresh();
   };
 
   // ── Delete account ───────────────────────────────────────────────────────────
@@ -360,16 +392,11 @@ export default function SettingsPage() {
     if (!confirmed) return;
     setDeleting(true);
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
-      if (!session) throw new Error('Your session has expired. Sign in and try again.');
+      const token = await getToken();
+      if (!token) throw new Error('Your session has expired. Sign in and try again.');
 
-      await apiClient.delete<void>('/users/me', session.access_token);
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) throw signOutError;
+      await apiClient.delete<void>('/users/me', token);
+      await signOut();
 
       toast.success('Your JobIN profile has been deactivated.');
       router.push('/');

@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation';
 import React from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/hooks/use-auth';
 import {
   LogOut,
   BarChart2,
@@ -21,9 +21,6 @@ import {
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
-
-const supabase = createClient();
 
 const NAV = [
   { href: '/admin', label: 'Dashboard', icon: BarChart2 },
@@ -40,39 +37,23 @@ const NAV = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null | undefined>(undefined);
+  const { isReady, isSignedIn, getToken, signOut, profile } = useAuth();
   const [adminVerified, setAdminVerified] = useState(false);
   const [adminError, setAdminError] = useState('');
 
-  // Check Supabase session directly — do NOT rely on backend /users/me
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSupabaseUser(session?.user ?? null);
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSupabaseUser(session?.user ?? null);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Redirect only once we know for sure the user is NOT signed in
-  useEffect(() => {
-    if (supabaseUser === null) {
-      router.replace('/sign-in?next=/admin');
+    if (isReady && !isSignedIn) {
+      router.replace('/admin-login');
     }
-  }, [supabaseUser, router]);
+  }, [isReady, isSignedIn, router]);
 
   useEffect(() => {
-    if (!supabaseUser) return;
+    if (!isReady || !isSignedIn) return;
     let active = true;
-    supabase.auth
-      .getSession()
-      .then(async ({ data: { session } }) => {
-        if (!session?.access_token)
-          throw new Error('Your session has expired. Please sign in again.');
-        await apiClient.get<{ allowed: boolean }>('/admin/access', session.access_token);
+    getToken()
+      .then(async (token) => {
+        if (!token) throw new Error('Your session has expired. Please sign in again.');
+        await apiClient.get<{ allowed: boolean }>('/admin/access', token);
         if (active) setAdminVerified(true);
       })
       .catch((error: unknown) => {
@@ -83,16 +64,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => {
       active = false;
     };
-  }, [supabaseUser]);
+  }, [getToken, isReady, isSignedIn]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
-    router.refresh();
+    try {
+      await signOut();
+      router.push('/');
+      router.refresh();
+    } catch (error) {
+      setAdminError(error instanceof Error ? error.message : 'Could not sign out.');
+    }
   };
 
-  const displayName = supabaseUser?.user_metadata?.full_name || supabaseUser?.email || 'Admin';
-  const avatarUrl = supabaseUser?.user_metadata?.avatar_url;
+  const displayName = profile.fullName || profile.email || 'Admin';
+  const avatarUrl = profile.avatarUrl;
 
   const getInitials = (name?: string) => {
     if (!name) return 'A';
@@ -104,8 +89,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .toUpperCase();
   };
 
-  // Show loading spinner while we wait for Supabase session
-  if (supabaseUser === undefined || supabaseUser === null || (!adminVerified && !adminError)) {
+  if (!isReady || !isSignedIn || (!adminVerified && !adminError)) {
     return (
       <div
         style={{

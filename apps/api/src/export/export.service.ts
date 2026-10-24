@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const PDFDocument = require('pdfkit');
+import PDFDocument from 'pdfkit';
 import {
   Document,
   Packer,

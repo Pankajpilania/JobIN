@@ -12,6 +12,8 @@ datasource db {
 model User {
   id              String                 @id @default(uuid())
   supabaseId      String?                @unique
+  auth0Sub        String?                @unique
+  ociSub          String?                @unique
   email           String                 @unique
   fullName        String
   avatarUrl       String?
@@ -35,6 +37,8 @@ model User {
   manualPayments  ManualPaymentRequest[]
 
   @@index([supabaseId])
+  @@index([auth0Sub])
+  @@index([ociSub])
   @@index([email])
   @@index([status])
   @@index([tenantId])

@@ -1,4 +1,4 @@
-import mammoth = require('mammoth');
+import * as mammoth from 'mammoth';
 import { ExportService } from './export.service';
 
 const resume = `Jordan Taylor

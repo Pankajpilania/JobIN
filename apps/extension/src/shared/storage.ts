@@ -56,10 +56,11 @@ export async function getToken(): Promise<string | null> {
 
 export async function getSettings(): Promise<ExtensionSettings> {
   const stored = await get<ExtensionSettings>(KEYS.SETTINGS);
+  const hasPreviousBundledApiUrl =
+    stored?.apiUrl === 'http://localhost:4000/api' ||
+    stored?.apiUrl === 'https://jobin-tmvb.onrender.com/api';
   const storedApiUrl =
-    import.meta.env.MODE === 'production' &&
-    !import.meta.env.VITE_API_URL &&
-    stored?.apiUrl === 'http://localhost:4000/api'
+    import.meta.env.MODE === 'production' && hasPreviousBundledApiUrl
       ? DEFAULT_SETTINGS.apiUrl
       : stored?.apiUrl;
   return {
