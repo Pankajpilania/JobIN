@@ -1,5 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('Health')
@@ -27,7 +28,7 @@ export class HealthController {
    */
   @Get('ready')
   @ApiOperation({ summary: 'Readiness probe — checks DB connectivity' })
-  async readiness() {
+  async readiness(@Res({ passthrough: true }) response: Response) {
     try {
       // Cheapest possible DB round-trip
       await this.prisma.$queryRaw`SELECT 1`;
@@ -37,6 +38,7 @@ export class HealthController {
         timestamp: new Date().toISOString(),
       };
     } catch (err) {
+      response.status(HttpStatus.SERVICE_UNAVAILABLE);
       return {
         status: 'error',
         database: 'disconnected',
