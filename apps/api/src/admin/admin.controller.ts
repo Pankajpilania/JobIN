@@ -7,7 +7,6 @@ import {
   Body,
   Param,
   Query,
-  BadRequestException,
   UseGuards,
   Req,
   HttpCode,
@@ -22,9 +21,6 @@ import {
   AdminUpdateUserDto,
   SendNotificationDto,
   ListSubscriptionsDto,
-  UpdateManualPaymentSettingsDto,
-  CreateManualPaymentMethodDto,
-  UpdateManualPaymentMethodDto,
   UpdateStripePricesDto,
   UpdateAIPlatformSettingsDto,
 } from './dto/admin.dto';
@@ -47,61 +43,6 @@ export class AdminController {
   @ApiOperation({ summary: 'Platform-wide metrics dashboard' })
   getMetrics() {
     return this.adminService.getMetrics();
-  }
-
-  @Get('payment-settings')
-  @RequireAdminRole('FINANCE_ADMIN')
-  @ApiOperation({ summary: 'Get public manual-payment settings and regional prices' })
-  getPaymentSettings() {
-    return this.adminService.getManualPaymentSettings();
-  }
-
-  @Patch('payment-settings/:currency')
-  @HttpCode(HttpStatus.OK)
-  @RequireAdminRole('FINANCE_ADMIN')
-  @ApiOperation({ summary: 'Update payment method details and regional plan prices' })
-  updatePaymentSettings(
-    @Param('currency') currency: string,
-    @Body() dto: UpdateManualPaymentSettingsDto,
-    @Req() req: any,
-  ) {
-    if (currency !== dto.currency) {
-      throw new BadRequestException('Currency in URL and request body must match.');
-    }
-    return this.adminService.updateManualPaymentSettings(
-      req.adminUser?.id ?? 'system',
-      dto,
-      req.ip,
-    );
-  }
-
-  @Get('payment-methods')
-  @RequireAdminRole('FINANCE_ADMIN')
-  getPaymentMethods() {
-    return this.adminService.getManualPaymentMethods();
-  }
-
-  @Post('payment-methods')
-  @HttpCode(HttpStatus.CREATED)
-  @RequireAdminRole('FINANCE_ADMIN')
-  createPaymentMethod(@Body() dto: CreateManualPaymentMethodDto, @Req() req: any) {
-    return this.adminService.createManualPaymentMethod(req.adminUser?.id ?? 'system', dto, req.ip);
-  }
-
-  @Patch('payment-methods/:id')
-  @HttpCode(HttpStatus.OK)
-  @RequireAdminRole('FINANCE_ADMIN')
-  updatePaymentMethod(
-    @Param('id') id: string,
-    @Body() dto: UpdateManualPaymentMethodDto,
-    @Req() req: any,
-  ) {
-    return this.adminService.updateManualPaymentMethod(
-      req.adminUser?.id ?? 'system',
-      id,
-      dto,
-      req.ip,
-    );
   }
 
   @Get('stripe-prices')

@@ -16,7 +16,6 @@ import {
   Bot,
   AlertCircle,
   ChevronRight,
-  ReceiptText,
   Settings2,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
@@ -27,7 +26,6 @@ const NAV = [
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
   { href: '/admin/billing', label: 'Billing', icon: DollarSign },
-  { href: '/admin/payment-requests', label: 'Payment requests', icon: ReceiptText },
   { href: '/admin/payment-settings', label: 'Payment settings', icon: Settings2 },
   { href: '/admin/ai-settings', label: 'AI settings', icon: Bot },
   { href: '/admin/ai-usage', label: 'AI Usage', icon: Bot },

@@ -20,9 +20,6 @@ import type {
   AdminUpdateUserDto,
   SendNotificationDto,
   ListSubscriptionsDto,
-  UpdateManualPaymentSettingsDto,
-  CreateManualPaymentMethodDto,
-  UpdateManualPaymentMethodDto,
   UpdateStripePricesDto,
   UpdateAIPlatformSettingsDto,
 } from './dto/admin.dto';
@@ -674,135 +671,6 @@ export class AdminService {
     });
   }
 
-  async getManualPaymentSettings() {
-    const stored = await this.prisma.manualPaymentSettings.findMany();
-    const byCurrency = new Map(stored.map((setting) => [setting.currency, setting]));
-    return (['INR', 'GBP'] as const).map((currency) => {
-      const setting = byCurrency.get(currency);
-      const isInr = currency === 'INR';
-      return {
-        currency,
-        methodLabel: setting?.methodLabel ?? (isInr ? 'INR · UPI' : 'GBP · Bank transfer'),
-        paymentDetails:
-          setting?.paymentDetails ??
-          (isInr ? '' : this.config.get<string>('NEXT_PUBLIC_GBP_BANK_DETAILS', '')),
-        qrUrl:
-          setting?.qrUrl ??
-          this.config.get<string>(
-            isInr ? 'NEXT_PUBLIC_INR_PAYMENT_QR_URL' : 'NEXT_PUBLIC_GBP_BANK_QR_URL',
-            isInr ? '/payments/inr-payment.jpeg' : '/payments/gbp-payment.jpeg',
-          ),
-        amounts: {
-          PREMIUM: setting?.premiumAmount ?? (isInr ? 1599 : 15),
-          PRO: setting?.proAmount ?? (isInr ? 2999 : 29),
-        },
-      };
-    });
-  }
-
-  async updateManualPaymentSettings(
-    adminId: string,
-    dto: UpdateManualPaymentSettingsDto,
-    ipAddress?: string,
-  ) {
-    const existing = await this.prisma.manualPaymentSettings.findUnique({
-      where: { currency: dto.currency },
-    });
-    const updated = await this.prisma.manualPaymentSettings.upsert({
-      where: { currency: dto.currency },
-      create: {
-        currency: dto.currency,
-        methodLabel: dto.methodLabel.trim(),
-        paymentDetails: dto.paymentDetails?.trim() ?? '',
-        qrUrl: dto.qrUrl?.trim() ?? '',
-        premiumAmount: dto.premiumAmount,
-        proAmount: dto.proAmount,
-      },
-      update: {
-        methodLabel: dto.methodLabel.trim(),
-        paymentDetails: dto.paymentDetails?.trim() ?? '',
-        qrUrl: dto.qrUrl?.trim() ?? '',
-        premiumAmount: dto.premiumAmount,
-        proAmount: dto.proAmount,
-      },
-    });
-    await this.audit(
-      adminId,
-      'ADMIN_UPDATE_MANUAL_PAYMENT_SETTINGS',
-      'ManualPaymentSettings',
-      dto.currency,
-      existing ?? undefined,
-      updated,
-      undefined,
-      ipAddress,
-    );
-    return updated;
-  }
-
-  async getManualPaymentMethods() {
-    return this.prisma.manualPaymentMethod.findMany({
-      orderBy: [{ currency: 'asc' }, { createdAt: 'asc' }],
-    });
-  }
-
-  async createManualPaymentMethod(
-    adminId: string,
-    dto: CreateManualPaymentMethodDto,
-    ipAddress?: string,
-  ) {
-    const method = await this.prisma.manualPaymentMethod.create({
-      data: {
-        currency: dto.currency,
-        label: dto.label.trim(),
-        paymentDetails: dto.paymentDetails?.trim() ?? '',
-        qrUrl: dto.qrUrl?.trim() ?? '',
-        enabled: dto.enabled ?? true,
-      },
-    });
-    await this.audit(
-      adminId,
-      'ADMIN_CREATE_PAYMENT_METHOD',
-      'ManualPaymentMethod',
-      method.id,
-      undefined,
-      method,
-      undefined,
-      ipAddress,
-    );
-    return method;
-  }
-
-  async updateManualPaymentMethod(
-    adminId: string,
-    id: string,
-    dto: UpdateManualPaymentMethodDto,
-    ipAddress?: string,
-  ) {
-    const existing = await this.prisma.manualPaymentMethod.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Payment method not found.');
-    const updated = await this.prisma.manualPaymentMethod.update({
-      where: { id },
-      data: {
-        ...(dto.currency !== undefined ? { currency: dto.currency } : {}),
-        ...(dto.label !== undefined ? { label: dto.label.trim() } : {}),
-        ...(dto.paymentDetails !== undefined ? { paymentDetails: dto.paymentDetails.trim() } : {}),
-        ...(dto.qrUrl !== undefined ? { qrUrl: dto.qrUrl.trim() } : {}),
-        ...(dto.enabled !== undefined ? { enabled: dto.enabled } : {}),
-      },
-    });
-    await this.audit(
-      adminId,
-      'ADMIN_UPDATE_PAYMENT_METHOD',
-      'ManualPaymentMethod',
-      id,
-      existing,
-      updated,
-      undefined,
-      ipAddress,
-    );
-    return updated;
-  }
-
   async getStripePrices() {
     const configs = await this.prisma.stripePriceConfig.findMany({
       include: { plan: { select: { name: true } } },
@@ -826,6 +694,49 @@ export class AdminService {
     }
     if (prices.some((price) => !/^price_[A-Za-z0-9]+$/.test(price.stripePriceId))) {
       throw new BadRequestException('Stripe Price IDs must start with price_.');
+    }
+
+    if (prices.length) {
+      const stripeSecretKey = this.config.get<string>('STRIPE_SECRET_KEY')?.trim();
+      if (!stripeSecretKey) {
+        throw new ServiceUnavailableException(
+          'Configure STRIPE_SECRET_KEY before saving Stripe prices.',
+        );
+      }
+
+      const stripe = new Stripe(stripeSecretKey, { apiVersion: '2024-06-20' as any });
+      await Promise.all(
+        prices.map(async (price) => {
+          let stripePrice: Stripe.Price;
+          try {
+            stripePrice = await stripe.prices.retrieve(price.stripePriceId);
+          } catch (error) {
+            if (error instanceof Stripe.errors.StripeInvalidRequestError) {
+              throw new BadRequestException(
+                `Stripe Price ${price.stripePriceId} could not be found in the configured Stripe account.`,
+              );
+            }
+            const errorType = error instanceof Error ? error.name : 'unknown error';
+            this.logger.error(`Stripe Price verification failed (${errorType}).`);
+            throw new ServiceUnavailableException(
+              'Could not verify Stripe prices. Check the API credentials and Stripe availability.',
+            );
+          }
+
+          const expectedInterval = price.interval === 'MONTHLY' ? 'month' : 'year';
+          if (
+            !stripePrice.active ||
+            stripePrice.currency.toUpperCase() !== price.currency ||
+            stripePrice.type !== 'recurring' ||
+            stripePrice.recurring?.interval !== expectedInterval ||
+            stripePrice.recurring.interval_count !== 1
+          ) {
+            throw new BadRequestException(
+              `Stripe Price ${price.stripePriceId} must be active, recurring, and match ${price.currency} ${expectedInterval} billing.`,
+            );
+          }
+        }),
+      );
     }
 
     const plans = await this.prisma.plan.findMany({
@@ -1036,7 +947,7 @@ export class AdminService {
   async getBilling() {
     const ago6m = new Date(Date.now() - 180 * 86_400_000);
 
-    const [recentPayments, totalRevAggregate, subsByStatus, topPlans] = await Promise.all([
+    const [recentPayments, revenueByCurrency, subsByStatus, topPlans] = await Promise.all([
       this.prisma.payment.findMany({
         orderBy: { createdAt: 'desc' },
         take: 50,
@@ -1046,7 +957,8 @@ export class AdminService {
           },
         },
       }),
-      this.prisma.payment.aggregate({
+      this.prisma.payment.groupBy({
+        by: ['currency'],
         where: { status: 'succeeded' },
         _sum: { amount: true },
         _count: { id: true },
@@ -1063,21 +975,26 @@ export class AdminService {
 
     // Revenue by month (raw SQL)
     const revenueByMonth = await this.prisma.$queryRaw<
-      { month: string; revenue: number; count: number }[]
+      { month: string; currency: string; revenue: number; count: number }[]
     >`
       SELECT TO_CHAR(DATE_TRUNC('month', "createdAt"), 'Mon YYYY') AS month,
+             currency,
              SUM(amount)::float AS revenue,
              COUNT(*)::int AS count
       FROM "Payment"
       WHERE status = 'succeeded' AND "createdAt" >= ${ago6m}
-      GROUP BY DATE_TRUNC('month', "createdAt")
+      GROUP BY DATE_TRUNC('month', "createdAt"), currency
       ORDER BY DATE_TRUNC('month', "createdAt") ASC
-    `.catch(() => []);
+    `;
 
     return {
       recentPayments,
-      totalRevenue: Math.round((totalRevAggregate._sum.amount ?? 0) * 100) / 100,
-      totalPayments: totalRevAggregate._count.id,
+      revenueByCurrency: revenueByCurrency.map((entry) => ({
+        currency: entry.currency,
+        amount: Math.round((entry._sum.amount ?? 0) * 100) / 100,
+        payments: entry._count.id,
+      })),
+      totalPayments: revenueByCurrency.reduce((count, entry) => count + entry._count.id, 0),
       subsByStatus,
       topPlans,
       revenueByMonth,

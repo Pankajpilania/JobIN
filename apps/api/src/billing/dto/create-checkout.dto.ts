@@ -1,4 +1,4 @@
-import { IsEnum, IsString, IsOptional } from 'class-validator';
+import { IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export enum BillingInterval {
@@ -22,21 +22,4 @@ export class CreateCheckoutDto {
   @ApiProperty({ enum: ['GBP', 'INR'], default: 'GBP' })
   @IsEnum(['GBP', 'INR'])
   currency: 'GBP' | 'INR' = 'GBP';
-
-  @ApiProperty({
-    description:
-      'Full URL to redirect after successful payment (e.g. http://localhost:3000/dashboard?upgraded=true)',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  successUrl?: string;
-
-  @ApiProperty({
-    description: 'Full URL to redirect after payment cancellation',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  cancelUrl?: string;
 }

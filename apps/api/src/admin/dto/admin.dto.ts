@@ -5,10 +5,8 @@ import {
   IsInt,
   Min,
   Max,
-  IsNumber,
   MaxLength,
   Matches,
-  IsBoolean,
   IsUrl,
   ValidateNested,
   IsArray,
@@ -90,88 +88,6 @@ export class AdminUpdateUserDto {
   @IsOptional()
   @IsString()
   note?: string;
-}
-
-export class UpdateManualPaymentSettingsDto {
-  @IsEnum(['INR', 'GBP'])
-  currency!: 'INR' | 'GBP';
-
-  @IsString()
-  @MaxLength(80)
-  methodLabel!: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(1000)
-  paymentDetails?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  @Matches(/^(https:\/\/[^\s]+|\/[^\s]*)?$/i, {
-    message: 'QR URL must be an HTTPS URL or a root-relative path',
-  })
-  qrUrl?: string;
-
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  @Max(1000000)
-  premiumAmount!: number;
-
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  @Max(1000000)
-  proAmount!: number;
-}
-
-export class CreateManualPaymentMethodDto {
-  @IsEnum(['INR', 'GBP'])
-  currency!: 'INR' | 'GBP';
-
-  @IsString()
-  @MaxLength(80)
-  label!: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(1000)
-  paymentDetails?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  @Matches(/^(https:\/\/[^\s]+|\/[^\s]*)?$/i)
-  qrUrl?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  enabled?: boolean;
-}
-
-export class UpdateManualPaymentMethodDto {
-  @IsOptional()
-  @IsEnum(['INR', 'GBP'])
-  currency?: 'INR' | 'GBP';
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(80)
-  label?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(1000)
-  paymentDetails?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  @Matches(/^(https:\/\/[^\s]+|\/[^\s]*)?$/i)
-  qrUrl?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  enabled?: boolean;
 }
 
 class StripePriceInputDto {

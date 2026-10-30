@@ -19,6 +19,24 @@ import { Card } from '@/components/ui/card';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface BillingAnalytics {
+  recentPayments: Array<{
+    id: string;
+    amount: number;
+    currency: string;
+    createdAt: string;
+    subscription?: {
+      user?: { email?: string; fullName?: string };
+      plan?: { name?: string };
+    };
+  }>;
+  revenueByCurrency: Array<{ currency: string; amount: number }>;
+  revenueByMonth: Array<{ month: string; currency: string; revenue: number }>;
+  totalPayments: number;
+  subsByStatus: Array<{ status: string; _count: { id: number } }>;
+  topPlans: unknown[];
+}
+
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
@@ -53,7 +71,15 @@ function ChartTooltip({ active, payload, label }: any) {
               backgroundColor: p.stroke || p.fill || 'var(--brand)',
             }}
           />
-          {p.name}: {typeof p.value === 'number' ? `£${p.value.toFixed(2)}` : p.value}
+          {p.name}:{' '}
+          {typeof p.value === 'number'
+            ? p.name === 'INR' || p.name === 'GBP'
+              ? new Intl.NumberFormat(undefined, {
+                style: 'currency',
+                currency: p.name === 'INR' ? 'INR' : 'GBP',
+                }).format(p.value)
+              : p.value
+            : p.value}
         </div>
       ))}
     </Card>
@@ -62,22 +88,55 @@ function ChartTooltip({ active, payload, label }: any) {
 
 export default function AdminBillingPage() {
   const { getToken } = useAuth();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<BillingAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getToken().then(async (token) => {
-      if (!token) return;
+    let active = true;
+    void (async () => {
       try {
-        const res = await getBilling(token);
-        setData(res);
-      } catch {
-        toast.error('Failed to load billing analytics');
+        const token = await getToken();
+        if (!token) throw new Error('Please sign in again to view billing analytics.');
+        const result = await getBilling(token);
+        if (active) setData(result);
+      } catch (error) {
+        if (active) {
+          toast.error(
+            error instanceof Error ? error.message : 'Failed to load billing analytics.',
+          );
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
-    });
+    })();
+    return () => {
+      active = false;
+    };
   }, [getToken]);
+
+  const revenueByMonth = React.useMemo(() => {
+    const months = new Map<string, { month: string; INR: number; GBP: number }>();
+    for (const entry of data?.revenueByMonth ?? []) {
+      const month = months.get(entry.month) ?? { month: entry.month, INR: 0, GBP: 0 };
+      if (entry.currency === 'INR') {
+        month.INR = entry.revenue;
+      } else if (entry.currency === 'GBP') {
+        month.GBP = entry.revenue;
+      }
+      months.set(entry.month, month);
+    }
+    return Array.from(months.values());
+  }, [data?.revenueByMonth]);
+
+  const revenueCards = (data?.revenueByCurrency ?? []).map((entry) => ({
+      label: `Revenue (${entry.currency})`,
+      value: new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: entry.currency,
+      }).format(entry.amount),
+      colorClass: 'text-emerald-600 dark:text-emerald-400',
+      icon: '💰',
+    }));
 
   if (loading)
     return (
@@ -177,12 +236,7 @@ export default function AdminBillingPage() {
       {/* KPI Cards row */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
         {[
-          {
-            label: 'Total Revenue',
-            value: `£${data.totalRevenue?.toLocaleString() ?? 0}`,
-            colorClass: 'text-emerald-600 dark:text-emerald-400',
-            icon: '💰',
-          },
+          ...revenueCards,
           {
             label: 'Total Payments',
             value: data.totalPayments?.toLocaleString() ?? 0,
@@ -246,14 +300,18 @@ export default function AdminBillingPage() {
             >
               Monthly Revenue
             </h3>
-            {data.revenueByMonth?.length ? (
+            {revenueByMonth.length ? (
               <div style={{ width: '100%', height: '200px' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data.revenueByMonth}>
+                  <AreaChart data={revenueByMonth}>
                     <defs>
-                      <linearGradient id="revG" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id="revInr" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="var(--brand)" stopOpacity={0.25} />
                         <stop offset="95%" stopColor="var(--brand)" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="revGbp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke="rgba(148, 148, 176, 0.1)" vertical={false} />
@@ -267,21 +325,13 @@ export default function AdminBillingPage() {
                       tick={{ fill: 'var(--text-3)', fontSize: 10, fontWeight: 600 }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(v) => `£${v}`}
                     />
                     <Tooltip
                       content={<ChartTooltip />}
                       cursor={{ stroke: 'var(--border)', strokeWidth: 1 }}
                     />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      name="Revenue"
-                      stroke="var(--brand)"
-                      fill="url(#revG)"
-                      strokeWidth={2}
-                      dot={{ fill: 'var(--brand)', r: 3 }}
-                    />
+                    <Area type="monotone" dataKey="INR" name="INR" stroke="var(--brand)" fill="url(#revInr)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="GBP" name="GBP" stroke="#10B981" fill="url(#revGbp)" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -452,7 +502,10 @@ export default function AdminBillingPage() {
                   </div>
                 </td>
                 <td style={{ padding: '14px 16px', fontWeight: 800, color: '#10B981' }}>
-                  £{p.amount?.toFixed(2)}
+                  {new Intl.NumberFormat(undefined, {
+                    style: 'currency',
+                    currency: p.currency ?? 'GBP',
+                  }).format(p.amount ?? 0)}
                 </td>
                 <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--brand)' }}>
                   {p.subscription?.plan?.name}

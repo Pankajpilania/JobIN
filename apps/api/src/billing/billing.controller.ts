@@ -6,8 +6,6 @@ import {
   Req,
   Headers,
   UseGuards,
-  Param,
-  Query,
   HttpCode,
   HttpStatus,
   RawBodyRequest,
@@ -18,30 +16,6 @@ import { BillingService } from './billing.service';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
 import { CurrentUser, type SupabaseUserPayload } from '../common/decorators/current-user.decorator';
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
-import { AdminRoleGuard, RequireAdminRole } from '../admin/guards/admin-role.guard';
-
-class ManualPaymentRequestDto {
-  @IsIn(['PREMIUM', 'PRO'])
-  plan: 'PREMIUM' | 'PRO';
-
-  @IsIn(['GBP', 'INR'])
-  currency: 'GBP' | 'INR';
-
-  @IsString()
-  @MinLength(3)
-  @MaxLength(120)
-  transactionReference: string;
-
-  @IsString()
-  @IsOptional()
-  paymentMethodId?: string;
-}
-
-class ReviewManualPaymentDto {
-  @IsIn(['approve', 'reject'])
-  action: 'approve' | 'reject';
-}
 
 @ApiTags('Billing')
 @Controller('billing')
@@ -59,52 +33,10 @@ export class BillingController {
     return this.billingService.getUsageSummary(user.id);
   }
 
-  @Get('manual-payment-settings')
-  @ApiOperation({ summary: 'Get the current public manual payment options and plan prices' })
-  getManualPaymentSettings() {
-    return this.billingService.getManualPaymentSettings();
-  }
-
-  @Post('manual-payment-requests')
-  @HttpCode(HttpStatus.CREATED)
-  @UseGuards(SupabaseAuthGuard)
-  @ApiBearerAuth('SupabaseJWT')
-  @ApiOperation({ summary: 'Submit a bank or UPI payment reference for admin review' })
-  createManualPaymentRequest(
-    @CurrentUser() user: SupabaseUserPayload,
-    @Body() dto: ManualPaymentRequestDto,
-  ) {
-    return this.billingService.createManualPaymentRequest(user.id, dto);
-  }
-
-  @Get('manual-payment-requests/mine')
-  @UseGuards(SupabaseAuthGuard)
-  @ApiBearerAuth('SupabaseJWT')
-  listMyManualPaymentRequests(@CurrentUser() user: SupabaseUserPayload) {
-    return this.billingService.listMyManualPaymentRequests(user.id);
-  }
-
-  @Post('manual-payment-requests/:id/review')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(SupabaseAuthGuard, AdminRoleGuard)
-  @ApiBearerAuth('SupabaseJWT')
-  @RequireAdminRole('FINANCE_ADMIN')
-  reviewManualPaymentRequest(
-    @CurrentUser() user: SupabaseUserPayload,
-    @Req() request: Request & { adminUser?: { id: string } },
-    @Param('id') id: string,
-    @Body() dto: ReviewManualPaymentDto,
-  ) {
-    const adminId = request.adminUser?.id ?? user.id;
-    return this.billingService.reviewManualPaymentRequest(id, adminId, dto.action === 'approve');
-  }
-
-  @Get('manual-payment-requests')
-  @UseGuards(SupabaseAuthGuard, AdminRoleGuard)
-  @ApiBearerAuth('SupabaseJWT')
-  @RequireAdminRole('FINANCE_ADMIN')
-  listManualPaymentRequests(@Query('status') status = 'PENDING') {
-    return this.billingService.listManualPaymentRequests(status);
+  @Get('checkout-options')
+  @ApiOperation({ summary: 'Get Stripe-configured currencies, plans, and billing intervals' })
+  getCheckoutOptions() {
+    return this.billingService.getCheckoutOptions();
   }
 
   // ─── POST /api/billing/create-checkout-session ────────────────────────────
