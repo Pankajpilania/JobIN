@@ -190,7 +190,7 @@ function useIdleSignOut(
 
     const syncSharedActivity = (event: StorageEvent) => {
       if (event.key === signOutKey && event.newValue) {
-        window.location.replace('/sign-in?reason=inactivity');
+        window.location.replace(`${signInPath}?reason=inactivity`);
         return;
       }
       if (event.key !== activityKey || !event.newValue) return;
