@@ -38,7 +38,7 @@ export function PlanCreditsPanel({ source }: PlanCreditsPanelProps) {
 
   const openBilling = async () => {
     setOpeningBilling(true);
-    if (!usage?.hasActiveSubscription) {
+    if (!usage?.hasActiveSubscription && !usage?.canManagePlan) {
       router.push('/upgrade');
       return;
     }
@@ -179,7 +179,11 @@ export function PlanCreditsPanel({ source }: PlanCreditsPanelProps) {
               }}
             >
               <CreditCard aria-hidden="true" size={16} />
-              {usage.hasActiveSubscription ? 'Subscription active' : 'Free plan'}
+              {usage.canManagePlan && !usage.hasActiveSubscription
+                ? 'Payment issue'
+                : usage.hasActiveSubscription
+                  ? 'Subscription active'
+                  : 'Free plan'}
             </div>
           </div>
 

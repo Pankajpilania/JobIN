@@ -10,7 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCheckoutDto, BillingInterval } from './dto/create-checkout.dto';
+import { CreateCheckoutDto } from './dto/create-checkout.dto';
 
 @Injectable()
 export class BillingService {
@@ -33,10 +33,9 @@ export class BillingService {
       where: { supabaseId },
       include: {
         subscriptions: {
-          where: { status: 'ACTIVE' },
+          where: { status: { in: ['ACTIVE', 'PAST_DUE'] } },
           include: { plan: true },
           orderBy: { createdAt: 'desc' },
-          take: 1,
         },
       },
     });
@@ -49,7 +48,7 @@ export class BillingService {
       where: { supabaseId },
       include: {
         subscriptions: {
-          where: { status: 'ACTIVE' },
+          where: { status: { in: ['ACTIVE', 'PAST_DUE'] } },
           include: {
             plan: { include: { features: { where: { featureKey: 'ai_credits_monthly' } } } },
           },
@@ -89,213 +88,69 @@ export class BillingService {
       estimatedCostUsd: usage._sum.estimatedCostUsd ?? 0,
       periodStart,
       periodEnd,
-      hasActiveSubscription: Boolean(subscription),
+      hasActiveSubscription: subscription?.status === 'ACTIVE',
       canManagePlan: Boolean(
         subscription &&
         !subscription.isComplimentary &&
-        subscription.stripeSubscriptionId.startsWith('sub_'),
+        subscription.stripeSubscriptionId.startsWith('sub_') &&
+        ['ACTIVE', 'PAST_DUE'].includes(subscription.status),
       ),
     };
   }
 
-  async getManualPaymentSettings() {
-    const [stored, methods, stripePrices] = await Promise.all([
-      this.prisma.manualPaymentSettings.findMany(),
-      this.prisma.manualPaymentMethod.findMany({ where: { enabled: true } }),
-      this.prisma.stripePriceConfig.findMany({ include: { plan: { select: { name: true } } } }),
-    ]);
-    const byCurrency = new Map(stored.map((setting) => [setting.currency, setting]));
-    return (['INR', 'GBP'] as const).map((currency) => {
-      const setting = byCurrency.get(currency);
-      const isInr = currency === 'INR';
-      const configuredPrices = stripePrices.filter((price) => price.currency === currency);
-      return {
-        currency,
-        methods: methods
-          .filter((method) => method.currency === currency)
-          .map(({ id, label, paymentDetails, qrUrl }) => ({
-            id,
-            label,
-            paymentDetails:
-              paymentDetails ||
-              (isInr ? '' : this.config.get<string>('NEXT_PUBLIC_GBP_BANK_DETAILS', '')),
-            qrUrl:
-              qrUrl ||
-              this.config.get<string>(
-                isInr ? 'NEXT_PUBLIC_INR_PAYMENT_QR_URL' : 'NEXT_PUBLIC_GBP_BANK_QR_URL',
-                isInr ? '/payments/inr-payment.jpeg' : '/payments/gbp-payment.jpeg',
-              ),
-          })),
-        amounts: {
-          PREMIUM: setting?.premiumAmount ?? (isInr ? 1599 : 15),
-          PRO: setting?.proAmount ?? (isInr ? 2999 : 29),
-        },
-        stripeCheckout: {
-          PREMIUM: {
-            MONTHLY:
-              configuredPrices.some(
-                (price) => price.plan.name === 'PREMIUM' && price.interval === 'MONTHLY',
-              ) || Boolean(this.legacyPriceId('PREMIUM', currency, BillingInterval.MONTHLY)),
-            YEARLY:
-              configuredPrices.some(
-                (price) => price.plan.name === 'PREMIUM' && price.interval === 'YEARLY',
-              ) || Boolean(this.legacyPriceId('PREMIUM', currency, BillingInterval.YEARLY)),
-          },
-          PRO: {
-            MONTHLY: configuredPrices.some(
-              (price) => price.plan.name === 'PRO' && price.interval === 'MONTHLY',
-            ),
-            YEARLY: configuredPrices.some(
-              (price) => price.plan.name === 'PRO' && price.interval === 'YEARLY',
-            ),
-          },
-        },
-      };
-    });
-  }
-
-  private legacyPriceId(plan: string, currency: string, interval: BillingInterval): string {
-    if (plan !== 'PREMIUM' || currency !== 'GBP') return '';
-    return interval === BillingInterval.MONTHLY
-      ? this.config.get<string>('STRIPE_PRICE_PREMIUM_MONTHLY', '')
-      : this.config.get<string>('STRIPE_PRICE_PREMIUM_YEARLY', '');
-  }
-
-  async createManualPaymentRequest(
-    supabaseId: string,
-    dto: {
-      plan: 'PREMIUM' | 'PRO';
-      currency: 'GBP' | 'INR';
-      transactionReference: string;
-      paymentMethodId?: string;
-    },
-  ) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new NotFoundException('User not found.');
-
-    const plan = await this.prisma.plan.findUnique({ where: { name: dto.plan } });
-    if (!plan?.isActive) throw new NotFoundException('The selected plan is not available.');
-
-    const paymentMethod = dto.paymentMethodId
-      ? await this.prisma.manualPaymentMethod.findFirst({
-          where: { id: dto.paymentMethodId, currency: dto.currency, enabled: true },
-        })
-      : await this.prisma.manualPaymentMethod.findFirst({
-          where: { currency: dto.currency, enabled: true },
-          orderBy: { createdAt: 'asc' },
-        });
-    if (dto.paymentMethodId && !paymentMethod) {
-      throw new NotFoundException('The selected payment method is no longer available.');
-    }
-
-    const paymentSettings = await this.prisma.manualPaymentSettings.findUnique({
-      where: { currency: dto.currency },
-    });
-    const amount =
-      dto.plan === 'PREMIUM'
-        ? (paymentSettings?.premiumAmount ?? (dto.currency === 'INR' ? 1599 : 15))
-        : (paymentSettings?.proAmount ?? (dto.currency === 'INR' ? 2999 : 29));
-    const pending = await this.prisma.manualPaymentRequest.findFirst({
-      where: { userId: user.id, status: 'PENDING' },
-      select: { id: true },
-    });
-    if (pending) {
-      throw new ConflictException('You already have a payment awaiting review.');
-    }
-
-    return this.prisma.manualPaymentRequest.create({
-      data: {
-        userId: user.id,
-        planId: plan.id,
-        currency: dto.currency,
-        amount,
-        paymentMethodLabel: paymentMethod?.label,
-        transactionReference: dto.transactionReference.trim(),
-      },
-      select: { id: true, status: true, createdAt: true },
-    });
-  }
-
-  async listMyManualPaymentRequests(supabaseId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { supabaseId },
-      select: { id: true },
-    });
-    if (!user) throw new NotFoundException('User not found.');
-    return this.prisma.manualPaymentRequest.findMany({
-      where: { userId: user.id },
+  async getCheckoutOptions() {
+    const configuredPrices = await this.prisma.stripePriceConfig.findMany({
+      where: { plan: { isActive: true } },
       include: { plan: { select: { name: true } } },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
     });
-  }
-
-  async listManualPaymentRequests(status = 'PENDING') {
-    return this.prisma.manualPaymentRequest.findMany({
-      where: status ? { status } : undefined,
-      include: {
-        user: { select: { id: true, fullName: true, email: true } },
-        plan: { select: { id: true, name: true } },
-      },
-      orderBy: { createdAt: 'asc' },
-      take: 100,
-    });
-  }
-
-  async reviewManualPaymentRequest(requestId: string, adminId: string, approve: boolean) {
-    return this.prisma.$transaction(async (transaction) => {
-      const request = await transaction.manualPaymentRequest.findUnique({
-        where: { id: requestId },
-      });
-      if (!request) throw new NotFoundException('Payment request not found.');
-      if (request.status !== 'PENDING') {
-        throw new ConflictException('This payment request has already been reviewed.');
-      }
-
-      const now = new Date();
-      const updated = await transaction.manualPaymentRequest.update({
-        where: { id: requestId },
-        data: {
-          status: approve ? 'APPROVED' : 'REJECTED',
-          reviewedAt: now,
-          reviewedBy: adminId,
-        },
-      });
-
-      if (approve) {
-        await transaction.subscription.updateMany({
-          where: { userId: request.userId, status: 'ACTIVE' },
-          data: { status: 'CANCELLED' },
-        });
-        const subscription = await transaction.subscription.create({
-          data: {
-            userId: request.userId,
-            planId: request.planId,
-            status: 'ACTIVE',
-            stripeSubscriptionId: `manual-${request.id}`,
-            currentPeriodStart: now,
-            currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-            isComplimentary: false,
-          },
-        });
-        await transaction.payment.create({
-          data: {
-            subscriptionId: subscription.id,
-            stripeIntentId: `manual-${request.id}`,
-            amount: request.amount,
-            currency: request.currency,
-            status: 'succeeded',
-          },
-        });
-      }
-      return updated;
-    });
+    const currencies = ['INR', 'GBP'].filter((currency) =>
+      configuredPrices.some((price) => price.currency === currency),
+    );
+    const stripeCheckout = Object.fromEntries(
+      currencies.map((currency) => [
+        currency,
+        Object.fromEntries(
+          (['PREMIUM', 'PRO'] as const).map((plan) => [
+            plan,
+            Object.fromEntries(
+              (['MONTHLY', 'YEARLY'] as const).map((interval) => [
+                interval,
+                configuredPrices.some(
+                  (price) =>
+                    price.currency === currency &&
+                    price.plan.name === plan &&
+                    price.interval === interval,
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    );
+    return { currencies, stripeCheckout };
   }
 
   // ─── Checkout session ─────────────────────────────────────────────────────
 
   async createCheckoutSession(supabaseId: string, dto: CreateCheckoutDto) {
+    if (!this.config.get<string>('STRIPE_SECRET_KEY')?.trim()) {
+      throw new ServiceUnavailableException(
+        'Stripe billing is not configured on the API. Please contact the JobIN administrator.',
+      );
+    }
     const user = await this.resolveUser(supabaseId);
+    if (
+      user.subscriptions.some(
+        (subscription) =>
+          !subscription.isComplimentary &&
+          subscription.stripeSubscriptionId.startsWith('sub_') &&
+          ['ACTIVE', 'PAST_DUE'].includes(subscription.status),
+      )
+    ) {
+      throw new ConflictException(
+        'You already have an active Stripe subscription. Manage it from your billing settings.',
+      );
+    }
     const plan = await this.prisma.plan.findUnique({ where: { name: dto.plan } });
     if (!plan?.isActive) throw new NotFoundException('The selected plan is not available.');
     const priceConfig = await this.prisma.stripePriceConfig.findUnique({
@@ -307,24 +162,27 @@ export class BillingService {
         },
       },
     });
-    const priceId =
-      priceConfig?.stripePriceId ?? this.legacyPriceId(dto.plan, dto.currency, dto.interval);
+    const priceId = priceConfig?.stripePriceId;
 
     if (!priceId)
       throw new BadRequestException(
         'Stripe Checkout is not configured for this plan, currency, and billing interval.',
       );
 
-    const appUrl = this.config.get<string>('NEXT_PUBLIC_URL', 'http://localhost:3000');
-    const successUrl = dto.successUrl ?? `${appUrl}/dashboard?upgraded=true`;
-    const cancelUrl = dto.cancelUrl ?? `${appUrl}/settings?cancelled=true`;
+    const appUrl = this.config
+      .get<string>('NEXT_PUBLIC_URL', 'http://localhost:3000')
+      .replace(/\/+$/, '');
+    const appOrigin = new URL(appUrl);
+    if (this.config.get<string>('NODE_ENV') === 'production' && appOrigin.protocol !== 'https:') {
+      throw new ServiceUnavailableException('Stripe checkout requires an HTTPS application URL.');
+    }
 
     try {
       const session = await this.stripe.checkout.sessions.create({
         mode: 'subscription',
         line_items: [{ price: priceId, quantity: 1 }],
-        success_url: successUrl,
-        cancel_url: cancelUrl,
+        success_url: `${appOrigin.origin}/upgrade?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appOrigin.origin}/upgrade?checkout=cancelled`,
         client_reference_id: user.id,
         customer_email: user.email,
         metadata: { userId: user.id, supabaseId },
@@ -346,27 +204,28 @@ export class BillingService {
 
   async createPortalSession(supabaseId: string) {
     const user = await this.resolveUser(supabaseId);
-    const sub = user.subscriptions[0];
-    if (!sub) throw new BadRequestException('No active subscription found');
-    if (sub.isComplimentary || !sub.stripeSubscriptionId.startsWith('sub_')) {
-      throw new BadRequestException(
-        'This subscription is managed by JobIN, not Stripe. Contact support to change it.',
-      );
-    }
+    const sub = user.subscriptions.find(
+      (subscription) =>
+        !subscription.isComplimentary && subscription.stripeSubscriptionId.startsWith('sub_'),
+    );
+    if (!sub) throw new BadRequestException('No Stripe subscription to manage was found.');
     if (!this.config.get<string>('STRIPE_SECRET_KEY')?.trim()) {
       throw new ServiceUnavailableException(
         'Stripe billing is not configured on the API. Please contact the JobIN administrator.',
       );
     }
 
-    const appUrl = this.config.get<string>('NEXT_PUBLIC_URL', 'http://localhost:3000');
+    const appUrl = this.config
+      .get<string>('NEXT_PUBLIC_URL', 'http://localhost:3000')
+      .replace(/\/+$/, '');
+    const appOrigin = new URL(appUrl);
 
     try {
       const stripeSub = await this.stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
       const customerId = stripeSub.customer as string;
       const session = await this.stripe.billingPortal.sessions.create({
         customer: customerId,
-        return_url: `${appUrl}/settings`,
+        return_url: `${appOrigin.origin}/settings`,
       });
       return { url: session.url };
     } catch (error) {
@@ -470,7 +329,11 @@ export class BillingService {
           currency: invoice.currency.toUpperCase(),
           status: 'succeeded',
         },
-        update: { status: 'succeeded' },
+        update: {
+          amount: invoice.amount_paid / 100,
+          currency: invoice.currency.toUpperCase(),
+          status: 'succeeded',
+        },
       });
     }
 
@@ -483,10 +346,14 @@ export class BillingService {
           stripeInvoiceId: invoice.id,
           invoiceUrl: invoice.hosted_invoice_url ?? '',
           pdfUrl: invoice.invoice_pdf ?? '',
+          amountPaid: invoice.amount_paid / 100,
+          currency: invoice.currency.toUpperCase(),
         },
         update: {
           invoiceUrl: invoice.hosted_invoice_url ?? '',
           pdfUrl: invoice.invoice_pdf ?? '',
+          amountPaid: invoice.amount_paid / 100,
+          currency: invoice.currency.toUpperCase(),
         },
       });
     }
@@ -514,9 +381,14 @@ export class BillingService {
           include: { plan: true },
         })
       : null;
-    const plan =
-      configuredPrice?.plan ??
-      (await this.prisma.plan.findFirst({ where: { stripePriceId: priceId } }));
+    const existing = await this.prisma.subscription.findFirst({
+      where: { stripeSubscriptionId: stripeSub.id },
+      include: { plan: true },
+    });
+    const legacyPlan = priceId
+      ? await this.prisma.plan.findFirst({ where: { stripePriceId: priceId } })
+      : null;
+    const plan = configuredPrice?.plan ?? legacyPlan ?? existing?.plan ?? null;
     if (!plan) {
       this.logger.warn(`No plan found for Stripe price ${priceId}. Skipping subscription upsert.`);
       return;
@@ -531,10 +403,6 @@ export class BillingService {
           : stripeStatus === 'past_due'
             ? 'PAST_DUE'
             : 'EXPIRED';
-
-    const existing = await this.prisma.subscription.findFirst({
-      where: { stripeSubscriptionId: stripeSub.id },
-    });
 
     if (existing) {
       await this.prisma.subscription.update({

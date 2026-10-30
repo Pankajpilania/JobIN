@@ -40,6 +40,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const SESSION_IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+const SUPABASE_AUTH_PENDING_KEY = 'jobin:supabase-auth-pending';
+const SUPABASE_AUTH_PENDING_TTL_MS = 30 * 60 * 1000;
 const AUTH0_ENABLED = process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0';
 const OCI_ENABLED = process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci';
 const auth0Domain = process.env.NEXT_PUBLIC_AUTH0_DOMAIN;
@@ -54,22 +56,51 @@ function getSafeReturnTo(value: string | undefined) {
     : '/dashboard';
 }
 
+function resetIdleTracking(userId: string) {
+  window.localStorage.setItem(`jobin:last-activity:${userId}`, String(Date.now()));
+  window.localStorage.removeItem(`jobin:idle-signout:${userId}`);
+}
+
+function markSupabaseAuthPending() {
+  window.localStorage.setItem(SUPABASE_AUTH_PENDING_KEY, String(Date.now()));
+}
+
+function initializeSupabaseIdleTracking(event: string, session: Session | null) {
+  if (event === 'SIGNED_IN' && session?.user.id) {
+    resetIdleTracking(session.user.id);
+    window.localStorage.removeItem(SUPABASE_AUTH_PENDING_KEY);
+    return;
+  }
+
+  if (event !== 'INITIAL_SESSION') return;
+
+  const pendingSince = Number(window.localStorage.getItem(SUPABASE_AUTH_PENDING_KEY));
+  if (
+    session?.user.id &&
+    Number.isFinite(pendingSince) &&
+    pendingSince > 0 &&
+    Date.now() - pendingSince <= SUPABASE_AUTH_PENDING_TTL_MS
+  ) {
+    resetIdleTracking(session.user.id);
+  }
+  window.localStorage.removeItem(SUPABASE_AUTH_PENDING_KEY);
+}
+
 async function startSupabaseGoogleAuth(
   supabase: ReturnType<typeof createClient>,
   returnTo?: string,
 ) {
   const next = getSafeReturnTo(returnTo);
   const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+  markSupabaseAuthPending();
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo },
   });
-  if (error) throw error;
-}
-
-function resetIdleTracking(userId: string) {
-  window.localStorage.setItem(`jobin:last-activity:${userId}`, String(Date.now()));
-  window.localStorage.removeItem(`jobin:idle-signout:${userId}`);
+  if (error) {
+    window.localStorage.removeItem(SUPABASE_AUTH_PENDING_KEY);
+    throw error;
+  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -159,7 +190,7 @@ function useIdleSignOut(
 
     const syncSharedActivity = (event: StorageEvent) => {
       if (event.key === signOutKey && event.newValue) {
-        window.location.replace('/sign-in?reason=inactivity');
+        window.location.replace(`${signInPath}?reason=inactivity`);
         return;
       }
       if (event.key !== activityKey || !event.newValue) return;
@@ -220,9 +251,7 @@ function SupabaseSessionProvider({
     } = auth.onAuthStateChange((event, nextSession) => {
       eventVersion.current += 1;
       if (active) {
-        if (event === 'SIGNED_IN' && nextSession?.user.id) {
-          resetIdleTracking(nextSession.user.id);
-        }
+        initializeSupabaseIdleTracking(event, nextSession);
         setSession(nextSession);
         setIsReady(true);
       }
@@ -255,7 +284,9 @@ function SupabaseSessionProvider({
     if (error) throw error;
   }, [auth]);
 
-  const prepareForSupabaseAuth = useCallback(async () => {}, []);
+  const prepareForSupabaseAuth = useCallback(async () => {
+    markSupabaseAuthPending();
+  }, []);
 
   const startGoogleAuth = useCallback(
     (options?: { returnTo?: string }) => startSupabaseGoogleAuth(supabase, options?.returnTo),
@@ -483,9 +514,7 @@ function OciSessionProvider({ children }: { children: React.ReactNode }) {
     } = auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
       supabaseEventVersion.current += 1;
-      if (event === 'SIGNED_IN' && nextSession?.user.id) {
-        resetIdleTracking(nextSession.user.id);
-      }
+      initializeSupabaseIdleTracking(event, nextSession);
       setSupabaseSession(nextSession);
       setSupabaseReady(true);
     });
@@ -657,6 +686,7 @@ function OciSessionProvider({ children }: { children: React.ReactNode }) {
       await manager.removeUser();
       setOciIdentity(null);
     }
+    markSupabaseAuthPending();
   }, [manager]);
 
   const startAuth = useCallback(

@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
-import { CheckCircle2, Clock3, Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -13,41 +12,43 @@ import { useAuth } from '@/hooks/use-auth';
 type PlanCode = 'PREMIUM' | 'PRO';
 type CurrencyCode = 'INR' | 'GBP';
 type BillingInterval = 'MONTHLY' | 'YEARLY';
+type PriceAvailability = Record<PlanCode, Record<BillingInterval, boolean>>;
 
-interface ManualPaymentOption {
-  currency: CurrencyCode;
-  amounts: Record<PlanCode, number>;
-  methods: Array<{ id: string; label: string; paymentDetails: string; qrUrl: string }>;
-  stripeCheckout: Record<PlanCode, Record<BillingInterval, boolean>>;
+interface CheckoutOptions {
+  currencies: CurrencyCode[];
+  stripeCheckout: Partial<Record<CurrencyCode, PriceAvailability>>;
 }
+
+const PLANS: Array<{ code: PlanCode; name: string; description: string }> = [
+  { code: 'PREMIUM', name: 'Pro', description: 'More room for your job search.' },
+  { code: 'PRO', name: 'Pro Max', description: 'Maximum tools and priority AI.' },
+];
 
 export default function UpgradePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { getToken, isSignedIn } = useAuth();
-  const initialPlan: PlanCode = searchParams.get('plan') === 'PRO' ? 'PRO' : 'PREMIUM';
-  const [plan, setPlan] = useState<PlanCode>(initialPlan);
+  const [plan, setPlan] = useState<PlanCode>(searchParams.get('plan') === 'PRO' ? 'PRO' : 'PREMIUM');
   const [currency, setCurrency] = useState<CurrencyCode>('INR');
   const [billingInterval, setBillingInterval] = useState<BillingInterval>('MONTHLY');
-  const [paymentMethodId, setPaymentMethodId] = useState('');
-  const [paymentType, setPaymentType] = useState<'manual' | 'stripe'>('manual');
-  const [transactionReference, setTransactionReference] = useState('');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [paymentOptions, setPaymentOptions] = useState<ManualPaymentOption[]>([]);
+  const [checkoutOptions, setCheckoutOptions] = useState<CheckoutOptions | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     apiClient
-      .get<ManualPaymentOption[]>('/billing/manual-payment-settings')
+      .get<CheckoutOptions>('/billing/checkout-options')
       .then((options) => {
-        if (active) setPaymentOptions(options);
+        if (!active) return;
+        setCheckoutOptions(options);
+        setCurrency((current) =>
+          options.currencies.includes(current) ? current : (options.currencies[0] ?? current),
+        );
       })
       .catch((error: unknown) => {
         if (active) {
-          toast.error(error instanceof Error ? error.message : 'Could not load payment options.');
+          toast.error(error instanceof Error ? error.message : 'Could not load Stripe plans.');
         }
       })
       .finally(() => {
@@ -58,57 +59,25 @@ export default function UpgradePage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!submitted) return;
-    const timeout = window.setTimeout(() => router.push('/dashboard'), 5000);
-    return () => window.clearTimeout(timeout);
-  }, [router, submitted]);
-
-  const paymentOption = paymentOptions.find((option) => option.currency === currency);
-  const methods = paymentOption?.methods ?? [];
-  const selectedMethod = methods.find((method) => method.id === paymentMethodId) ?? methods[0];
-  const qrUrl = selectedMethod?.qrUrl;
-  const paymentDetails = selectedMethod?.paymentDetails;
-  const paymentMethodConfigured = Boolean(qrUrl || paymentDetails);
-  const selectedAmount = paymentOption?.amounts[plan] ?? 0;
-  const stripeCheckoutAvailable = paymentOption?.stripeCheckout[plan][billingInterval] ?? false;
-  const stripeCheckoutAvailableForPlan =
-    paymentOption?.stripeCheckout[plan].MONTHLY || paymentOption?.stripeCheckout[plan].YEARLY;
-
-  const submitPayment = async () => {
-    if (!isSignedIn) {
-      router.push('/auth/login?next=%2Fupgrade');
-      return;
-    }
-    if (transactionReference.trim().length < 3) {
-      toast.error('Enter the payment transaction/reference number.');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const token = await getToken();
-      if (!token) throw new Error('Your session has expired. Please sign in again.');
-      await apiClient.post(
-        '/billing/manual-payment-requests',
-        {
-          plan,
-          currency,
-          paymentMethodId: selectedMethod?.id,
-          transactionReference: transactionReference.trim(),
-        },
-        token,
-      );
-      setSubmitted(true);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Could not submit your payment for review.',
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const availableCurrencies = checkoutOptions?.currencies ?? [];
+  const stripeCheckout = checkoutOptions?.stripeCheckout[currency]?.[plan];
+  const stripeCheckoutAvailable = stripeCheckout?.[billingInterval] ?? false;
+  const checkoutStatus = searchParams.get('checkout');
+  const hasConfiguredPrices = useMemo(
+    () =>
+      Object.values(checkoutOptions?.stripeCheckout ?? {}).some((currencyPrices) =>
+        Object.values(currencyPrices ?? {}).some((intervals) =>
+          Object.values(intervals ?? {}).some(Boolean),
+        ),
+      ),
+    [checkoutOptions],
+  );
 
   const startStripeCheckout = async () => {
+    if (!stripeCheckoutAvailable) {
+      toast.error('This plan and billing interval are not configured for Stripe yet.');
+      return;
+    }
     if (!isSignedIn) {
       router.push('/auth/login?next=%2Fupgrade');
       return;
@@ -119,11 +88,7 @@ export default function UpgradePage() {
       if (!token) throw new Error('Your session has expired. Please sign in again.');
       const result = await apiClient.post<{ url: string }>(
         '/billing/create-checkout-session',
-        {
-          plan,
-          currency,
-          interval: billingInterval,
-        },
+        { plan, currency, interval: billingInterval },
         token,
       );
       if (!result.url) throw new Error('Stripe did not return a checkout link.');
@@ -134,38 +99,31 @@ export default function UpgradePage() {
     }
   };
 
-  if (submitted) {
-    return (
-      <div style={{ maxWidth: 560, margin: '40px auto' }}>
-        <Card hoverEffect={false} style={{ padding: 32, textAlign: 'center' }}>
-          <Clock3 size={40} style={{ color: 'var(--brand)', margin: '0 auto' }} />
-          <h1 style={{ color: 'var(--text-1)' }}>Payment submitted</h1>
-          <p style={{ color: 'var(--text-2)', lineHeight: 1.6 }}>
-            Thanks for choosing {plan === 'PREMIUM' ? 'Pro' : 'Pro Max'}! We received your payment
-            reference. Our team will verify it and add your plan shortly.
-          </p>
-          <p style={{ color: 'var(--text-2)', lineHeight: 1.6 }}>
-            Need help? Contact{' '}
-            <a href="mailto:159ring@gmail.com" style={{ color: 'var(--brand)', fontWeight: 700 }}>
-              159ring@gmail.com
-            </a>
-            .
-          </p>
-          <Button onClick={() => router.push('/dashboard')}>Return to dashboard</Button>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div style={{ maxWidth: 960, margin: '0 auto', display: 'grid', gap: 24 }}>
       <header>
         <h1 style={{ margin: 0, color: 'var(--text-1)', fontSize: 30 }}>Choose your plan</h1>
         <p style={{ color: 'var(--text-2)' }}>
-          Choose manual payment or Stripe Checkout. Manual transfers require verification; Stripe
-          activates your plan after confirmed payment.
+          Pay securely with Stripe. Your plan activates after Stripe confirms your payment.
         </p>
       </header>
+
+      {checkoutStatus === 'success' && (
+        <Card hoverEffect={false} style={{ padding: 18 }}>
+          <strong style={{ color: 'var(--text-1)' }}>Payment received</strong>
+          <p style={{ color: 'var(--text-2)', marginBottom: 0 }}>
+            Stripe is confirming your subscription. Your plan will appear here as soon as the
+            confirmation is processed.
+          </p>
+        </Card>
+      )}
+      {checkoutStatus === 'cancelled' && (
+        <Card hoverEffect={false} style={{ padding: 18 }}>
+          <p style={{ color: 'var(--text-2)', margin: 0 }}>
+            Checkout was cancelled. No payment was completed.
+          </p>
+        </Card>
+      )}
 
       <div
         style={{
@@ -174,10 +132,7 @@ export default function UpgradePage() {
           gap: 16,
         }}
       >
-        {[
-          { code: 'PREMIUM' as const, name: 'Pro', description: 'More room for your job search.' },
-          { code: 'PRO' as const, name: 'Pro Max', description: 'Maximum tools and priority AI.' },
-        ].map((item) => (
+        {PLANS.map((item) => (
           <button
             key={item.code}
             type="button"
@@ -195,22 +150,9 @@ export default function UpgradePage() {
           >
             <strong style={{ fontSize: 20 }}>{item.name}</strong>
             <p style={{ color: 'var(--text-2)' }}>{item.description}</p>
-            {paymentType === 'manual' ? (
-              <>
-                <strong>
-                  {currency === 'INR' ? '₹' : '£'}
-                  {paymentOption?.amounts[item.code] ?? '—'}
-                </strong>
-                <span style={{ color: 'var(--text-3)', fontSize: 12 }}>
-                  {' '}
-                  / month (manual transfer)
-                </span>
-              </>
-            ) : (
-              <span style={{ color: 'var(--text-3)', fontSize: 12 }}>
-                Stripe price shown at checkout
-              </span>
-            )}
+            <span style={{ color: 'var(--text-3)', fontSize: 12 }}>
+              Price shown securely at Stripe checkout
+            </span>
           </button>
         ))}
       </div>
@@ -218,201 +160,72 @@ export default function UpgradePage() {
       <Card hoverEffect={false} style={{ padding: 24, display: 'grid', gap: 18 }}>
         <div>
           <h2 style={{ marginTop: 0, color: 'var(--text-1)' }}>Currency</h2>
+          {availableCurrencies.length ? (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {availableCurrencies.map((item) => (
+                <Button
+                  key={item}
+                  variant={currency === item ? 'primary' : 'ghost'}
+                  onClick={() => setCurrency(item)}
+                >
+                  {item}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: 'var(--text-3)' }}>
+              {settingsLoading
+                ? 'Loading Stripe prices…'
+                : 'No Stripe prices are configured yet. Please contact support.'}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <h2 style={{ marginTop: 0, color: 'var(--text-1)' }}>Billing interval</h2>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {(['INR', 'GBP'] as CurrencyCode[]).map((item) => (
+            {(['MONTHLY', 'YEARLY'] as BillingInterval[]).map((interval) => (
               <Button
-                key={item}
-                variant={currency === item ? 'primary' : 'ghost'}
-                onClick={() => {
-                  setCurrency(item);
-                  setPaymentMethodId('');
-                }}
+                key={interval}
+                variant={billingInterval === interval ? 'primary' : 'ghost'}
+                onClick={() => setBillingInterval(interval)}
+                disabled={!stripeCheckout?.[interval]}
               >
-                {item}
+                {interval === 'MONTHLY' ? 'Monthly' : 'Yearly'}
               </Button>
             ))}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Button
-            variant={paymentType === 'manual' ? 'primary' : 'ghost'}
-            onClick={() => setPaymentType('manual')}
-          >
-            UPI / bank transfer
-          </Button>
-          {stripeCheckoutAvailableForPlan && (
-            <Button
-              variant={paymentType === 'stripe' ? 'primary' : 'ghost'}
-              onClick={() => setPaymentType('stripe')}
-            >
-              Stripe Checkout
-            </Button>
-          )}
-        </div>
+        {hasConfiguredPrices ? (
+          <p style={{ color: 'var(--text-2)', margin: 0 }}>
+            Stripe securely processes {plan === 'PREMIUM' ? 'Pro' : 'Pro Max'} in {currency} (
+            {billingInterval.toLowerCase()}). Subscription access begins after Stripe confirms
+            payment.
+          </p>
+        ) : !settingsLoading ? (
+          <p style={{ color: 'var(--text-3)', margin: 0 }}>
+            Stripe prices have not been set up yet. Please contact support.
+          </p>
+        ) : null}
 
-        {paymentType === 'stripe' ? (
-          <div style={{ display: 'grid', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {(['MONTHLY', 'YEARLY'] as BillingInterval[]).map((interval) => (
-                <Button
-                  key={interval}
-                  variant={billingInterval === interval ? 'primary' : 'ghost'}
-                  onClick={() => setBillingInterval(interval)}
-                >
-                  {interval === 'MONTHLY' ? 'Monthly' : 'Yearly'}
-                </Button>
-              ))}
-            </div>
-            {stripeCheckoutAvailable ? (
-              <>
-                <p style={{ color: 'var(--text-2)', margin: 0 }}>
-                  Stripe securely processes {plan === 'PREMIUM' ? 'Pro' : 'Pro Max'} in {currency} (
-                  {billingInterval.toLowerCase()}). Your subscription activates when Stripe confirms
-                  payment.
-                </p>
-                <Button onClick={startStripeCheckout} disabled={checkoutLoading || settingsLoading}>
-                  {checkoutLoading ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <CheckCircle2 size={16} />
-                  )}
-                  {checkoutLoading
-                    ? 'Opening Stripe…'
-                    : isSignedIn
-                      ? 'Continue to Stripe Checkout'
-                      : 'Sign in to continue'}
-                </Button>
-              </>
-            ) : (
-              <p style={{ color: 'var(--text-3)' }}>
-                Stripe Checkout is not configured for this billing period yet.
-              </p>
-            )}
-          </div>
-        ) : (
-          <>
-            <div>
-              <h3 style={{ color: 'var(--text-1)' }}>Choose a payment method</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {methods.map((method) => (
-                  <Button
-                    key={method.id}
-                    variant={selectedMethod?.id === method.id ? 'primary' : 'ghost'}
-                    onClick={() => setPaymentMethodId(method.id)}
-                  >
-                    {method.label}
-                  </Button>
-                ))}
-                {methods.length === 0 && !settingsLoading && (
-                  <p style={{ color: 'var(--text-3)' }}>
-                    No manual payment methods are available for this currency.
-                  </p>
-                )}
-              </div>
-            </div>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: 20,
-                alignItems: 'center',
-              }}
-            >
-              <div
-                style={{
-                  minHeight: 210,
-                  border: '1px dashed var(--border)',
-                  borderRadius: 12,
-                  display: 'grid',
-                  placeItems: 'center',
-                  padding: 16,
-                  textAlign: 'center',
-                }}
-              >
-                {settingsLoading ? (
-                  <p style={{ color: 'var(--text-3)', fontSize: 13 }}>Loading payment details…</p>
-                ) : qrUrl ? (
-                  <Image
-                    src={qrUrl}
-                    alt={`${selectedMethod?.label ?? 'Payment'} QR code`}
-                    width={190}
-                    height={190}
-                    unoptimized
-                    style={{ maxWidth: 190, maxHeight: 190, objectFit: 'contain' }}
-                  />
-                ) : (
-                  <p style={{ color: 'var(--text-3)', fontSize: 13, whiteSpace: 'pre-wrap' }}>
-                    {paymentDetails || 'Payment details are not configured yet.'}
-                  </p>
-                )}
-              </div>
-              <div>
-                <p style={{ color: 'var(--text-2)' }}>
-                  Pay{' '}
-                  <strong>
-                    {currency === 'INR' ? '₹' : '£'}
-                    {selectedAmount}
-                  </strong>{' '}
-                  for {plan === 'PREMIUM' ? 'Pro' : 'Pro Max'}.
-                </p>
-                {paymentDetails && qrUrl && (
-                  <p style={{ color: 'var(--text-2)', whiteSpace: 'pre-wrap' }}>{paymentDetails}</p>
-                )}
-                <label
-                  style={{
-                    display: 'grid',
-                    gap: 8,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: 'var(--text-2)',
-                  }}
-                >
-                  Payment transaction/reference number
-                  <input
-                    value={transactionReference}
-                    onChange={(event) => setTransactionReference(event.target.value)}
-                    maxLength={120}
-                    required
-                    placeholder="Enter the reference shown by your payment provider"
-                    style={{
-                      border: '1px solid var(--border)',
-                      borderRadius: 8,
-                      padding: 12,
-                      background: 'var(--surface-2)',
-                      color: 'var(--text-1)',
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-            <Button
-              onClick={submitPayment}
-              disabled={
-                submitting || settingsLoading || !selectedMethod || !paymentMethodConfigured
-              }
-            >
-              {submitting ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <CheckCircle2 size={16} />
-              )}
-              {settingsLoading
-                ? 'Loading payment method…'
-                : !selectedMethod || !paymentMethodConfigured
-                  ? 'Payment method not configured yet'
-                  : isSignedIn
-                    ? 'Submit payment for review'
-                    : 'Sign in to submit payment'}
-            </Button>
-            <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
-              The plan remains inactive until an admin verifies the transfer. Need help?{' '}
-              <a href="mailto:159ring@gmail.com" style={{ color: 'var(--brand)' }}>
-                Contact 159ring@gmail.com.
-              </a>
-            </p>
-          </>
-        )}
+        <Button
+          onClick={startStripeCheckout}
+          disabled={checkoutLoading || settingsLoading || !stripeCheckoutAvailable}
+        >
+          {checkoutLoading ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <CheckCircle2 size={16} />
+          )}
+          {checkoutLoading
+            ? 'Opening Stripe…'
+            : stripeCheckoutAvailable
+              ? isSignedIn
+                ? 'Continue to Stripe Checkout'
+                : 'Sign in to continue'
+              : 'Price not configured'}
+        </Button>
       </Card>
     </div>
   );

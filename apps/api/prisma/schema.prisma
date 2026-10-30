@@ -34,7 +34,6 @@ model User {
   subscriptions   Subscription[]
   supportTickets  SupportTicket[]
   roles           UserRole[]
-  manualPayments  ManualPaymentRequest[]
 
   @@index([supabaseId])
   @@index([auth0Sub])
@@ -98,7 +97,6 @@ model Plan {
   updatedAt      DateTime               @updatedAt
   features       PlanFeature[]
   subscriptions  Subscription[]
-  manualPayments ManualPaymentRequest[]
   stripePrices   StripePriceConfig[]
 }
 
@@ -132,48 +130,6 @@ model Subscription {
 
   @@index([userId])
   @@index([status])
-}
-
-model ManualPaymentRequest {
-  id                   String    @id @default(uuid())
-  userId               String
-  planId               String
-  currency             String
-  amount               Float
-  transactionReference String
-  paymentMethodLabel   String?
-  status               String    @default("PENDING")
-  createdAt            DateTime  @default(now())
-  reviewedAt           DateTime?
-  reviewedBy           String?
-  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan                 Plan      @relation(fields: [planId], references: [id])
-
-  @@index([status, createdAt])
-  @@index([userId, createdAt])
-}
-
-model ManualPaymentMethod {
-  id             String   @id @default(uuid())
-  currency       String
-  label          String
-  paymentDetails String   @default("")
-  qrUrl          String   @default("")
-  enabled        Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@index([currency, enabled])
-}
-
-model ManualPaymentSettings {
-  currency       String   @id
-  methodLabel    String
-  paymentDetails String   @default("")
-  qrUrl          String   @default("")
-  premiumAmount  Float
-  proAmount      Float
-  updatedAt      DateTime @updatedAt
 }
 
 model StripePriceConfig {

@@ -203,13 +203,15 @@ For local extension development, copy `apps/extension/.env.example` to `apps/ext
 
 The API deploys to Render using [render.yaml](./render.yaml); the web app deploys to Vercel from `apps/web`. Review the [production deployment plan](./docs/11_production_deployment_plan.md) and [API environment setup](./apps/api/README.md) before deploying.
 
-### Manual plan payments
+### Stripe billing
 
-The upgrade page accepts UPI payment references in INR and bank-transfer references in GBP. Default amounts are INR 1,599 / GBP 15 for Pro and INR 2,999 / GBP 29 for Pro Max. A finance administrator must verify each reference before the subscription is activated. Approved manual payments are recorded in billing history and replace any previous active plan.
+Stripe Checkout is the only customer payment method. Configure `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` in the private API environment. Create active recurring Stripe Prices for each plan, currency (INR and GBP), and billing interval (monthly and yearly); enter the Price IDs at `/admin/payment-settings`. The API validates each Price against the configured Stripe account before saving. The webhook endpoint is `/api/billing/webhook`; configure it in Stripe to send checkout completion, subscription created/updated/deleted, and invoice payment succeeded/failed events.
+
+Customers manage active Stripe subscriptions through the billing portal in their account settings. JobIN admins manage Stripe Price IDs and view billing analytics in the admin portal; manage refunds and disputes in the Stripe Dashboard. Never store Stripe secret keys in the web app, database, or source repository.
+
+The `20261030_stripe_only_billing` Prisma migration deletes historical manual-payment requests, manually generated payment rows, and manual subscription records, then removes the manual-payment tables. This intentionally ends any active manual-payment access at migration time. Take a database backup and review affected users before applying it. Complimentary/admin-managed plans and Stripe subscriptions are preserved.
 
 Monthly AI credit allowances are 20 for Free, 100 for Pro, and 500 for Pro Max. Apply the `20261023_update_monthly_ai_credit_limits` Prisma migration to update existing plan records.
-
-The supplied QR images are served from `apps/web/public/payments/inr-payment.jpeg` and `apps/web/public/payments/gbp-payment.jpeg`. Initial public payment options can use `NEXT_PUBLIC_INR_PAYMENT_QR_URL`, `NEXT_PUBLIC_GBP_BANK_QR_URL`, and `NEXT_PUBLIC_GBP_BANK_DETAILS`. After database migration, finance admins can change each method label, payment instructions, QR URL, and plan amount at `/admin/payment-settings`. Payment instructions and QR URLs are displayed publicly to customers; never put secrets in them.
 
 ### Admin access
 
@@ -219,9 +221,9 @@ The admin portal uses Supabase email/password and a cookie-managed Supabase sess
 npx ts-node prisma/seed-admin.ts --email=admin@example.com
 ```
 
-Then open `/admin`. The API verifies the database role; a normal signed-in account does not have admin access. Admins can review pending references at `/admin/payment-requests`, inspect users and their plans at `/admin/users`, and grant or change a user's plan from that user's details panel. Finance admins and super admins can manage manual payment settings.
+Then open `/admin`. The API verifies the database role; a normal signed-in account does not have admin access. Admins can inspect users and their plans at `/admin/users`, grant or change a user's complimentary plan from that user's details panel, and finance admins can manage Stripe Price IDs at `/admin/payment-settings`.
 
-Apply the payment-request, manual-payment-settings, and AI-credit schema migrations, and regenerate Prisma Client, before running or deploying the API:
+Back up the database before applying the Stripe-only migration because it deletes manual-payment history and ends manually granted subscriptions. Apply pending schema migrations and regenerate Prisma Client before running or deploying the API:
 
 ```bash
 npm run db:migrate:deploy --workspace=apps/api
