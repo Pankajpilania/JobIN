@@ -3,11 +3,20 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 export async function proxy(request: NextRequest) {
   if (
-    process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
-    process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci'
+    request.nextUrl.pathname === '/' &&
+    (request.nextUrl.searchParams.has('code') ||
+      request.nextUrl.searchParams.has('error')) &&
+    !request.nextUrl.searchParams.has('state')
   ) {
-    return NextResponse.next({ request });
+    const callbackUrl = request.nextUrl.clone();
+    callbackUrl.pathname = '/auth/callback';
+    return NextResponse.redirect(callbackUrl);
   }
+
+  const pathname = request.nextUrl.pathname;
+  const usesExternalAuth =
+    process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
+    process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci';
 
   let supabaseResponse = NextResponse.next({
     request,
@@ -57,7 +66,11 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/auth/callback') ||
     request.nextUrl.pathname.startsWith('/api/');
 
-  if (!user && !isPublicRoute) {
+  const requiresSupabaseAuth = usesExternalAuth
+    ? pathname.startsWith('/admin/') || pathname === '/admin'
+    : !isPublicRoute;
+
+  if (!user && requiresSupabaseAuth) {
     const url = request.nextUrl.clone();
     if (request.nextUrl.pathname.startsWith('/admin')) {
       url.pathname = '/admin-login';

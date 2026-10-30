@@ -213,7 +213,7 @@ The supplied QR images are served from `apps/web/public/payments/inr-payment.jpe
 
 ### Admin access
 
-Sign in at `/sign-in` using an account that exists in JobIN. From `apps/api`, assign the admin role after the user has signed in at least once:
+The admin portal uses Supabase email/password and a cookie-managed Supabase session; regular users keep the configured OCI, Supabase email/password, and Google sign-in experience. Sign in at `/admin-login` with a Supabase account that exists in JobIN. The API must accept Supabase tokens (`AUTH_PROVIDER=oci_dual` on OCI deployments). From `apps/api`, assign the admin role after the user has signed in at least once:
 
 ```bash
 npx ts-node prisma/seed-admin.ts --email=admin@example.com
