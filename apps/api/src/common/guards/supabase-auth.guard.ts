@@ -169,8 +169,8 @@ export class SupabaseAuthGuard implements CanActivate {
 
     // Attach user to request payload
     request.user = {
-      id: user.id,
-      sub: user.id, // For backwards compatibility
+      id: dbUser.supabaseId || user.id,
+      sub: dbUser.supabaseId || user.id, // For backwards compatibility
       email: user.email,
       roles: dbUser.roles.map((r) => r.role.name),
       dbUser,
@@ -327,8 +327,10 @@ export class SupabaseAuthGuard implements CanActivate {
         audience: this.ociAudience,
         algorithms: ['RS256'],
       }));
-    } catch {
+    } catch (error) {
       if (typeof header.kid !== 'string' || jwks.keys.some((key) => key.kid === header.kid)) {
+        const reason = error instanceof Error ? error.name : 'unknown error';
+        this.logger.warn(`OCI access-token JWT verification failed (${reason}).`);
         throw new UnauthorizedException('Invalid or expired OCI access token');
       }
       jwks = await this.ociJwksService.getJwks(true);
@@ -338,7 +340,9 @@ export class SupabaseAuthGuard implements CanActivate {
           audience: this.ociAudience,
           algorithms: ['RS256'],
         }));
-      } catch {
+      } catch (refreshError) {
+        const reason = refreshError instanceof Error ? refreshError.name : 'unknown error';
+        this.logger.warn(`OCI access-token JWT verification failed after key refresh (${reason}).`);
         throw new UnauthorizedException('Invalid or expired OCI access token');
       }
     }
@@ -503,17 +507,21 @@ export class SupabaseAuthGuard implements CanActivate {
     });
 
     if (existingEmailUser) {
+      if (user.email && !user.email_confirmed_at) {
+        throw new ForbiddenException('Confirm your email before linking this existing account.');
+      }
+
       const auth0OnlyIdentity =
         existingEmailUser.auth0Sub && existingEmailUser.supabaseId === existingEmailUser.auth0Sub;
+      const ociOnlyIdentity =
+        existingEmailUser.ociSub && existingEmailUser.supabaseId === existingEmailUser.ociSub;
       if (
         existingEmailUser.supabaseId &&
         existingEmailUser.supabaseId !== user.id &&
-        !auth0OnlyIdentity
+        !auth0OnlyIdentity &&
+        !ociOnlyIdentity
       ) {
-        throw new ConflictException('This email is already linked to another account.');
-      }
-      if (user.email && !user.email_confirmed_at) {
-        throw new ForbiddenException('Confirm your email before linking this existing account.');
+        return { dbUser: existingEmailUser, created: false };
       }
 
       const dbUser = await this.prisma.user.update({

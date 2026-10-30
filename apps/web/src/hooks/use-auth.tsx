@@ -16,7 +16,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { createOciUserManager } from '@/lib/oci-oidc';
 
-const supabase = createClient();
 
 export interface SessionProfile {
   fullName: string;
@@ -30,6 +29,8 @@ interface AuthContextValue {
   userId: string | null;
   getToken: () => Promise<string | null>;
   signOut: () => Promise<void>;
+  prepareForSupabaseAuth: () => Promise<void>;
+  startGoogleAuth: (options?: { returnTo?: string }) => Promise<void>;
   startAuth: (
     mode: 'login' | 'signup',
     options?: { email?: string; returnTo?: string },
@@ -53,12 +54,36 @@ function getSafeReturnTo(value: string | undefined) {
     : '/dashboard';
 }
 
+async function startSupabaseGoogleAuth(
+  supabase: ReturnType<typeof createClient>,
+  returnTo?: string,
+) {
+  const next = getSafeReturnTo(returnTo);
+  const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo },
+  });
+  if (error) throw error;
+}
+
 function resetIdleTracking(userId: string) {
   window.localStorage.setItem(`jobin:last-activity:${userId}`, String(Date.now()));
   window.localStorage.removeItem(`jobin:idle-signout:${userId}`);
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAdminRoute =
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/') ||
+    pathname === '/admin-login' ||
+    pathname.startsWith('/admin-login/');
+
+  if (isAdminRoute) {
+    return <SupabaseSessionProvider signInPath="/admin-login">{children}</SupabaseSessionProvider>;
+  }
+
   return OCI_ENABLED ? (
     <OciSessionProvider>{children}</OciSessionProvider>
   ) : AUTH0_ENABLED ? (
@@ -68,7 +93,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-function useIdleSignOut(isReady: boolean, userId: string | null, signOut: () => Promise<void>) {
+function useIdleSignOut(
+  isReady: boolean,
+  userId: string | null,
+  signOut: () => Promise<void>,
+  signInPath = '/sign-in',
+) {
   useEffect(() => {
     if (!isReady || !userId) return;
 
@@ -95,7 +125,7 @@ function useIdleSignOut(isReady: boolean, userId: string | null, signOut: () => 
       try {
         await signOut();
         window.localStorage.setItem(signOutKey, String(Date.now()));
-        window.location.replace('/sign-in?reason=inactivity');
+        window.location.replace(`${signInPath}?reason=inactivity`);
       } catch (error) {
         console.error('Automatic sign-out after inactivity failed.', error);
         retryTimer = window.setTimeout(() => {
@@ -167,10 +197,18 @@ function useIdleSignOut(isReady: boolean, userId: string | null, signOut: () => 
       window.removeEventListener('focus', checkIdle);
       document.removeEventListener('visibilitychange', checkOnVisibility);
     };
-  }, [isReady, signOut, userId]);
+  }, [isReady, signInPath, signOut, userId]);
 }
 
-function SupabaseSessionProvider({ children }: { children: React.ReactNode }) {
+function SupabaseSessionProvider({
+  children,
+  signInPath = '/sign-in',
+}: {
+  children: React.ReactNode;
+  signInPath?: string;
+}) {
+  const supabase = useMemo(() => createClient(), []);
+  const auth = supabase.auth;
   const [session, setSession] = useState<Session | null>(null);
   const [isReady, setIsReady] = useState(false);
   const eventVersion = useRef(0);
@@ -179,7 +217,7 @@ function SupabaseSessionProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+    } = auth.onAuthStateChange((event, nextSession) => {
       eventVersion.current += 1;
       if (active) {
         if (event === 'SIGNED_IN' && nextSession?.user.id) {
@@ -191,7 +229,7 @@ function SupabaseSessionProvider({ children }: { children: React.ReactNode }) {
     });
 
     const versionAtStart = eventVersion.current;
-    supabase.auth.getSession().then(({ data: { session: initialSession }, error }) => {
+    auth.getSession().then(({ data: { session: initialSession }, error }) => {
       if (!active) return;
       if (eventVersion.current === versionAtStart) {
         if (!error) setSession(initialSession);
@@ -203,25 +241,32 @@ function SupabaseSessionProvider({ children }: { children: React.ReactNode }) {
       active = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [auth]);
 
   const getToken = useCallback(async () => {
     const {
       data: { session: currentSession },
-    } = await supabase.auth.getSession();
+    } = await auth.getSession();
     return currentSession?.access_token ?? null;
-  }, []);
+  }, [auth]);
 
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await auth.signOut();
     if (error) throw error;
-  }, []);
+  }, [auth]);
+
+  const prepareForSupabaseAuth = useCallback(async () => {}, []);
+
+  const startGoogleAuth = useCallback(
+    (options?: { returnTo?: string }) => startSupabaseGoogleAuth(supabase, options?.returnTo),
+    [supabase],
+  );
 
   const startAuth = useCallback(async () => {
     throw new Error('Auth0 sign-in is not enabled.');
   }, []);
 
-  useIdleSignOut(isReady, session?.user.id ?? null, signOut);
+  useIdleSignOut(isReady, session?.user.id ?? null, signOut, signInPath);
 
   const profile = useMemo<SessionProfile>(() => {
     const metadata = session?.user.user_metadata ?? {};
@@ -239,10 +284,12 @@ function SupabaseSessionProvider({ children }: { children: React.ReactNode }) {
       userId: session?.user.id ?? null,
       getToken,
       signOut,
+      prepareForSupabaseAuth,
+      startGoogleAuth,
       startAuth,
       profile,
     }),
-    [getToken, isReady, profile, session, signOut, startAuth],
+    [getToken, isReady, prepareForSupabaseAuth, profile, session, signOut, startAuth, startGoogleAuth],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -288,7 +335,8 @@ function Auth0SessionProvider({ children }: { children: React.ReactNode }) {
 
       const params = new URLSearchParams(window.location.search);
       let callbackReturnTo: string | null = null;
-      if (params.has('code') && params.has('state')) {
+      const completedAuthCallback = params.has('code') && params.has('state');
+      if (completedAuthCallback) {
         const { appState } = await auth0.handleRedirectCallback();
         window.history.replaceState({}, document.title, window.location.pathname);
         callbackReturnTo = getSafeReturnTo(appState?.returnTo);
@@ -296,13 +344,14 @@ function Auth0SessionProvider({ children }: { children: React.ReactNode }) {
 
       const [authenticated, user] = await Promise.all([auth0.isAuthenticated(), auth0.getUser()]);
       if (!active) return;
-      if (callbackReturnTo && authenticated && user?.sub) {
+      if (completedAuthCallback && authenticated && user?.sub) {
         resetIdleTracking(user.sub);
       }
       setIdentity(authenticated && user?.sub ? { ...user, sub: user.sub } : null);
       setIsReady(true);
-      if (callbackReturnTo && callbackReturnTo !== window.location.pathname) {
-        router.replace(callbackReturnTo);
+      if (completedAuthCallback) {
+        const returnTo = callbackReturnTo ?? '/dashboard';
+        if (returnTo !== window.location.pathname) router.replace(returnTo);
       }
     };
 
@@ -346,6 +395,12 @@ function Auth0SessionProvider({ children }: { children: React.ReactNode }) {
     await client.logout({ logoutParams: { returnTo: window.location.origin } });
   }, [client]);
 
+  const startGoogleAuth = useCallback(async () => {
+    throw new Error('Google sign-in through Supabase is not available with Auth0.');
+  }, []);
+
+  const prepareForSupabaseAuth = useCallback(async () => {}, []);
+
   const startAuth = useCallback(
     async (mode: 'login' | 'signup', options?: { email?: string; returnTo?: string }) => {
       if (initializationError) throw initializationError;
@@ -370,6 +425,8 @@ function Auth0SessionProvider({ children }: { children: React.ReactNode }) {
       userId: identity?.sub ?? null,
       getToken,
       signOut,
+      prepareForSupabaseAuth,
+      startGoogleAuth,
       startAuth,
       profile: {
         fullName: identity?.name ?? '',
@@ -377,7 +434,7 @@ function Auth0SessionProvider({ children }: { children: React.ReactNode }) {
         avatarUrl: identity?.picture,
       },
     }),
-    [getToken, identity, isReady, signOut, startAuth],
+    [getToken, identity, isReady, prepareForSupabaseAuth, signOut, startAuth, startGoogleAuth],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -386,15 +443,69 @@ function Auth0SessionProvider({ children }: { children: React.ReactNode }) {
 function OciSessionProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+  const auth = supabase.auth;
   const [manager, setManager] = useState<ReturnType<typeof createOciUserManager> | null>(null);
-  const [identity, setIdentity] = useState<{
+  const [ociIdentity, setOciIdentity] = useState<{
     sub: string;
     name?: string;
     email?: string;
     picture?: string;
   } | null>(null);
-  const [isReady, setIsReady] = useState(false);
+  const [ociReady, setOciReady] = useState(false);
+  const [supabaseSession, setSupabaseSession] = useState<Session | null>(null);
+  const [supabaseReady, setSupabaseReady] = useState(false);
   const [initializationError, setInitializationError] = useState<Error | null>(null);
+  const supabaseEventVersion = useRef(0);
+  const identity = useMemo(
+    () =>
+      ociIdentity ??
+      (supabaseSession
+        ? {
+            sub: supabaseSession.user.id,
+            name:
+              supabaseSession.user.user_metadata.full_name ??
+              supabaseSession.user.user_metadata.name,
+            email: supabaseSession.user.email,
+            picture:
+              supabaseSession.user.user_metadata.avatar_url ??
+              supabaseSession.user.user_metadata.picture,
+          }
+        : null),
+    [ociIdentity, supabaseSession],
+  );
+  const isReady = ociReady && supabaseReady;
+
+  useEffect(() => {
+    let active = true;
+    const {
+      data: { subscription },
+    } = auth.onAuthStateChange((event, nextSession) => {
+      if (!active) return;
+      supabaseEventVersion.current += 1;
+      if (event === 'SIGNED_IN' && nextSession?.user.id) {
+        resetIdleTracking(nextSession.user.id);
+      }
+      setSupabaseSession(nextSession);
+      setSupabaseReady(true);
+    });
+
+    const versionAtStart = supabaseEventVersion.current;
+    auth.getSession().then(({ data: { session: initialSession }, error }) => {
+      if (!active) return;
+      if (error) {
+        console.error('Supabase session initialization failed.', error);
+      } else if (supabaseEventVersion.current === versionAtStart) {
+        setSupabaseSession(initialSession);
+      }
+      setSupabaseReady(true);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [auth]);
 
   useEffect(() => {
     let active = true;
@@ -402,7 +513,7 @@ function OciSessionProvider({ children }: { children: React.ReactNode }) {
       const userManager = createOciUserManager();
       const updateIdentity = (user: User | null) => {
         const subject = user?.profile.sub;
-        setIdentity(
+        setOciIdentity(
           !user || user.expired || typeof subject !== 'string'
             ? null
             : {
@@ -415,7 +526,7 @@ function OciSessionProvider({ children }: { children: React.ReactNode }) {
       };
 
       userManager.events.addUserLoaded(updateIdentity);
-      userManager.events.addUserUnloaded(() => setIdentity(null));
+      userManager.events.addUserUnloaded(() => setOciIdentity(null));
       if (!active) return;
       setManager(userManager);
 
@@ -427,7 +538,8 @@ function OciSessionProvider({ children }: { children: React.ReactNode }) {
 
       let user: User | null;
       let callbackReturnTo: string | null = null;
-      if (params.has('code') && params.has('state')) {
+      const completedAuthCallback = params.has('code') && params.has('state');
+      if (completedAuthCallback) {
         user = await userManager.signinRedirectCallback();
         const state = user.state;
         if (state && typeof state === 'object' && 'returnTo' in state) {
@@ -450,13 +562,17 @@ function OciSessionProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!active) return;
-      if (callbackReturnTo && user && !user.expired && typeof user.profile.sub === 'string') {
+      // Starting a fresh identity-provider round trip also resets the idle clock. A stale
+      // timestamp from a previous session must not immediately sign out a newly authenticated
+      // user when the callback does not contain a usable returnTo value.
+      if (completedAuthCallback && user && !user.expired && typeof user.profile.sub === 'string') {
         resetIdleTracking(user.profile.sub);
       }
       updateIdentity(user);
-      setIsReady(true);
-      if (callbackReturnTo && callbackReturnTo !== window.location.pathname) {
-        router.replace(callbackReturnTo);
+      setOciReady(true);
+      if (completedAuthCallback) {
+        const returnTo = callbackReturnTo ?? '/dashboard';
+        if (returnTo !== window.location.pathname) router.replace(returnTo);
       }
     };
 
@@ -466,7 +582,7 @@ function OciSessionProvider({ children }: { children: React.ReactNode }) {
         error instanceof Error ? error : new Error('OCI sign-in initialization failed.');
       console.error('OCI sign-in initialization failed.', initializationError);
       setInitializationError(initializationError);
-      setIsReady(true);
+      setOciReady(true);
     });
 
     return () => {
@@ -491,29 +607,71 @@ function OciSessionProvider({ children }: { children: React.ReactNode }) {
   }, [identity, isReady, pathname, router]);
 
   const getToken = useCallback(async () => {
-    if (!manager) return null;
-    let user = await manager.getUser();
-    if (!user) return null;
-    if (user.expired) user = await manager.signinSilent();
-    return user?.access_token ?? null;
-  }, [manager]);
+    if (manager) {
+      let user = await manager.getUser();
+      if (user && !user.expired) return user.access_token;
+      if (user?.expired) {
+        try {
+          user = await manager.signinSilent();
+          if (user && !user.expired) return user.access_token;
+        } catch (error) {
+          console.warn('OCI session refresh failed; checking the Google session.', error);
+          await manager.removeUser();
+        }
+      }
+    }
+
+    const {
+      data: { session: currentSession },
+      error,
+    } = await auth.getSession();
+    if (error) throw error;
+    return currentSession?.access_token ?? null;
+  }, [auth, manager]);
 
   const signOut = useCallback(async () => {
-    if (!manager) throw new Error('OCI sign-in is not initialized.');
-    await manager.signoutRedirect({ post_logout_redirect_uri: window.location.origin });
+    if (ociIdentity) {
+      if (!manager) throw new Error('OCI sign-in is not initialized.');
+      const { error } = await auth.signOut();
+      if (error) throw error;
+      await manager.signoutRedirect({ post_logout_redirect_uri: window.location.origin });
+      return;
+    }
+    const { error } = await auth.signOut();
+    if (error) throw error;
+  }, [auth, manager, ociIdentity]);
+
+  const startGoogleAuth = useCallback(
+    async (options?: { returnTo?: string }) => {
+      if (manager) {
+        await manager.removeUser();
+        setOciIdentity(null);
+      }
+      await startSupabaseGoogleAuth(supabase, options?.returnTo);
+    },
+    [manager, supabase],
+  );
+
+  const prepareForSupabaseAuth = useCallback(async () => {
+    if (manager) {
+      await manager.removeUser();
+      setOciIdentity(null);
+    }
   }, [manager]);
 
   const startAuth = useCallback(
     async (mode: 'login' | 'signup', options?: { email?: string; returnTo?: string }) => {
       if (initializationError) throw initializationError;
       if (!manager) throw new Error('OCI sign-in is not initialized.');
+      const { error } = await auth.signOut();
+      if (error) throw error;
       await manager.signinRedirect({
         state: { returnTo: getSafeReturnTo(options?.returnTo) },
         extraQueryParams: options?.email ? { login_hint: options.email } : undefined,
         prompt: mode === 'login' ? 'login' : undefined,
       });
     },
-    [initializationError, manager],
+    [auth, initializationError, manager],
   );
 
   useIdleSignOut(isReady, identity?.sub ?? null, signOut);
@@ -525,6 +683,8 @@ function OciSessionProvider({ children }: { children: React.ReactNode }) {
       userId: identity?.sub ?? null,
       getToken,
       signOut,
+      prepareForSupabaseAuth,
+      startGoogleAuth,
       startAuth,
       profile: {
         fullName: identity?.name ?? '',
@@ -532,7 +692,15 @@ function OciSessionProvider({ children }: { children: React.ReactNode }) {
         avatarUrl: identity?.picture,
       },
     }),
-    [getToken, identity, isReady, signOut, startAuth],
+    [
+      getToken,
+      identity,
+      isReady,
+      prepareForSupabaseAuth,
+      signOut,
+      startAuth,
+      startGoogleAuth,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

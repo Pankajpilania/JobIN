@@ -1,5 +1,6 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { EmailService } from '../../email/email.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SupabaseAuthGuard } from './supabase-auth.guard';
@@ -80,7 +81,45 @@ describe('SupabaseAuthGuard user synchronization', () => {
     expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
-  it('rejects an email already linked to another Supabase account', async () => {
+  it('maps a confirmed Supabase identity to the existing JobIN account without replacing its ID', async () => {
+    const canonicalUser = {
+      ...existingUser,
+      supabaseId: 'original-auth-user',
+      status: 'ACTIVE',
+    };
+    prisma.user.findFirst.mockResolvedValue({
+      ...canonicalUser,
+    });
+    const user = {
+      id: 'second-auth-user',
+      email: 'candidate@example.com',
+      email_confirmed_at: '2026-10-24T00:00:00.000Z',
+      user_metadata: {},
+    };
+    guard['supabase'] = {
+      auth: {
+        getUser: jest.fn().mockResolvedValue({ data: { user }, error: null }),
+      },
+    } as unknown as SupabaseClient;
+    const request = { headers: { authorization: 'Bearer test-token' } } as {
+      headers: { authorization: string };
+      user?: { id: string; sub: string };
+    };
+
+    await guard.canActivate({
+      switchToHttp: () => ({ getRequest: () => request }),
+    } as ExecutionContext);
+
+    expect(request.user).toEqual(
+      expect.objectContaining({
+        id: 'original-auth-user',
+        sub: 'original-auth-user',
+      }),
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('does not map an unconfirmed Supabase identity to an existing account', async () => {
     prisma.user.findFirst.mockResolvedValue({
       ...existingUser,
       supabaseId: 'different-auth-user',
@@ -90,9 +129,10 @@ describe('SupabaseAuthGuard user synchronization', () => {
       guard['findOrCreateDbUser']({
         id: 'auth-user-id',
         email: 'candidate@example.com',
-        email_confirmed_at: '2026-10-24T00:00:00.000Z',
       }),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it('allows a verified Supabase account to replace the temporary identity after migration rollback', async () => {
@@ -119,6 +159,55 @@ describe('SupabaseAuthGuard user synchronization', () => {
         data: { supabaseId: 'restored-supabase-user' },
       }),
     );
+  });
+
+  it('links a confirmed Google identity to an OCI account while preserving its OCI subject', async () => {
+    const ociUser = {
+      ...existingUser,
+      supabaseId: 'oci-user-subject',
+      ociSub: 'oci-user-subject',
+    };
+    prisma.user.findFirst.mockResolvedValue(ociUser);
+    prisma.user.update.mockResolvedValue({
+      ...ociUser,
+      supabaseId: 'google-supabase-user',
+    });
+
+    const result = await guard['findOrCreateDbUser']({
+      id: 'google-supabase-user',
+      email: 'candidate@example.com',
+      email_confirmed_at: '2026-10-24T00:00:00.000Z',
+    });
+
+    expect(result.dbUser).toEqual(
+      expect.objectContaining({
+        supabaseId: 'google-supabase-user',
+        ociSub: 'oci-user-subject',
+      }),
+    );
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: ociUser.id },
+        data: { supabaseId: 'google-supabase-user' },
+      }),
+    );
+  });
+
+  it('does not link an OCI account to a Google identity until the email is confirmed', async () => {
+    prisma.user.findFirst.mockResolvedValue({
+      ...existingUser,
+      supabaseId: 'oci-user-subject',
+      ociSub: 'oci-user-subject',
+    });
+
+    await expect(
+      guard['findOrCreateDbUser']({
+        id: 'google-supabase-user',
+        email: 'candidate@example.com',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it('links an Auth0 subject to the verified email record without changing its legacy identity', async () => {

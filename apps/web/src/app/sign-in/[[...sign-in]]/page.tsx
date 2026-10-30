@@ -15,21 +15,24 @@ const highlights = [
   'Track every application in one pipeline',
   'Chrome autofill on Greenhouse & Lever',
 ];
-const HOSTED_AUTH_PROVIDER =
-  process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0' ||
-  process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci';
+const HOSTED_AUTH_PROVIDER = process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0';
+const OCI_AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci';
+const GOOGLE_AUTH_ENABLED =
+  process.env.NEXT_PUBLIC_AUTH_PROVIDER !== 'auth0' &&
+  Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
 function SignInPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
-  const { startAuth } = useAuth();
+  const supabase = HOSTED_AUTH_PROVIDER ? null : createClient();
+  const { prepareForSupabaseAuth, startAuth, startGoogleAuth } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [ociLoading, setOciLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(
     searchParams.get('reason') === 'inactivity'
       ? 'You were signed out after 10 minutes of inactivity. Sign in again to continue.'
@@ -52,7 +55,8 @@ function SignInPageContent() {
         return;
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      await prepareForSupabaseAuth();
+      const { error } = await supabase!.auth.signInWithPassword({
         email,
         password,
       });
@@ -77,26 +81,24 @@ function SignInPageContent() {
 
     try {
       const next = searchParams.get('next') || '/dashboard';
-      if (HOSTED_AUTH_PROVIDER) {
-        await startAuth('login', { returnTo: next });
-        return;
-      }
-
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-        },
-      });
-
-      if (error) {
-        setErrorMsg(error.message);
-        setGoogleLoading(false);
-      }
+      await startGoogleAuth({ returnTo: next });
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
       setGoogleLoading(false);
+    }
+  };
+
+  const handleOciSignIn = async () => {
+    setOciLoading(true);
+    setErrorMsg('');
+    try {
+      await startAuth('login', {
+        email: email.trim() || undefined,
+        returnTo: searchParams.get('next') || '/dashboard',
+      });
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'OCI sign-in could not be started.');
+      setOciLoading(false);
     }
   };
 
@@ -561,15 +563,13 @@ function SignInPageContent() {
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : HOSTED_AUTH_PROVIDER ? (
-                  `Continue with ${process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci' ? 'OCI' : 'Auth0'}`
                 ) : (
                   'Continue'
                 )}
               </Button>
             </form>
 
-            {!HOSTED_AUTH_PROVIDER && (
+            {(GOOGLE_AUTH_ENABLED || OCI_AUTH_ENABLED) && (
               <>
             <div
               style={{
@@ -596,9 +596,10 @@ function SignInPageContent() {
               <div style={{ flexGrow: 1, borderTop: '1px solid var(--border)' }}></div>
             </div>
 
+            {GOOGLE_AUTH_ENABLED && (
             <button
               onClick={handleGoogleSignIn}
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || ociLoading}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -651,6 +652,31 @@ function SignInPageContent() {
               )}
               Sign in with Google
             </button>
+            )}
+            {OCI_AUTH_ENABLED && (
+              <button
+                onClick={handleOciSignIn}
+                disabled={loading || googleLoading || ociLoading}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface)',
+                  color: 'var(--text-2)',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'var(--transition)',
+                }}
+              >
+                {ociLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sign in with OCI'}
+              </button>
+            )}
               </>
             )}
 
