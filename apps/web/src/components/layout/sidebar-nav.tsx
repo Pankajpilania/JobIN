@@ -16,6 +16,7 @@ import {
   LogOut,
   ChevronRight,
   X,
+  Search,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useCurrentUser } from '@/hooks/use-user';
@@ -28,6 +29,7 @@ const navItems = [
   { href: '/resumes', label: 'Resumes', icon: FileText },
   { href: '/tailor', label: 'AI Tailor', icon: Wand2, badge: 'AI' },
   { href: '/cover-letter', label: 'Cover Letter', icon: Pen, badge: 'AI' },
+  { href: '/job-search', label: 'Job Search', icon: Search },
   { href: '/tracker', label: 'Job Tracker', icon: Briefcase },
   { href: '/interview', label: 'AI Copilot', icon: MessageSquare, badge: 'BETA' },
   { href: '/settings', label: 'Settings', icon: Settings },

@@ -17,6 +17,7 @@ import { AdminModule } from './admin/admin.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { InterviewModule } from './interview/interview.module';
 import { OciAuthModule } from './oci-auth/oci-auth.module';
+import { JobSearchModule } from './job-search/job-search.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { OciAuthModule } from './oci-auth/oci-auth.module';
     ResumesModule, // Sprint 2
     CoverLettersModule, // Sprint 3
     JobTrackerModule, // Sprint 4
+    JobSearchModule,
     DashboardModule,
     InterviewModule,
     BillingModule, // Sprint 4 — Stripe
