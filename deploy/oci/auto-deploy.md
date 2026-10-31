@@ -2,7 +2,9 @@
 
 `.github/workflows/deploy-oci-api.yml` deploys the API stack after every push to
 `main`. When a pull request is merged, its resulting push to `main` starts the
-deployment. Vercel continues to deploy the web app separately.
+deployment. The workflow can also be started manually from GitHub Actions for
+initial validation or recovery. Vercel continues to deploy the web app
+separately.
 
 The workflow uses a repository-scoped, self-hosted GitHub Actions runner on the
 OCI VM. This avoids opening SSH or API ports to GitHub-hosted runners and avoids
