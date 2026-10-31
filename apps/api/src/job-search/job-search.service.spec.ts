@@ -34,7 +34,7 @@ describe('JobSearchService', () => {
           : `https://jobs.example/a-${index}`,
       description: 'Build cloud applications',
       tags: ['engineering'],
-      created_at: '2026-01-02T00:00:00.000Z',
+      created_at: 1767312000,
     }));
     const remotiveJobs = Array.from({ length: 20 }, (_, index) => ({
       id: index,
@@ -69,6 +69,9 @@ describe('JobSearchService', () => {
     expect(result.jobs.every((job) => job.remote)).toBe(true);
     expect(result.jobs.every((job) => job.title.toLowerCase().includes('software engineer'))).toBe(
       true,
+    );
+    expect(result.jobs.find((job) => job.source === 'Arbeitnow')?.postedAt).toBe(
+      '2026-01-02T00:00:00.000Z',
     );
     expect(new Set(result.jobs.map((job) => job.url)).size).toBe(25);
     expect(result.importSummary).toEqual({ imported: 25, skipped: 0 });

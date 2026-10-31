@@ -253,7 +253,7 @@ export class JobSearchService {
       url: safeHttpUrl(job.url),
       description,
       salary: stringValue(job.salary) || undefined,
-      postedAt: validDate(job.created_at),
+      postedAt: validDate(job.created_at, 'seconds'),
       source: 'Arbeitnow',
       tags,
     };
@@ -352,9 +352,13 @@ function safeHttpUrl(value: unknown): string {
   }
 }
 
-function validDate(value: unknown): string | undefined {
+function validDate(
+  value: unknown,
+  numericUnit: 'milliseconds' | 'seconds' = 'milliseconds',
+): string | undefined {
   if (typeof value !== 'string' && typeof value !== 'number') return undefined;
-  const date = new Date(value);
+  const timestamp = typeof value === 'number' && numericUnit === 'seconds' ? value * 1000 : value;
+  const date = new Date(timestamp);
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
