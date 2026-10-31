@@ -1,6 +1,12 @@
 import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+
+const transformBooleanStrings = ({ value }: { value: unknown }) => {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
+};
 
 export class SearchJobsDto {
   @ApiPropertyOptional({ example: 'software engineer' })
@@ -17,7 +23,7 @@ export class SearchJobsDto {
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(transformBooleanStrings)
   @IsBoolean()
   remoteOnly = false;
 
@@ -31,7 +37,7 @@ export class SearchJobsDto {
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(transformBooleanStrings)
   @IsBoolean()
   autoImport = true;
 }
