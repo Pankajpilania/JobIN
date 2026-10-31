@@ -73,6 +73,60 @@ export class JobTrackerService {
     return application;
   }
 
+  async importSearchResults(
+    supabaseId: string,
+    jobs: Array<{
+      jobTitle: string;
+      companyName: string;
+      location: string;
+      jobUrl: string;
+      jobDescription: string;
+      salary?: string;
+      source: string;
+    }>,
+  ) {
+    const userId = await this.resolveUserId(supabaseId);
+    const urls = [...new Set(jobs.map((job) => job.jobUrl).filter(Boolean))];
+    const existing = await this.prisma.jobApplication.findMany({
+      where: { userId, jobUrl: { in: urls } },
+      select: { jobUrl: true },
+    });
+    const seenUrls = new Set(existing.map((application) => application.jobUrl).filter(Boolean));
+    let imported = 0;
+    let skipped = 0;
+
+    for (const job of jobs) {
+      if (!job.jobUrl || seenUrls.has(job.jobUrl)) {
+        skipped += 1;
+        continue;
+      }
+
+      const company = await this.prisma.company.upsert({
+        where: { name: job.companyName },
+        create: { name: job.companyName, website: job.jobUrl },
+        update: {},
+      });
+      await this.prisma.jobApplication.create({
+        data: {
+          userId,
+          companyId: company.id,
+          jobTitle: job.jobTitle,
+          companyName: job.companyName,
+          location: job.location,
+          jobUrl: job.jobUrl,
+          jobDescription: job.jobDescription,
+          salary: job.salary,
+          source: job.source,
+          status: 'SAVED',
+        },
+      });
+      seenUrls.add(job.jobUrl);
+      imported += 1;
+    }
+
+    return { imported, skipped };
+  }
+
   // ─── List (with optional status filter) ──────────────────────────────────
 
   async findAll(supabaseId: string, status?: AppStatus) {
