@@ -10,13 +10,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: oci-api-production
+  group: oci-api-production-caddy
   cancel-in-progress: false
 
 jobs:
   deploy:
     name: Build and deploy API
-    runs-on: [self-hosted, linux, ARM64, jobin-oci-production]
+    runs-on: [self-hosted, linux, ARM64, jobin-oci-caddy-production]
     timeout-minutes: 45
     steps:
       - name: Check out main

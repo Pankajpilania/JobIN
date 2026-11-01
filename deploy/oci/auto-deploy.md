@@ -22,9 +22,11 @@ different database data.
 
 Back up PostgreSQL and verify that the existing deployment uses the same
 Compose project and volumes as `docker compose --env-file
-deploy/oci/.env -f deploy/oci/compose.yaml` run from `/opt/jobin`. The workflow
-uses that same Compose file and its default project name so it updates, rather
-than recreates, the current services and database volume.
+deploy/oci/.env -f deploy/oci/compose.yaml` run from `/opt/jobin`. The
+production stack is API, PostgreSQL, and Caddy; the Compose file intentionally
+does not replace Caddy with Cloudflare Tunnel or add a self-hosted web app.
+The workflow uses that Compose file and its default project name so it updates,
+rather than recreates, the current services and database volume.
 
 ## One-time runner setup
 
@@ -35,21 +37,40 @@ than recreates, the current services and database volume.
    repository or commit it.
 2. Register the runner specifically to this repository (not as an
    organization-wide runner) and add the custom label
-   `jobin-oci-production`.
+   `jobin-oci-caddy-production`. This new label prevents older queued runs
+   from deploying the previous Cloudflare-based Compose configuration.
 3. Install and run the runner as a dedicated, non-root deployment account.
-   That account must be able to read `/opt/jobin/deploy/oci/.env`, execute
-   `docker compose`, build images, and access the Docker daemon without
-   interactive sudo. Membership in the `docker` group is effectively
-   root-equivalent; only use a trusted, repository-scoped runner and do not
-   expose it to pull-request or untrusted workflows.
-4. Install the runner as a service and confirm it is **Idle** in the GitHub
-   runner settings. If the deployment env file is stored somewhere other than
+   As an OCI administrator, provision the account and its narrowly scoped
+   access before configuring the runner:
+
+   ```bash
+   id -u jobin-runner >/dev/null 2>&1 || sudo useradd --create-home --shell /bin/bash jobin-runner
+   sudo usermod -aG docker jobin-runner
+   sudo apt-get update
+   sudo apt-get install -y acl
+   sudo setfacl -m u:jobin-runner:r /opt/jobin/deploy/oci/.env
+   sudo -u jobin-runner test -r /opt/jobin/deploy/oci/.env
+   ```
+
+   Membership in the `docker` group is effectively root-equivalent. Only use
+   a trusted, repository-scoped runner and do not expose it to pull-request or
+   untrusted workflows. Download and configure the runner as `jobin-runner`
+   using the temporary command shown in GitHub Settings; do not save or share
+   the registration token. Install and start the service with
+   `sudo ./svc.sh install jobin-runner` and `sudo ./svc.sh start`.
+
+4. Confirm the runner is **Idle** in the GitHub runner settings. If the
+   deployment env file is stored somewhere other than
    `/opt/jobin/deploy/oci/.env`, update `DEPLOY_ENV_FILE` in the workflow to
-   its actual protected path. Use a current Docker Compose v2 version supporting
-   `up --wait` and `--wait-timeout`.
+   its actual protected path. Use a current Docker Compose v2 version
+   supporting `up --wait` and `--wait-timeout`.
 5. From GitHub's Actions tab, manually run the **Deploy OCI API** workflow
    against `main` once to validate the setup. Subsequent pushes to `main`,
    including merged pull requests, deploy automatically.
+6. Cancel any older queued **Deploy OCI API** runs that target the previous
+   `jobin-oci-production` label. They use the older workflow definition and
+   must not be allowed to change the production proxy. The replacement runner
+   must use only `jobin-oci-caddy-production`.
 
 The deployment builds the API image on the VM, runs Prisma migrations through
 the API's production startup command, waits for the Compose services to become
