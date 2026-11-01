@@ -797,6 +797,12 @@ export class AdminService {
         baseUrl: 'https://api.deepseek.com',
       },
       {
+        id: 'GROQ',
+        label: 'Groq',
+        model: 'llama-3.3-70b-versatile',
+        baseUrl: 'https://api.groq.com/openai/v1',
+      },
+      {
         id: 'NVIDIA',
         label: 'NVIDIA NIM',
         model: 'meta/llama-3.1-8b-instruct',

@@ -262,8 +262,8 @@ export default function AdminAISettingsPage() {
         </Button>
       </Card>
       <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0 }}>
-        Supported adapters: Gemini, OpenAI-compatible APIs (OpenAI, DeepSeek, NVIDIA NIM, and
-        compatible Ollama hosts), and Anthropic Claude. OpenAI API billing is separate from a
+        Supported adapters: Gemini, OpenAI-compatible APIs (OpenAI, DeepSeek, Groq, NVIDIA NIM,
+        and compatible Ollama hosts), and Anthropic Claude. OpenAI API billing is separate from a
         ChatGPT subscription.
       </p>
     </div>

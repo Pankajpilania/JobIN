@@ -108,4 +108,69 @@ describe('AIService provider routing', () => {
       fetchMock.mockRestore();
     }
   });
+
+  it('sends structured resume requests to Groq with its OpenAI-compatible JSON mode', async () => {
+    const crypto = new AISettingsCrypto(config);
+    const prisma = {
+      aIPlatformSettings: {
+        findUnique: jest.fn().mockResolvedValue({
+          activeProvider: 'GROQ',
+          activeModel: 'llama-test',
+          baseUrl: null,
+        }),
+      },
+      aIProviderCredential: {
+        findUnique: jest.fn().mockResolvedValue({
+          encryptedApiKey: crypto.encrypt('test-groq-key'),
+        }),
+      },
+    } as unknown as PrismaService;
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  healthScore: 80,
+                  summary: 'Clear and relevant.',
+                  formattingIssues: [],
+                  keywordSuggestions: [],
+                  missingSections: [],
+                  strengths: ['Relevant experience'],
+                  improvements: [],
+                }),
+              },
+            },
+          ],
+          usage: { prompt_tokens: 25, completion_tokens: 15 },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    try {
+      const service = new AIService(config, prisma, crypto);
+      const result = await service.analyseResume('Candidate resume');
+      const requestOptions = fetchMock.mock.calls[0][1] as RequestInit;
+      const requestHeaders = requestOptions.headers as Record<string, string>;
+      const requestBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as {
+        model: string;
+        response_format?: { type: string };
+      };
+
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        'https://api.groq.com/openai/v1/chat/completions',
+      );
+      expect(requestHeaders.Authorization).toBeTruthy();
+      expect(requestBody).toMatchObject({
+        model: 'llama-test',
+        response_format: { type: 'json_object' },
+      });
+      expect(result.result.healthScore).toBe(80);
+      expect(result.usage.modelName).toBe('llama-test');
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
 });

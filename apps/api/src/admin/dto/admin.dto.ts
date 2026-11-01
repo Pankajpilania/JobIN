@@ -114,8 +114,8 @@ export class UpdateStripePricesDto {
 }
 
 export class UpdateAIPlatformSettingsDto {
-  @IsEnum(['GEMINI', 'OPENAI', 'ANTHROPIC', 'DEEPSEEK', 'NVIDIA', 'OLLAMA'])
-  provider!: 'GEMINI' | 'OPENAI' | 'ANTHROPIC' | 'DEEPSEEK' | 'NVIDIA' | 'OLLAMA';
+  @IsEnum(['GEMINI', 'OPENAI', 'ANTHROPIC', 'DEEPSEEK', 'GROQ', 'NVIDIA', 'OLLAMA'])
+  provider!: 'GEMINI' | 'OPENAI' | 'ANTHROPIC' | 'DEEPSEEK' | 'GROQ' | 'NVIDIA' | 'OLLAMA';
 
   @IsString()
   @MaxLength(120)

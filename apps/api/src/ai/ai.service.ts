@@ -110,7 +110,9 @@ export class AIService {
       body = {
         model,
         messages: [{ role: 'user', content: prompt }],
-        ...(json && provider === 'OPENAI' ? { response_format: { type: 'json_object' } } : {}),
+        ...(json && (provider === 'OPENAI' || provider === 'GROQ')
+          ? { response_format: { type: 'json_object' } }
+          : {}),
       };
     }
 
@@ -164,6 +166,8 @@ export class AIService {
         return 'https://api.anthropic.com';
       case 'DEEPSEEK':
         return 'https://api.deepseek.com';
+      case 'GROQ':
+        return 'https://api.groq.com/openai/v1';
       case 'NVIDIA':
         return 'https://integrate.api.nvidia.com/v1';
       default:
