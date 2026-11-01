@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: oci-api-production-caddy
+  group: oci-api-production
   cancel-in-progress: false
 
 jobs:
@@ -43,6 +43,11 @@ jobs:
 
           if ! "${compose[@]}" up -d --build --wait --wait-timeout 600; then
             "${compose[@]}" logs --tail=150 db api proxy
+            exit 1
+          fi
+
+          if ! "${compose[@]}" up -d --force-recreate --no-deps proxy; then
+            "${compose[@]}" logs --tail=150 proxy
             exit 1
           fi
 

@@ -67,10 +67,10 @@ rather than recreates, the current services and database volume.
 5. From GitHub's Actions tab, manually run the **Deploy OCI API** workflow
    against `main` once to validate the setup. Subsequent pushes to `main`,
    including merged pull requests, deploy automatically.
-6. Cancel any older queued **Deploy OCI API** runs that target the previous
-   `jobin-oci-production` label. They use the older workflow definition and
-   must not be allowed to change the production proxy. The replacement runner
-   must use only `jobin-oci-caddy-production`.
+6. Before enabling the replacement, cancel older queued **Deploy OCI API**
+   runs targeting `jobin-oci-production`, wait for any in-progress deployment
+   to finish, and stop any old runner service installed on the VM. The
+   replacement runner must use only `jobin-oci-caddy-production`.
 
 The deployment builds the API image on the VM, runs Prisma migrations through
 the API's production startup command, waits for the Compose services to become
@@ -78,6 +78,11 @@ healthy, and checks `https://api.jobin.today/api/health/ready`. If deployment
 or the readiness check fails, the workflow reports failure and prints recent
 Compose logs. It does not roll back database migrations or replace the
 PostgreSQL volume; maintain tested backups and review migrations before merging.
+The proxy container is recreated after each deployment so it reloads the
+current bind-mounted Caddyfile without restarting the API or database.
+
+The workflow keeps the existing `oci-api-production` concurrency group so
+deployments remain serialized across workflow revisions.
 
 The runner is trusted production infrastructure with Docker access. Keep its
 workflow restricted to pushes on `main`, require review before merges, and do
