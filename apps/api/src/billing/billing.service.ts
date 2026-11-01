@@ -103,8 +103,60 @@ export class BillingService {
       where: { plan: { isActive: true } },
       include: { plan: { select: { name: true } } },
     });
+    const stripeSecretKey = this.config.get<string>('STRIPE_SECRET_KEY')?.trim();
+    if (configuredPrices.length && !stripeSecretKey) {
+      throw new ServiceUnavailableException(
+        'Stripe billing is not configured on the API. Please contact the JobIN administrator.',
+      );
+    }
+
+    const verifiedPrices = (
+      await Promise.all(
+        configuredPrices.map(async (configuredPrice) => {
+          let stripePrice: Stripe.Price;
+          try {
+            stripePrice = await this.stripe.prices.retrieve(configuredPrice.stripePriceId);
+          } catch (error) {
+            const errorType = error instanceof Error ? error.name : 'unknown error';
+            this.logger.error(`Stripe Price lookup failed (${errorType}).`);
+            throw new ServiceUnavailableException(
+              'Could not load Stripe prices. Please try again later.',
+            );
+          }
+
+          const expectedInterval =
+            configuredPrice.interval === 'MONTHLY'
+              ? 'month'
+              : configuredPrice.interval === 'YEARLY'
+                ? 'year'
+                : null;
+          if (
+            !stripePrice.active ||
+            stripePrice.type !== 'recurring' ||
+            !stripePrice.recurring ||
+            stripePrice.recurring.interval !== expectedInterval ||
+            stripePrice.recurring.interval_count !== 1 ||
+            stripePrice.currency.toUpperCase() !== configuredPrice.currency ||
+            stripePrice.unit_amount === null
+          ) {
+            this.logger.warn(
+              `Ignoring invalid Stripe Price configuration (${configuredPrice.stripePriceId}).`,
+            );
+            return null;
+          }
+
+          return {
+            plan: configuredPrice.plan.name,
+            currency: configuredPrice.currency,
+            interval: configuredPrice.interval,
+            unitAmount: stripePrice.unit_amount,
+          };
+        }),
+      )
+    ).filter((price): price is NonNullable<typeof price> => price !== null);
+
     const currencies = ['INR', 'GBP'].filter((currency) =>
-      configuredPrices.some((price) => price.currency === currency),
+      verifiedPrices.some((price) => price.currency === currency),
     );
     const stripeCheckout = Object.fromEntries(
       currencies.map((currency) => [
@@ -115,10 +167,10 @@ export class BillingService {
             Object.fromEntries(
               (['MONTHLY', 'YEARLY'] as const).map((interval) => [
                 interval,
-                configuredPrices.some(
+                verifiedPrices.some(
                   (price) =>
                     price.currency === currency &&
-                    price.plan.name === plan &&
+                    price.plan === plan &&
                     price.interval === interval,
                 ),
               ]),
@@ -127,7 +179,7 @@ export class BillingService {
         ),
       ]),
     );
-    return { currencies, stripeCheckout };
+    return { currencies, stripeCheckout, prices: verifiedPrices };
   }
 
   // ─── Checkout session ─────────────────────────────────────────────────────

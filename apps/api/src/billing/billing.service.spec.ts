@@ -1,5 +1,6 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { BillingService } from './billing.service';
 
@@ -53,18 +54,37 @@ describe('BillingService customer portal', () => {
   });
 
   it('only advertises currencies and intervals with active configured Stripe prices', async () => {
+    config.get.mockImplementation((key: string, fallback?: string) =>
+      key === 'STRIPE_SECRET_KEY' ? 'sk_test' : fallback,
+    );
     prisma.stripePriceConfig.findMany.mockResolvedValue([
       {
+        stripePriceId: 'price_inr_monthly',
         currency: 'INR',
         interval: 'MONTHLY',
         plan: { name: 'PREMIUM' },
       },
       {
+        stripePriceId: 'price_gbp_yearly',
         currency: 'GBP',
         interval: 'YEARLY',
         plan: { name: 'PRO' },
       },
     ]);
+    jest.spyOn(service['stripe'].prices, 'retrieve').mockImplementation(async (id) => {
+      const inrPrice = id === 'price_inr_monthly';
+      return {
+        id,
+        active: true,
+        type: 'recurring',
+        currency: inrPrice ? 'inr' : 'gbp',
+        recurring: {
+          interval: inrPrice ? 'month' : 'year',
+          interval_count: 1,
+        },
+        unit_amount: inrPrice ? 89999 : 20000,
+      } as Stripe.Response<Stripe.Price>;
+    });
 
     await expect(service.getCheckoutOptions()).resolves.toEqual({
       currencies: ['INR', 'GBP'],
@@ -78,6 +98,48 @@ describe('BillingService customer portal', () => {
           PRO: { MONTHLY: false, YEARLY: true },
         },
       },
+      prices: [
+        {
+          plan: 'PREMIUM',
+          currency: 'INR',
+          interval: 'MONTHLY',
+          unitAmount: 89999,
+        },
+        {
+          plan: 'PRO',
+          currency: 'GBP',
+          interval: 'YEARLY',
+          unitAmount: 20000,
+        },
+      ],
+    });
+  });
+
+  it('does not advertise a configured one-time Stripe price as subscription checkout', async () => {
+    config.get.mockImplementation((key: string, fallback?: string) =>
+      key === 'STRIPE_SECRET_KEY' ? 'sk_test' : fallback,
+    );
+    prisma.stripePriceConfig.findMany.mockResolvedValue([
+      {
+        stripePriceId: 'price_one_time',
+        currency: 'INR',
+        interval: 'YEARLY',
+        plan: { name: 'PRO' },
+      },
+    ]);
+    jest.spyOn(service['stripe'].prices, 'retrieve').mockResolvedValue({
+      id: 'price_one_time',
+      active: true,
+      type: 'one_time',
+      currency: 'inr',
+      recurring: null,
+      unit_amount: 1599999,
+    } as Stripe.Response<Stripe.Price>);
+
+    await expect(service.getCheckoutOptions()).resolves.toEqual({
+      currencies: [],
+      stripeCheckout: {},
+      prices: [],
     });
   });
 
