@@ -14,6 +14,7 @@ import {
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
+import styles from './upgrade-page.module.css';
 
 type PlanCode = 'PREMIUM' | 'PRO';
 type CurrencyCode = 'GBP' | 'INR';
@@ -160,7 +161,6 @@ export default function UpgradePage() {
     alignItems: 'stretch',
     gap: 12,
     minHeight: 178,
-    padding: 22,
     borderRadius: 16,
     border: `1.5px solid ${selected ? accent : 'var(--border)'}`,
     background: selected ? 'linear-gradient(145deg, #fff 50%, #f3ffef 100%)' : 'var(--surface)',
@@ -172,10 +172,10 @@ export default function UpgradePage() {
   });
 
   return (
-    <div style={{ maxWidth: 1040, margin: '0 auto', display: 'grid', gap: 24, paddingBottom: 36 }}>
+    <div className={styles.page} style={{ maxWidth: 1040, margin: '0 auto' }}>
       <header
+        className={styles.header}
         style={{
-          padding: '30px clamp(20px, 4vw, 42px)',
           borderRadius: 20,
           border: '1px solid var(--border)',
           background:
@@ -274,13 +274,7 @@ export default function UpgradePage() {
             Upgrade or compare plans at any time.
           </p>
         </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
-            gap: 16,
-          }}
-        >
+        <div className={styles.planGrid}>
           {PLANS.map((item) => {
             const selected = plan === item.code;
             const price = checkoutOptions?.prices?.find(
@@ -295,6 +289,7 @@ export default function UpgradePage() {
                 type="button"
                 onClick={() => setPlan(item.code)}
                 aria-pressed={selected}
+                className={styles.planCard}
                 style={cardStyle(selected, item.accent)}
               >
                 <span
@@ -340,15 +335,7 @@ export default function UpgradePage() {
                     </span>
                   )}
                 </span>
-                <span
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: 8,
-                    marginTop: 'auto',
-                    paddingTop: 8,
-                  }}
-                >
+                <span className={styles.planFeatures}>
                   {[
                     ['AI credits', item.credits],
                     ['Resumes', item.resumes],
@@ -356,6 +343,7 @@ export default function UpgradePage() {
                   ].map(([label, value]) => (
                     <span
                       key={label}
+                      className={styles.planFeature}
                       style={{
                         display: 'grid',
                         gap: 3,
@@ -377,18 +365,15 @@ export default function UpgradePage() {
 
       <section
         aria-label="Subscription checkout"
+        className={styles.checkoutPanel}
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.4fr) minmax(260px, .8fr)',
-          gap: 0,
-          overflow: 'hidden',
           border: '1px solid var(--border)',
           borderRadius: 18,
           background: 'var(--surface)',
           boxShadow: 'var(--shadow-card)',
         }}
       >
-        <div style={{ display: 'grid', gap: 20, padding: 'clamp(20px, 4vw, 32px)' }}>
+        <div className={styles.checkoutForm}>
           <div>
             <p
               style={{
@@ -430,15 +415,7 @@ export default function UpgradePage() {
             <div
               role="group"
               aria-label="Billing currency"
-              style={{
-                display: 'inline-flex',
-                flexWrap: 'wrap',
-                gap: 5,
-                padding: 4,
-                border: '1px solid var(--border)',
-                borderRadius: 11,
-                background: 'var(--surface-2)',
-              }}
+              className={styles.choiceGroup}
             >
               {CURRENCIES.map((item) => {
                 const available = checkoutOptions?.currencies.includes(item) ?? false;
@@ -451,11 +428,9 @@ export default function UpgradePage() {
                     aria-label={`${currencyName(item)}${available ? '' : ', prices not configured'}`}
                     onClick={() => setCurrency(item)}
                     disabled={settingsLoading}
+                    className={styles.choiceButton}
                     style={{
-                      minWidth: 100,
-                      padding: '9px 14px',
                       border: selected ? '1px solid #b5ebd2' : '1px solid transparent',
-                      borderRadius: 8,
                       background: selected ? 'var(--surface)' : 'transparent',
                       color: selected ? 'var(--text-1)' : 'var(--text-2)',
                       fontSize: 13,
@@ -483,14 +458,7 @@ export default function UpgradePage() {
             <div
               role="group"
               aria-label="Billing interval"
-              style={{
-                display: 'inline-flex',
-                gap: 4,
-                padding: 4,
-                border: '1px solid var(--border)',
-                borderRadius: 11,
-                background: 'var(--surface-2)',
-              }}
+              className={styles.choiceGroup}
             >
               {INTERVALS.map((item) => {
                 const selected = billingInterval === item;
@@ -500,11 +468,9 @@ export default function UpgradePage() {
                     type="button"
                     aria-pressed={selected}
                     onClick={() => setBillingInterval(item)}
+                    className={styles.choiceButton}
                     style={{
-                      minWidth: 110,
-                      padding: '10px 16px',
                       border: selected ? '1px solid #b5ebd2' : '1px solid transparent',
-                      borderRadius: 8,
                       background: selected ? 'var(--surface)' : 'transparent',
                       color: selected ? 'var(--text-1)' : 'var(--text-2)',
                       fontSize: 13,
@@ -562,6 +528,7 @@ export default function UpgradePage() {
 
           <button
             type="button"
+            className={styles.checkoutButton}
             onClick={() => void startStripeCheckout()}
             disabled={checkoutLoading || settingsLoading || !stripeCheckoutAvailable}
             style={{
@@ -601,12 +568,8 @@ export default function UpgradePage() {
         </div>
 
         <aside
+          className={styles.selectionPanel}
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 13,
-            padding: 'clamp(20px, 4vw, 30px)',
-            borderLeft: '1px solid var(--border)',
             background:
               'radial-gradient(ellipse at 90% 0%, rgba(0,217,145,.13), transparent 55%), var(--surface-2)',
           }}
@@ -658,14 +621,9 @@ export default function UpgradePage() {
 
       <section
         aria-labelledby="comparison-heading"
-        style={{
-          overflow: 'hidden',
-          border: '1px solid var(--border)',
-          borderRadius: 16,
-          background: 'var(--surface)',
-        }}
+        className={styles.comparisonPanel}
       >
-        <div style={{ padding: '20px 22px 14px' }}>
+        <div className={styles.comparisonHeader}>
           <h2 id="comparison-heading" style={{ margin: 0, color: 'var(--text-1)', fontSize: 20 }}>
             Compare plan limits
           </h2>
@@ -673,7 +631,12 @@ export default function UpgradePage() {
             Monthly AI credits reset each billing month. Resume and application limits vary by plan.
           </p>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div
+          className={styles.comparisonScroller}
+          role="region"
+          aria-label="Plan comparison table; scroll horizontally"
+          tabIndex={0}
+        >
           <table
             style={{
               width: '100%',
