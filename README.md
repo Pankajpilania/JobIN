@@ -11,7 +11,7 @@
 
 **JobIN** is an AI-powered SaaS platform designed to streamline the modern job search. It analyzes a candidate's uploaded resume alongside target job descriptions to generate ATS-optimized resumes and cover letters.
 
-The platform features a full Kanban-style application tracker, robust admin portals, AI credit billing, and multi-tenant security powered by Supabase.
+The platform features a full Kanban-style application tracker, robust admin portals, AI credit billing, and multi-tenant security powered by OCI Identity Domains.
 
 ## ✨ Key Features
 
@@ -20,7 +20,7 @@ The platform features a full Kanban-style application tracker, robust admin port
 - 📊 **Application Tracker**: Visual Kanban board to track job pipelines (Applied, Interviewing, Offered).
 - 💳 **Monetization & Credits**: Stripe-integrated billing with an "AI Credit" system.
 - 🛡️ **Admin Portal**: Fully-featured dashboard for user management, support tickets, and metric tracking.
-- ☁️ **Cloud Storage**: Secure resume PDF parsing and storage via Cloudflare R2.
+- ☁️ **Cloud Storage**: Private resume storage in OCI Object Storage using instance-principal authentication.
 
 ## 🛠️ Tech Stack
 
@@ -28,10 +28,10 @@ JobIN is built using a modern, decoupled monorepo architecture:
 
 - **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS, Radix UI.
 - **Backend**: NestJS 12, Node.js, TypeScript.
-- **Database**: PostgreSQL hosted on Supabase.
+- **Database**: PostgreSQL, hosted on OCI for the OCI deployment.
 - **ORM**: Prisma.
-- **Authentication**: Supabase Auth by default; staged OCI IAM Identity Domains OAuth 2.0/PKCE support is prepared while retaining PostgreSQL. Auth0 remains an optional alternative.
-- **Storage**: Cloudflare R2 (S3-Compatible).
+- **Authentication**: The web app offers Supabase email/password and Google sign-in, plus a separate OCI IAM Identity Domains OAuth 2.0/PKCE option. The API accepts both during the transition; Auth0 remains an optional alternative.
+- **Storage**: OCI Object Storage (private bucket; the API issues short-lived, object-scoped download links).
 - **AI Engine**: Admin-configurable Gemini, OpenAI, Anthropic, DeepSeek, NVIDIA NIM, and hosted Ollama providers.
 
 ---
@@ -57,36 +57,37 @@ The root-level `backend/` and `frontend/` directories are legacy snapshots; acti
 ## 🧭 End-to-end architecture and data flow
 
 ```text
-Browser (Next.js) ──Supabase/OCI/Auth0 token───┐
-                                               ├──> NestJS API ──Prisma──> Supabase PostgreSQL
-Chrome extension ──Supabase/OCI/Auth0 token────┘        │
-                                                ├──> Cloudflare R2 (resume files)
+Browser (Next.js) ──OCI access token───────────┐
+                                               ├──> NestJS API ──Prisma──> PostgreSQL on OCI
+Chrome extension ──Supabase token (migration)──┘        │
+                                                ├──> OCI Object Storage (resume files)
                                                 ├──> AI provider (resume/cover letter tasks)
                                                 └──> Stripe (checkout, billing portal, webhooks)
 ```
 
 ### Services and responsibilities
 
-1. **Web application (`apps/web`)** — Next.js App Router UI for registration, sign-in, resume management, AI tools, job tracking, billing, and admin pages. It defaults to Supabase Auth, with OCI Identity Domains Authorization Code + PKCE and Auth0 available after explicit configuration. It sends an API access token to the backend; ID tokens are not used for API authorization. Provider settings are in the corresponding `.env.example` files.
+1. **Web application (`apps/web`)** — Next.js App Router UI for registration, sign-in, resume management, AI tools, job tracking, billing, and admin pages. It uses OCI Identity Domains Authorization Code + PKCE by default and sends an API access token to the backend; ID tokens are not used for API authorization. Provider settings are in the corresponding `.env.example` files.
 2. **Chrome extension (`apps/extension`)** — Manifest V3 extension. Its popup/options/side panel communicate with the extension service worker; the worker detects supported job pages, requests autofill data, and calls the same API endpoints as the web app. It defaults to Supabase Auth and supports OCI/Auth0 Authorization Code + PKCE using Chrome Identity. It does not connect directly to PostgreSQL or call AI providers.
-3. **API (`apps/api`)** — NestJS is the trusted boundary for application data and privileged operations. `SupabaseAuthGuard` validates Supabase, OCI, and Auth0 access tokens; staged `oci_dual` mode accepts both OCI and Supabase tokens. It links verified identities to a JobIN `User`, checks account status, and attaches database roles to the request. Controllers enforce endpoint authorization; services perform business logic.
-4. **Database** — Supabase-hosted PostgreSQL stores JobIN users and roles, resumes and versions, applications, subscription and payment records, AI usage/credits, and admin configuration. Prisma schema and migrations are under `apps/api/prisma`. The API uses `DATABASE_URL` for pooled application connections and `DIRECT_URL` for migrations/direct database work.
-5. **Resume file storage** — Uploaded resume objects are stored in Cloudflare R2 using its S3-compatible API; PostgreSQL stores object metadata, ownership, and keys. The API performs storage operations so browser clients do not receive R2 credentials.
+3. **API (`apps/api`)** — NestJS is the trusted boundary for application data and privileged operations. `SupabaseAuthGuard` validates OCI and Auth0 access tokens; `oci_dual` also accepts Supabase tokens for clients that have not migrated and for the web app's separate Google sign-in option. It links verified identities to a JobIN `User`, checks account status, and attaches database roles to the request. A Supabase identity can match an existing JobIN user by email only after email confirmation; when the database record already has a Supabase ID, API requests continue using that canonical ID without replacing it. Controllers enforce endpoint authorization; services perform business logic.
+4. **Database** — PostgreSQL stores JobIN users and roles, resumes and versions, applications, subscription and payment records, AI usage/credits, and admin configuration. The OCI deployment runs PostgreSQL in a private Docker volume on the OCI Always Free VM. Prisma schema and migrations are under `apps/api/prisma`; connection strings are supplied by `DATABASE_URL` and `DIRECT_URL`.
+5. **Resume file storage** — Uploaded resume objects are stored in a private OCI Object Storage bucket; PostgreSQL stores object metadata, ownership, and keys. The API uses the OCI VM's instance principal for storage operations and issues short-lived, single-object download links after authorization checks.
 6. **AI providers** — The API selects the configured provider/model and makes generation requests server-side. Admin-managed provider credentials are encrypted before persistence using `AI_SETTINGS_ENCRYPTION_KEY`; never expose provider keys to the web app or extension.
-7. **Billing** — The API creates Stripe checkout/portal sessions and processes Stripe webhooks to update subscription/payment records. Manual UPI/bank-transfer requests are recorded in PostgreSQL and remain pending until an authorized finance administrator reviews them. Complimentary plans are assigned by an authorized administrator and are JobIN-managed rather than Stripe subscriptions.
+7. **Billing** — The API creates Stripe checkout/portal sessions and processes Stripe webhooks to update subscription/payment records. Stripe is the only customer payment method. Complimentary plans are assigned by an authorized administrator and are JobIN-managed rather than Stripe subscriptions.
 
 ### Typical request flows
 
-- **Sign-in and protected API request:** Web or extension authenticates with Supabase Auth → Supabase issues an access token → client sends `Authorization: Bearer <token>` to the API → API validates it with Supabase → API looks up or creates the linked JobIN user and roles → endpoint performs an owner-scoped operation through Prisma → response returns to the client.
-- **Resume and AI:** Client uploads a resume through the API → API validates ownership and stores the file in R2, with metadata in PostgreSQL → user selects a resume and supplies a job description → API calls the configured AI provider, stores the tailored version and usage/credit data → client loads the generated result from the API.
-- **Subscription:** Client asks the API to start checkout → Stripe handles payment → Stripe webhook calls the API → API verifies the webhook signature using the raw request body and updates PostgreSQL. For manual payments, the user submits payment details/reference and an administrator approves or rejects the request in the admin portal.
+- **Sign-in and protected API request:** The web app authenticates with OCI Identity Domains → OCI issues an access token → client sends `Authorization: Bearer <token>` to the API → API validates it using OCI signing keys and verified user info → API looks up or creates the linked JobIN user and roles → endpoint performs an owner-scoped operation through Prisma → response returns to the client.
+- **Resume and AI:** Client uploads a resume through the API → API validates ownership and stores the file in OCI Object Storage, with metadata in PostgreSQL → user selects a resume and supplies a job description → API calls the configured AI provider, stores the tailored version and usage/credit data → client loads the generated result from the API.
+- **Subscription:** Client asks the API to start checkout → Stripe handles payment → Stripe webhook calls the API → API verifies the webhook signature using the raw request body and updates PostgreSQL. Customers manage active Stripe subscriptions through Stripe's customer portal.
 - **Extension application workflow:** Extension content scripts identify supported job pages and extract job details → service worker requests profile/resume data from the authenticated API → the extension fills supported forms and can save the application to the same account's tracker.
 - **Admin:** The API checks the signed-in user's database role for every admin operation. Role assignment is restricted to super admins. Provider keys, payment settings, complimentary plans, and account operations are stored/processed server-side.
 
 ### Extension and deployment configuration
 
-- The extension's current API endpoint defaults to `https://jobin-tmvb.onrender.com/api`; users can change it under **Extension Options → API Configuration**. Local development can override it with `VITE_API_URL=http://localhost:4000/api` in `apps/extension/.env.local`. The build adds the configured API origin to extension host permissions.
-- The extension authenticates against the same Supabase project as the web app by default. OCI/Auth0 builds add Chrome Identity and only the configured identity-provider host permission. OCI client registration requires the extension's stable Chrome Web Store ID.
+- Build the production extension with `VITE_API_URL=https://api.jobin.today/api` and `VITE_AUTH_PROVIDER=oci` in `apps/extension/.env.local`. The OCI extension client uses the same identity domain and user accounts as the web app, but it is a separate OAuth client. Its refresh token is stored in trusted extension storage and used to renew access tokens; users may need to sign in again if the identity provider revokes or expires that refresh token.
+- Publish the extension to the Chrome Web Store and register its stable extension redirect URI with the OCI public OAuth client before enabling OCI sign-in. Set `VITE_OCI_METADATA_URL`, `VITE_OCI_CLIENT_ID`, and `VITE_OCI_API_SCOPE` for the extension build. The build adds the API and configured identity-provider origins to extension host permissions.
+- Set `NEXT_PUBLIC_CHROME_EXTENSION_URL` in the web deployment to the public Chrome Web Store listing URL. Until the extension is published and this value is set, the web download page shows that the listing is coming soon.
 - The extension manifest must include host permissions for the selected API and Supabase hosts. API calls originate from its extension service worker, not from a job-site content script; content scripts message the worker instead. Keep API authentication enabled—host permissions are not user authorization.
 - The API's `CORS_ORIGIN` must list the deployed web app origin and local web origin used for development. The extension uses Chrome host permissions for service-worker cross-origin requests; do not solve integration issues by allowing arbitrary web origins.
 - The current API deployment uses [`render.yaml`](./render.yaml), runs Prisma migrations before startup, and exposes `/api/health`. OCI Compute VM deployment files and the staged cutover instructions are in [`deploy/oci/README.md`](./deploy/oci/README.md). The web app is deployed separately to Vercel. Keep Render running as a rollback target until OCI is validated; do not copy production secrets into source control. After changing API code or API environment settings, deploy the active API service; after changing web or extension code, deploy the respective web app or publish a new extension build.
@@ -95,29 +96,30 @@ Chrome extension ──Supabase/OCI/Auth0 token────┘        │
 
 The web app signs out an authenticated user after 10 minutes without pointer, keyboard, touch, wheel, or scroll activity. Activity timestamps are shared between tabs for the same signed-in user; returning to a hidden tab checks the elapsed time immediately. The timeout is client-side and does not replace API-side JWT validation or identity-provider token-expiry policies.
 
-### OCI Identity Domains OAuth migration (staged)
+### OCI Identity Domains OAuth configuration
 
-JobIN can use OCI IAM Identity Domains for web and extension sign-in while keeping Supabase PostgreSQL, Prisma data, and user roles. Supabase remains the default until OCI sign-in and API access are verified. The API supports `AUTH_PROVIDER=oci_dual` for staged testing with both Supabase and OCI tokens, then `AUTH_PROVIDER=oci` for an intentional full switch. Keep Render available for rollback until the OCI API and client integrations are verified.
+Regular users keep the configured web sign-in experience (Supabase email/password and Google, plus OCI when enabled). The admin portal uses Supabase email/password and its cookie-backed session independently of the user's OCI session. PostgreSQL, Prisma data, and JobIN roles remain independent of the identity provider. For an OCI API deployment that serves both user and admin sessions, keep `AUTH_PROVIDER=oci_dual`; it accepts OCI and Supabase tokens. Verified Supabase email can link to an existing OCI account while preserving its OCI subject.
 
-1. Use the existing **Free** identity domain. Retrieve its OpenID discovery document from `https://<identity-domain-host>/.well-known/openid-configuration`; use the returned tenant-specific endpoints and JWKS URL. The issuer must match the discovered `https://identity.oraclecloud.com/` value. OCI protects the JWKS REST endpoint: an unauthenticated request returns `401`, while an authorized OCI access token can retrieve the signing keys.
-2. Configure the `JobIN Web` public OAuth client for **Authorization Code + PKCE** and refresh tokens. Keep implicit flow disabled. Register only the production web origins as redirect and post-logout URLs. A separate development client should be used for `localhost`.
-3. Register `https://api.jobin.today` as an API resource/audience in the identity domain and define a protected scope. In OCI's resource-server scope editor, enter `/jobin-api` (the console combines it with the audience); authorize the web client for the resulting full scope `https://api.jobin.today/jobin-api`. Use that full scope in `NEXT_PUBLIC_OCI_API_SCOPE` and `VITE_OCI_API_SCOPE`, and set `OCI_API_AUDIENCE` to `https://api.jobin.today`. OCI may emit the scope claim as `/jobin-api`; the API audience remains `https://api.jobin.today`. Never send an ID token to the API—the clients send the access token.
-4. Enable OCI self-registration and verified-email enforcement if JobIN accounts are created through OCI. Password recovery and changes are then handled by the OCI-hosted sign-in page. The API links a verified OCI email to an existing JobIN record without replacing its legacy Supabase ID or roles.
-5. Apply the additive OCI identity migration and generate the Prisma client before testing:
+1. Use the existing **Free** identity domain. Retrieve its OpenID discovery document from `https://<identity-domain-host>/.well-known/openid-configuration`; use the returned tenant-specific endpoints and JWKS URL. The issuer must match the discovered `https://identity.oraclecloud.com/` value. Enable **Configure client access** under the identity domain's signing-certificate settings so its public JWKS URL is readable without authentication; the JWKS contains public verification keys only.
+2. Configure the `JobIN Web` public OAuth client for **Authorization Code + PKCE** and refresh tokens. Keep implicit flow disabled. Register `https://jobin.today` and `https://www.jobin.today` as redirect and post-logout URLs. A separate development client should be used for `localhost`.
+3. To show Google alongside OCI on JobIN's sign-in and sign-up pages, configure the Google provider in Supabase and allow the deployed callback URL (for example, `https://jobin.today/auth/callback`) in Supabase's redirect URL settings. Keep `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` configured for the web build. Alternatively, Google can be configured under **Identity Providers → Social** in OCI to authenticate from OCI's hosted page; that is separate from the Google button provided by Supabase.
+4. Register `https://api.jobin.today` as an API resource/audience in the identity domain and define a protected scope. In OCI's resource-server scope editor, enter `/jobin-api` (the console combines it with the audience); authorize the web client for the resulting full scope `https://api.jobin.today/jobin-api`. Use that full scope in `NEXT_PUBLIC_OCI_API_SCOPE`, and set `OCI_API_AUDIENCE` to `https://api.jobin.today`. OCI may emit the scope claim as `/jobin-api`; the API audience remains `https://api.jobin.today`. Never send an ID token to the API—the clients send the access token.
+5. Enable OCI self-registration and verified-email enforcement if JobIN accounts are created through OCI. Password recovery and changes are then handled by the OCI-hosted sign-in page. The API links a verified OCI email to an existing JobIN record without replacing its legacy Supabase ID or roles.
+6. Apply the additive OCI identity migration and generate the Prisma client before testing:
 
    ```bash
    npm run db:migrate:deploy --workspace=apps/api
    npm run db:generate --workspace=apps/api
    ```
 
-6. Set the non-secret metadata URL, public client ID, API scope, and API URL in the matching web and extension environment variables. The web OIDC client and extension retrieve signing keys through the API's cacheable `/api/auth/oci/jwks` endpoint because OCI's JWKS URL requires authorization. Configure `OCI_ISSUER`, `OCI_JWKS_URL`, `OCI_USERINFO_URL`, `OCI_API_AUDIENCE`, and `OCI_API_SCOPE` in the API environment. Create a separate confidential OCI client for signing-key retrieval, assign the verified `Authenticated Client` application role (not Identity Domain Administrator), and set its `OCI_JWKS_CLIENT_ID` and `OCI_JWKS_CLIENT_SECRET` only in the API secret store. Oracle documents application-role grants to apps through the `/admin/v1/Grants` endpoint in [Working with Apps](https://docs.oracle.com/en/cloud/paas/identity-cloud/idcsa/WorkingWithApps.html). If the role is not available in the console picker, verify its exact role ID and assignment path with OCI before granting anything; do not substitute an administrator role. This built-in role is broader than key retrieval, so keep its credential backend-only and dedicated to this purpose. Do not reuse the public web/extension client or the user-deletion management client, and never put client secrets in the browser, extension, Git, or chat.
-7. The Chrome extension OAuth client must be configured only after the extension has a stable Chrome Web Store ID. Register its exact `chrome.identity.getRedirectURL()` URI; the extension is not published yet, so this client registration remains pending. Build the extension with `VITE_AUTH_PROVIDER=oci` only after the client ID and API scope are set.
-8. Test with the OCI API using `AUTH_PROVIDER=oci_dual`, then set the web and extension provider to `oci`. Verify verified-email linking, user roles, API calls, logout, account recovery, and extension flows. Switch the API to `AUTH_PROVIDER=oci` only after Supabase Auth is no longer needed. Do not change Vercel API URLs, DNS, or shut down Render as part of identity-provider setup.
-9. Admin deletion of OCI identities requires a separate confidential management client with the OCI Identity Domains `urn:opc:idm:__myscopes__` token scope and only the user-management privilege needed to delete users. Store its ID and secret only as `OCI_MANAGEMENT_CLIENT_ID` and `OCI_MANAGEMENT_CLIENT_SECRET` in the API secret store, with `OCI_DOMAIN_URL` set to the identity-domain host. If these settings are absent, the admin API refuses deletion rather than deleting only the JobIN record.
+7. Enable **Configure client access** under the OCI identity domain's **Settings → Access signing certificate**. This makes the domain's public signing keys available to clients without login. Set the non-secret metadata URL, public client ID, API scope, and API URL in Vercel Production. The web OIDC client retrieves keys through the API's cacheable `/api/auth/oci/jwks` endpoint. Configure `OCI_ISSUER`, `OCI_JWKS_URL`, `OCI_USERINFO_URL`, `OCI_API_AUDIENCE`, and `OCI_API_SCOPE` in the API environment. No OAuth client secret is needed for JWKS retrieval.
+8. The Chrome extension OAuth client must be configured only after the extension has a stable Chrome Web Store ID. Register the exact `chrome.identity.getRedirectURL()` value for that extension, enable Authorization Code + PKCE and refresh tokens, and authorize the API scope. Build with `VITE_AUTH_PROVIDER=oci`; keep the API in `oci_dual` during migration, then verify all clients before switching to `oci` when Supabase Auth is no longer needed.
+9. Test verified-email linking, user roles, web API calls, logout, Google sign-in, and account recovery. Do not change Vercel API URLs, DNS, or shut down Render as part of identity-provider setup.
+10. Admin deletion of OCI identities requires a separate confidential management client with the OCI Identity Domains `urn:opc:idm:__myscopes__` token scope and only the user-management privilege needed to delete users. Store its ID and secret only as `OCI_MANAGEMENT_CLIENT_ID` and `OCI_MANAGEMENT_CLIENT_SECRET` in the API secret store. If these settings are absent, the admin API refuses deletion rather than deleting only the JobIN record.
 
-### Optional Auth0 migration (staged; Supabase remains the default)
+### Optional Auth0 alternative
 
-Auth0 is prepared as an alternative identity provider; enabling it is an explicit deployment cutover. Supabase-hosted PostgreSQL, Prisma data, user roles, billing, resumes, and application data stay in place. Do not change the provider variables until the Auth0 tenant and applications are configured and verified. Do not paste client secrets into the frontend, extension, or repository.
+Auth0 is prepared as an alternative identity provider. PostgreSQL, Prisma data, user roles, billing, resumes, and application data stay in place. Do not paste client secrets into the frontend, extension, or repository.
 
 1. Create an Auth0 tenant, a **Single Page Application** for the web app, and an Auth0 **API** with identifier `https://api.jobin.today` (or the exact audience you will configure). Use RS256 JWTs.
 2. Configure the SPA callback/logout/origin URLs for local development and the production web origin. The extension uses `chrome.identity.getRedirectURL()`; for a loaded unpacked extension it will be similar to `https://<extension-id>.chromiumapp.org/`. Add that exact URL to the Auth0 application's Allowed Callback URLs and add the extension origin where Auth0 requires it. Keep callback URLs limited to the known app origins.
@@ -151,11 +153,11 @@ The extension's Auth0 manifest permissions are generated from its configured dom
 
 ## 🚀 Local Development Setup
 
-To run JobIN locally, you need Node.js 20.19+ (or 22.12+), npm, and a Supabase project.
+To run JobIN locally, you need Node.js 20.19+ (or 22.12+), npm, an OCI Identity Domain OAuth client, PostgreSQL, and the service credentials for any enabled integrations.
 
 ### 1. Prerequisites
 
-Ensure Node.js 20.19+ (or 22.12+) and npm are installed. Copy `apps/api/.env.example` to `apps/api/.env` and configure the required local Supabase, database, and service settings. Copy `apps/web/.env.example` to `apps/web/.env.local` and configure its public Supabase and API URL variables.
+Ensure Node.js 20.19+ (or 22.12+) and npm are installed. Copy `apps/api/.env.example` to `apps/api/.env` and configure the database and OCI Identity Domain settings. Copy `apps/web/.env.example` to `apps/web/.env.local` and configure the public OCI and API URL variables.
 
 ### 2. Install Dependencies
 

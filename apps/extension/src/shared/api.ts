@@ -10,7 +10,7 @@ const SUPABASE_ANON_KEY =
 
 async function getBaseUrl(): Promise<string> {
   const settings = await getSettings();
-  return settings?.apiUrl || 'https://jobin-tmvb.onrender.com/api';
+  return settings?.apiUrl || 'https://api.jobin.today/api';
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<any> {
@@ -156,17 +156,6 @@ export async function getUserProfile(): Promise<{
   country?: string;
 }> {
   return request('/users/me');
-}
-
-// ─── Validate token ───────────────────────────────────────────────────────────
-
-export async function validateToken(): Promise<boolean> {
-  try {
-    await getUserProfile();
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export { ApiError };

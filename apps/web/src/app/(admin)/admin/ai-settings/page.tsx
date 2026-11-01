@@ -124,8 +124,8 @@ export default function AdminAISettingsPage() {
         <Card hoverEffect={false} style={{ border: '1px solid #f59e0b' }}>
           <strong style={{ color: 'var(--text-1)' }}>Secure key storage needs setup</strong>
           <p style={{ color: 'var(--text-2)', marginBottom: 0 }}>
-            Before saving provider keys, set <code>AI_SETTINGS_ENCRYPTION_KEY</code> in the Render
-            API environment to a stable 32-byte base64 or 64-character hex key, then restart the
+            Before saving provider keys, set <code>AI_SETTINGS_ENCRYPTION_KEY</code> in the API
+            environment to a stable 32-byte base64 or 64-character hex key, then restart the
             service. Saved provider keys are encrypted and never shown again.
           </p>
         </Card>

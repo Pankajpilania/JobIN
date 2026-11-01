@@ -1,7 +1,7 @@
 // Admin API client — all calls to /api/admin/*
 // Uses getToken from Clerk to always have fresh JWT
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://jobin-tmvb.onrender.com/api';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.jobin.today/api';
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
@@ -35,7 +35,7 @@ async function request<T>(path: string, token: string, options: RequestInit = {}
   } catch (fetchErr: any) {
     throw new Error(
       `Network request failed to ${API}/admin${path}.\n` +
-        `Please ensure NEXT_PUBLIC_API_URL is configured correctly in production environment variables (e.g. pointing to your Render backend HTTPS URL instead of localhost) and CORS is configured on the backend. Details: ${fetchErr.message}`,
+        `Please ensure NEXT_PUBLIC_API_URL is configured correctly in production environment variables and CORS is configured on the backend. Details: ${fetchErr.message}`,
     );
   }
 

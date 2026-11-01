@@ -1,13 +1,7 @@
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand,
-  HeadObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import * as common from 'oci-common';
+import * as objectstorage from 'oci-objectstorage';
 import { v4 as uuid } from 'uuid';
 
 export interface S3UploadResult {
@@ -16,30 +10,93 @@ export interface S3UploadResult {
   bucket: string;
 }
 
+interface CachedDownloadUrl {
+  id: string;
+  url: string;
+  expiresAt: number;
+}
+
+export type OciObjectStorageClient = Pick<
+  objectstorage.ObjectStorageClient,
+  | 'endpoint'
+  | 'putObject'
+  | 'createPreauthenticatedRequest'
+  | 'deletePreauthenticatedRequest'
+  | 'getObject'
+  | 'deleteObject'
+  | 'headObject'
+>;
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function getPublicEndpoint(endpoint: string): string {
+  return endpoint.replace('{dualStack?ds.oci.:}', '');
+}
+
+function isNotFound(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'statusCode' in error && error.statusCode === 404
+  );
+}
+
 @Injectable()
 export class S3Service {
   private readonly logger = new Logger(S3Service.name);
-  private readonly client: S3Client;
   private readonly bucket: string;
-  private readonly endpoint: string;
+  private readonly namespace: string;
+  private readonly region: string;
+  private clientPromise?: Promise<OciObjectStorageClient>;
+  private readonly downloadUrls = new Map<string, CachedDownloadUrl>();
+  private readonly downloadUrlRequests = new Map<string, Promise<string>>();
 
   constructor(private readonly config: ConfigService) {
-    this.bucket =
-      config.get<string>('R2_BUCKET_NAME') || process.env.R2_BUCKET_NAME || 'jobin-resumes';
-    this.endpoint = config.get<string>('R2_ENDPOINT') || process.env.R2_ENDPOINT || '';
-
-    this.client = new S3Client({
-      region: 'auto',
-      endpoint: this.endpoint,
-      credentials: {
-        accessKeyId: config.get<string>('R2_ACCESS_KEY_ID') || process.env.R2_ACCESS_KEY_ID || '',
-        secretAccessKey:
-          config.get<string>('R2_SECRET_ACCESS_KEY') || process.env.R2_SECRET_ACCESS_KEY || '',
-      },
-    });
+    this.bucket = this.getRequiredSetting('OCI_OBJECT_STORAGE_BUCKET');
+    this.namespace = this.getRequiredSetting('OCI_OBJECT_STORAGE_NAMESPACE');
+    this.region = this.getRequiredSetting('OCI_REGION');
   }
 
-  // ─── Upload ────────────────────────────────────────────────────────────────
+  private getRequiredSetting(name: string): string {
+    const value = this.config.get<string>(name) || process.env[name];
+    if (!value?.trim()) throw new Error(`${name} is required for OCI Object Storage`);
+    return value.trim();
+  }
+
+  private async getClient(): Promise<OciObjectStorageClient> {
+    if (!this.clientPromise) this.clientPromise = this.createClient();
+    try {
+      return await this.clientPromise;
+    } catch (error) {
+      this.clientPromise = undefined;
+      throw error;
+    }
+  }
+
+  protected async createClient(): Promise<OciObjectStorageClient> {
+    const authMode =
+      this.config.get<string>('OCI_AUTH_MODE') ||
+      process.env.OCI_AUTH_MODE ||
+      (process.env.NODE_ENV === 'production' ? 'instance_principal' : 'config_file');
+    let provider: common.AuthenticationDetailsProvider;
+
+    if (authMode === 'instance_principal') {
+      provider = await new common.InstancePrincipalsAuthenticationDetailsProviderBuilder().build();
+    } else if (authMode === 'config_file') {
+      provider = new common.ConfigFileAuthenticationDetailsProvider(
+        this.config.get<string>('OCI_CONFIG_FILE') || process.env.OCI_CONFIG_FILE,
+        this.config.get<string>('OCI_PROFILE') || process.env.OCI_PROFILE,
+      );
+    } else {
+      throw new Error(`Unsupported OCI_AUTH_MODE: ${authMode}`);
+    }
+
+    const client = new objectstorage.ObjectStorageClient({
+      authenticationDetailsProvider: provider,
+    });
+    client.regionId = this.region;
+    return client;
+  }
 
   async uploadFile(
     buffer: Buffer,
@@ -51,92 +108,163 @@ export class S3Service {
     const key = `${folder}/${uuid()}.${ext}`;
 
     try {
-      await this.client.send(
-        new PutObjectCommand({
-          Bucket: this.bucket,
-          Key: key,
-          Body: buffer,
-          ContentType: mimeType,
-          // Removed ServerSideEncryption as R2 encrypts by default and AES256 param fails on R2
-        }),
-      );
+      const client = await this.getClient();
+      await client.putObject({
+        namespaceName: this.namespace,
+        bucketName: this.bucket,
+        objectName: key,
+        putObjectBody: buffer,
+        contentLength: buffer.length,
+        contentType: mimeType,
+      });
 
-      const url = `${this.endpoint}/${this.bucket}/${key}`;
-      this.logger.log(`Uploaded ${key} (${buffer.length} bytes) to Cloudflare R2`);
+      const url = new URL(
+        `/n/${encodeURIComponent(this.namespace)}/b/${encodeURIComponent(this.bucket)}/o/${encodeURIComponent(key)}`,
+        getPublicEndpoint(client.endpoint),
+      ).toString();
+      this.logger.log(`Uploaded ${key} (${buffer.length} bytes) to OCI Object Storage`);
       return { key, url, bucket: this.bucket };
-    } catch (err) {
-      this.logger.error(
-        `R2 upload failed — bucket: ${this.bucket}, endpoint: ${this.endpoint}, key: ${key}\n` +
-          `Error code: ${err.Code ?? err.code ?? 'unknown'}\n` +
-          `Error message: ${err.message}\n` +
-          `Full error: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`,
-      );
-      throw new InternalServerErrorException(`File upload to Cloudflare R2 failed: ${err.message}`);
+    } catch (error) {
+      this.logger.error(`OCI Object Storage upload failed for ${key}: ${errorMessage(error)}`);
+      throw new InternalServerErrorException('File upload to OCI Object Storage failed');
     }
   }
 
-  // ─── Pre-signed download URL (15-minute expiry) ────────────────────────────
-
   async getPresignedUrl(key: string, expiresInSeconds = 900): Promise<string> {
+    if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 1 || expiresInSeconds > 3600) {
+      throw new RangeError('Download URL expiry must be between 1 and 3600 seconds');
+    }
+
+    const cached = this.downloadUrls.get(key);
+    if (cached && cached.expiresAt > Date.now() + 30_000) return cached.url;
+
+    const request = this.downloadUrlRequests.get(key);
+    if (request) return request;
+
+    const pending = this.createDownloadUrl(key, expiresInSeconds);
+    this.downloadUrlRequests.set(key, pending);
     try {
-      const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
-      return getSignedUrl(this.client, cmd, { expiresIn: expiresInSeconds });
-    } catch (err) {
-      this.logger.error(`Failed to generate R2 pre-signed URL for ${key}: ${err.message}`);
+      return await pending;
+    } finally {
+      if (this.downloadUrlRequests.get(key) === pending) {
+        this.downloadUrlRequests.delete(key);
+      }
+    }
+  }
+
+  private async createDownloadUrl(key: string, expiresInSeconds: number): Promise<string> {
+    try {
+      const client = await this.getClient();
+      const previous = this.downloadUrls.get(key);
+      const response = await client.createPreauthenticatedRequest({
+        namespaceName: this.namespace,
+        bucketName: this.bucket,
+        createPreauthenticatedRequestDetails: {
+          name: `jobin-download-${uuid()}`,
+          objectName: key,
+          accessType:
+            objectstorage.models.CreatePreauthenticatedRequestDetails.AccessType.ObjectRead,
+          timeExpires: new Date(Date.now() + expiresInSeconds * 1000),
+        },
+      });
+      const { id, accessUri } = response.preauthenticatedRequest;
+      const url = new URL(accessUri, getPublicEndpoint(client.endpoint)).toString();
+      this.downloadUrls.set(key, {
+        id,
+        url,
+        expiresAt: Date.now() + expiresInSeconds * 1000,
+      });
+
+      if (previous) {
+        try {
+          await client.deletePreauthenticatedRequest({
+            namespaceName: this.namespace,
+            bucketName: this.bucket,
+            parId: previous.id,
+          });
+        } catch (error) {
+          this.logger.warn(
+            `Could not revoke a previous OCI download URL for ${key}: ${errorMessage(error)}`,
+          );
+        }
+      }
+
+      return url;
+    } catch (error) {
+      this.logger.error(`Failed to generate OCI download URL for ${key}: ${errorMessage(error)}`);
       throw new InternalServerErrorException('Could not generate download URL');
     }
   }
 
-  // ─── Download (returns raw Buffer for text extraction) ────────────────────
-
   async downloadFile(key: string): Promise<Buffer> {
     try {
-      const { Body } = await this.client.send(
-        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
-      );
+      const { value } = await (
+        await this.getClient()
+      ).getObject({
+        namespaceName: this.namespace,
+        bucketName: this.bucket,
+        objectName: key,
+      });
+      if (!value) throw new Error('OCI returned an empty object body');
 
-      // Body is a Readable stream in Node.js — collect all chunks
       const chunks: Buffer[] = [];
-      for await (const chunk of Body as AsyncIterable<Uint8Array>) {
-        chunks.push(Buffer.from(chunk));
-      }
+      for await (const chunk of value) chunks.push(Buffer.from(chunk));
       return Buffer.concat(chunks);
-    } catch (err) {
-      this.logger.error(`R2 download failed for ${key}: ${err.message}`);
-      throw new InternalServerErrorException('Could not download file from Cloudflare R2');
+    } catch (error) {
+      this.logger.error(`OCI Object Storage download failed for ${key}: ${errorMessage(error)}`);
+      throw new InternalServerErrorException('Could not download file from OCI Object Storage');
     }
   }
 
-  // ─── Delete ────────────────────────────────────────────────────────────────
-
   async deleteFile(key: string): Promise<void> {
     try {
-      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
-      this.logger.log(`Deleted R2 object: ${key}`);
-    } catch (err) {
-      // Log but don't throw — a missing file on delete is usually not fatal
-      this.logger.warn(`R2 delete failed for ${key}: ${err.message}`);
+      await (
+        await this.getClient()
+      ).deleteObject({
+        namespaceName: this.namespace,
+        bucketName: this.bucket,
+        objectName: key,
+      });
+      this.downloadUrls.delete(key);
+      this.logger.log(`Deleted OCI Object Storage object: ${key}`);
+    } catch (error) {
+      this.logger.warn(`OCI Object Storage delete failed for ${key}: ${errorMessage(error)}`);
     }
   }
 
   async deleteFileOrThrow(key: string): Promise<void> {
     try {
-      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
-      this.logger.log(`Deleted R2 object: ${key}`);
-    } catch (err) {
-      this.logger.error(`R2 delete failed for ${key}: ${err.message}`);
-      throw new InternalServerErrorException(`Could not delete stored file: ${key}`);
+      await (
+        await this.getClient()
+      ).deleteObject({
+        namespaceName: this.namespace,
+        bucketName: this.bucket,
+        objectName: key,
+      });
+      this.downloadUrls.delete(key);
+      this.logger.log(`Deleted OCI Object Storage object: ${key}`);
+    } catch (error) {
+      this.logger.error(`OCI Object Storage delete failed for ${key}: ${errorMessage(error)}`);
+      throw new InternalServerErrorException('Could not delete stored file');
     }
   }
 
-  // ─── Exists check ─────────────────────────────────────────────────────────
-
   async fileExists(key: string): Promise<boolean> {
     try {
-      await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+      await (
+        await this.getClient()
+      ).headObject({
+        namespaceName: this.namespace,
+        bucketName: this.bucket,
+        objectName: key,
+      });
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      if (isNotFound(error)) return false;
+      this.logger.error(
+        `OCI Object Storage existence check failed for ${key}: ${errorMessage(error)}`,
+      );
+      throw new InternalServerErrorException('Could not check stored file');
     }
   }
 }

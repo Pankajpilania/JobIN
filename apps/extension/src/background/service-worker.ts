@@ -27,6 +27,10 @@ import {
   ApiError,
 } from '../shared/api';
 
+chrome.storage.local
+  .setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' })
+  .catch((error) => console.error('Could not restrict extension storage access:', error));
+
 // ─── Extension install / update ───────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
@@ -83,7 +87,7 @@ async function handleMessage(
 
         // Update the extension badge to show a dot
         await chrome.action.setBadgeText({ text: '✓', tabId });
-        await chrome.action.setBadgeBackgroundColor({ color: '#6366f1', tabId });
+        await chrome.action.setBadgeBackgroundColor({ color: '#008c60', tabId });
         sendResponse({ ok: true });
         break;
       }

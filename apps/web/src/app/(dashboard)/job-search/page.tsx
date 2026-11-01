@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowUpRight, BriefcaseBusiness, LoaderCircle, MapPin, Search } from 'lucide-react';
@@ -60,6 +60,13 @@ export default function JobSearchPage() {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setQuery(params.get('query') ?? '');
+    setLocation(params.get('location') ?? '');
+    setRemoteOnly(params.get('remoteOnly') === 'true');
+  }, []);
 
   const search = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

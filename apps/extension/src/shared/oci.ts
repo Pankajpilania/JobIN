@@ -13,6 +13,7 @@ interface OciTokenResponse {
   expires_in: number;
   token_type: string;
   id_token: string;
+  refresh_token?: string;
 }
 
 interface OciUserInfo {
@@ -57,7 +58,7 @@ function launchAuthFlow(url: string) {
   });
 }
 
-export async function signInWithOci(signUp: boolean, email?: string) {
+export async function signInWithOci(_signUp: boolean, email?: string) {
   const metadataUrl = import.meta.env.VITE_OCI_METADATA_URL?.trim();
   const clientId = import.meta.env.VITE_OCI_CLIENT_ID?.trim();
   const apiScope = import.meta.env.VITE_OCI_API_SCOPE?.trim();
@@ -140,12 +141,11 @@ export async function signInWithOci(signUp: boolean, email?: string) {
     response_type: 'code',
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: `openid profile email ${apiScope}`,
+    scope: `openid profile email offline_access ${apiScope}`,
     state,
     nonce,
     code_challenge: challenge,
     code_challenge_method: 'S256',
-    ...(signUp ? {} : { prompt: 'login' }),
     ...(email ? { login_hint: email } : {}),
   }).toString();
 
@@ -194,7 +194,9 @@ export async function signInWithOci(signUp: boolean, email?: string) {
     tokenType.toLowerCase() !== 'bearer' ||
     typeof expiresIn !== 'number' ||
     !Number.isFinite(expiresIn) ||
-    expiresIn <= 0
+    expiresIn <= 0 ||
+    typeof tokenValues.refresh_token !== 'string' ||
+    !tokenValues.refresh_token
   ) {
     throw new Error('OCI returned an invalid access token response.');
   }
@@ -203,6 +205,7 @@ export async function signInWithOci(signUp: boolean, email?: string) {
     expires_in: expiresIn,
     token_type: tokenType,
     id_token: idToken,
+    refresh_token: tokenValues.refresh_token,
   };
 
   const jwksResponse = await fetch(jwksProxyUrl);
@@ -255,5 +258,5 @@ export async function signInWithOci(signUp: boolean, email?: string) {
     picture: typeof userInfoValues.picture === 'string' ? userInfoValues.picture : undefined,
   };
 
-  return { ...tokens, user };
+  return { ...tokens, token_endpoint: metadata.token_endpoint, user };
 }

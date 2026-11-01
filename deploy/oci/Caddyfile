@@ -1,0 +1,4 @@
+api.jobin.today {
+    encode zstd gzip
+    reverse_proxy api:4000
+}

@@ -36,29 +36,46 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
     :host { all: initial; }
 
     .badge {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
       display: flex;
       align-items: center;
       gap: 10px;
-      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
-      border: 1px solid rgba(99, 102, 241, 0.4);
+      background: rgba(255,255,255,0.68);
+      border: 1px solid rgba(255,255,255,0.86);
       border-radius: 16px;
       padding: 10px 16px;
       cursor: pointer;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.1);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.92), 0 8px 32px rgba(17,21,17,0.18), 0 0 0 1px rgba(0,140,96,0.08);
+      backdrop-filter: blur(18px) saturate(1.35);
+      -webkit-backdrop-filter: blur(18px) saturate(1.35);
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       user-select: none;
       min-width: 160px;
     }
+    .badge::before {
+      position: absolute;
+      z-index: 0;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(112deg, transparent 20%, rgba(255,255,255,0.72) 48%, transparent 76%);
+      background-size: 220% 100%;
+      animation: glass-sheen 7s ease-in-out infinite;
+      content: '';
+      pointer-events: none;
+    }
+    .badge > * { position: relative; z-index: 1; }
     .badge:hover {
       transform: translateY(-2px);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.3);
+      box-shadow: 0 12px 40px rgba(17,21,17,0.22), 0 0 0 1px rgba(0,140,96,0.2);
     }
     .badge:active { transform: translateY(0); }
 
     .logo {
       width: 28px;
       height: 28px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      background: linear-gradient(135deg, #00d991, #008c60);
       border-radius: 8px;
       display: flex;
       align-items: center;
@@ -75,7 +92,7 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
     .title {
       font-size: 11px;
       font-weight: 600;
-      color: rgba(255,255,255,0.5);
+      color: #536057;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       font-family: 'Segoe UI', sans-serif;
@@ -93,8 +110,8 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
       font-family: 'Segoe UI', 'Arial', sans-serif;
     }
 
-    .score.loading { color: rgba(255,255,255,0.3); font-size: 13px; }
-    .score.grade-a { color: #34d399; }
+    .score.loading { color: #738077; font-size: 13px; }
+    .score.grade-a { color: #008c60; }
     .score.grade-b { color: #60a5fa; }
     .score.grade-c { color: #f59e0b; }
     .score.grade-d { color: #f97316; }
@@ -103,7 +120,7 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
     .pulse {
       width: 6px; height: 6px;
       border-radius: 50%;
-      background: #6366f1;
+      background: #00a86b;
       animation: pulse 1.5s ease-in-out infinite;
     }
     @keyframes pulse {
@@ -114,20 +131,30 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
     .cta {
       margin-top: 4px;
       font-size: 10px;
-      color: rgba(99,102,241,0.8);
+      color: #008c60;
       font-family: 'Segoe UI', sans-serif;
     }
 
     .dismiss {
       position: absolute;
+      z-index: 2;
       top: 6px; right: 8px;
       font-size: 11px;
-      color: rgba(255,255,255,0.2);
+      color: #738077;
       cursor: pointer;
       line-height: 1;
       transition: color 0.15s;
     }
-    .dismiss:hover { color: rgba(255,255,255,0.6); }
+    .dismiss:hover { color: #111511; }
+    @keyframes glass-sheen {
+      0%, 18% { background-position: 130% 0; }
+      60%, 78% { background-position: -35% 0; }
+      100% { background-position: -80% 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .badge::before, .pulse { animation: none; }
+      .pulse { opacity: 0.7; }
+    }
   `;
   shadow.appendChild(style);
 
@@ -179,15 +206,17 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
   document.body.appendChild(host);
 
   // Entry animation
-  requestAnimationFrame(() => {
-    badge.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-    badge.style.opacity = '0';
-    badge.style.transform = 'translateY(12px)';
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     requestAnimationFrame(() => {
-      badge.style.opacity = '1';
-      badge.style.transform = 'translateY(0)';
+      badge.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      badge.style.opacity = '0';
+      badge.style.transform = 'translateY(12px)';
+      requestAnimationFrame(() => {
+        badge.style.opacity = '1';
+        badge.style.transform = 'translateY(0)';
+      });
     });
-  });
+  }
 
   return removeBadge;
 }

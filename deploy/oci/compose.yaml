@@ -49,59 +49,24 @@ services:
       - no-new-privileges:true
     stop_grace_period: 30s
 
-  web:
-    build:
-      context: ../..
-      dockerfile: apps/web/Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL in deploy/oci/.env}
-        NEXT_PUBLIC_AUTH_PROVIDER: ${NEXT_PUBLIC_AUTH_PROVIDER:-supabase}
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL in deploy/oci/.env}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?Set NEXT_PUBLIC_SUPABASE_ANON_KEY in deploy/oci/.env}
-        NEXT_PUBLIC_URL: ${NEXT_PUBLIC_URL:?Set NEXT_PUBLIC_URL in deploy/oci/.env}
-        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
-    restart: unless-stopped
-    init: true
-    expose:
-      - "3000"
-    environment:
-      SENTRY_DSN: ${SENTRY_DSN:-}
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"
-      interval: 30s
-      timeout: 5s
-      start_period: 60s
-      retries: 3
-    security_opt:
-      - no-new-privileges:true
-
-  cloudflared:
-    image: cloudflare/cloudflared:2026.10.3
+  proxy:
+    image: caddy:2-alpine
     restart: unless-stopped
     init: true
     depends_on:
       api:
         condition: service_healthy
-      web:
-        condition: service_healthy
-    command:
-      - tunnel
-      - --no-autoupdate
-      - run
-      - --token-file
-      - /run/secrets/cloudflare_tunnel_token
-    secrets:
-      - cloudflare_tunnel_token
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
     security_opt:
       - no-new-privileges:true
 
-secrets:
-  cloudflare_tunnel_token:
-    file: ./cloudflared-token
-
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

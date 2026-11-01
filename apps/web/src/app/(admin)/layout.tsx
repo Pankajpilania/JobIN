@@ -89,7 +89,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isReady || !isSignedIn || (!adminVerified && !adminError)) {
     return (
-      <div
+        <div
         style={{
           display: 'flex',
           height: '100vh',
@@ -147,6 +147,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div
+      className="admin-portal-shell"
       style={{
         display: 'flex',
         height: '100vh',
@@ -163,9 +164,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           height: '100vh',
           width: '256px',
           borderRight: '1px solid var(--border)',
-          backgroundColor: 'var(--surface)',
+          backgroundColor: 'rgba(255, 255, 255, 0.82)',
           color: 'var(--text-1)',
           flexShrink: 0,
+          backdropFilter: 'blur(18px) saturate(1.2)',
+          WebkitBackdropFilter: 'blur(18px) saturate(1.2)',
         }}
       >
         {/* Logo */}
@@ -369,6 +372,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* ── Main content wrapper ── */}
       <main
+        className="admin-portal-main"
         style={{ flex: 1, overflowY: 'auto', padding: '32px', backgroundColor: 'var(--surface-2)' }}
       >
         <motion.div

@@ -26,6 +26,8 @@ export interface DetectedJob {
 
 export interface AuthState {
   token: string; // Clerk JWT or API token
+  refreshToken?: string;
+  tokenEndpoint?: string;
   userId: string;
   email: string;
   fullName: string;
@@ -98,7 +100,7 @@ export interface ExtensionSettings {
 }
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
-  apiUrl: import.meta.env?.VITE_API_URL ?? 'https://jobin-tmvb.onrender.com/api',
+  apiUrl: import.meta.env?.VITE_API_URL ?? 'https://api.jobin.today/api',
   showBadge: true,
   openSidePanelOnDetect: true,
   autofill: {

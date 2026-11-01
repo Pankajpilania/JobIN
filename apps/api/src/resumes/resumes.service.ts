@@ -144,14 +144,10 @@ export class ResumesService {
     });
 
     return Promise.all(
-      resumes.map(async (resume) => {
-        try {
-          const downloadUrl = await this.s3.getPresignedUrl(resume.s3Key);
-          return { ...resume, downloadUrl };
-        } catch {
-          return { ...resume, downloadUrl: resume.s3Url };
-        }
-      }),
+      resumes.map(async (resume) => ({
+        ...resume,
+        downloadUrl: await this.s3.getPresignedUrl(resume.s3Key),
+      })),
     );
   }
 

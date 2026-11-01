@@ -30,7 +30,7 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="rgba(17,21,17,0.1)"
           strokeWidth={6}
         />
         <circle
@@ -57,7 +57,7 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
         >
           {score}
         </div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>{grade}</div>
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>{grade}</div>
       </div>
     </div>
   );
@@ -105,7 +105,7 @@ function JobCard({ job }: { job: DetectedJob }) {
             height: 36,
             borderRadius: 8,
             flexShrink: 0,
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            background: 'linear-gradient(135deg,#00d991,#008c60)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -157,11 +157,13 @@ function JobCard({ job }: { job: DetectedJob }) {
 export default function App() {
   const [auth, setAuth] = useState<AuthState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
   const [job, setJob] = useState<DetectedJob | null>(null);
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [selectedResume, setSelectedResume] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -173,12 +175,16 @@ export default function App() {
     ])
       .then(([authRes, jobRes, resumesRes]) => {
         setAuth(authRes?.auth ?? null);
+        setAuthError(authRes?.error ?? '');
         setJob(jobRes?.job ?? null);
         const rs = resumesRes?.resumes ?? [];
         setResumes(rs);
         const def = rs.find((r: Resume) => r.isDefault);
         if (def) setSelectedResume(def.id);
         else if (rs.length) setSelectedResume(rs[0].id);
+      })
+      .catch((error: unknown) => {
+        setAuthError(error instanceof Error ? error.message : 'Could not load your JobIN session.');
       })
       .finally(() => setLoading(false));
   }, []);
@@ -191,21 +197,25 @@ export default function App() {
   const saveJob = async () => {
     if (!job) return;
     setSaving(true);
+    setSaveError('');
     try {
-      await chrome.runtime.sendMessage({
-        type: MSG.SAVE_APPLICATION,
-        payload: {
-          jobTitle: job.jobTitle,
-          companyName: job.companyName,
-          location: job.location,
-          jobUrl: job.url,
-          status: 'SAVED',
-          jobDescription: job.jobDescription,
-        },
-      });
+      const response: { result?: { id: string }; error?: string } =
+        await chrome.runtime.sendMessage({
+          type: MSG.SAVE_APPLICATION,
+          payload: {
+            jobTitle: job.jobTitle,
+            companyName: job.companyName,
+            location: job.location,
+            jobUrl: job.url,
+            status: 'SAVED',
+            jobDescription: job.jobDescription,
+          },
+        });
+      if (response?.error) throw new Error(response.error);
+      if (!response?.result?.id) throw new Error('The job was not saved to your tracker.');
       setSaved(true);
-    } catch {
-      /* ignore */
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not save this job.');
     }
     setSaving(false);
   };
@@ -220,7 +230,18 @@ export default function App() {
     );
   }
 
-  if (!auth) return <NotSignedIn />;
+  if (!auth) {
+    return (
+      <div>
+        {authError && (
+          <p role="alert" style={{ margin: 12, color: 'var(--red)', textAlign: 'center' }}>
+            {authError}
+          </p>
+        )}
+        <NotSignedIn />
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -232,7 +253,7 @@ export default function App() {
           justifyContent: 'space-between',
           padding: '12px 16px',
           borderBottom: '1px solid var(--border)',
-          background: 'linear-gradient(180deg,rgba(99,102,241,0.06),transparent)',
+          background: 'linear-gradient(180deg,rgba(0,217,145,0.1),transparent)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -245,12 +266,12 @@ export default function App() {
           >
             <defs>
               <linearGradient id="pbg" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#312e81" />
-                <stop offset="100%" stopColor="#6d28d9" />
+                <stop offset="0%" stopColor="#007f57" />
+                <stop offset="100%" stopColor="#00d991" />
               </linearGradient>
               <linearGradient id="pa" x1="0" y1="1" x2="1" y2="0">
-                <stop offset="0%" stopColor="#60a5fa" />
-                <stop offset="100%" stopColor="#a78bfa" />
+                <stop offset="0%" stopColor="#ecffe0" />
+                <stop offset="100%" stopColor="#ffffff" />
               </linearGradient>
             </defs>
             <rect width="32" height="32" rx="7" fill="url(#pbg)" />
@@ -270,7 +291,7 @@ export default function App() {
             Job
             <span
               style={{
-                background: 'linear-gradient(90deg,#6366f1,#a78bfa)',
+                background: 'linear-gradient(90deg,#008c60,#00a86b)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
               }}
@@ -341,6 +362,11 @@ export default function App() {
               >
                 {saved ? '✓ Saved to Tracker' : saving ? 'Saving…' : '🔖 Save to Job Tracker'}
               </button>
+              {saveError && (
+                <p role="alert" style={{ margin: 0, color: 'var(--red)', fontSize: 12 }}>
+                  {saveError}
+                </p>
+              )}
             </div>
 
             {/* Description preview */}
@@ -422,11 +448,11 @@ export default function App() {
             { label: 'Options', fn: () => chrome.runtime.openOptionsPage() },
             {
               label: 'Job Tracker',
-              fn: () => chrome.tabs.create({ url: 'http://localhost:3000/tracker' }),
+              fn: () => chrome.tabs.create({ url: 'https://jobin.today/tracker' }),
             },
             {
               label: 'Dashboard',
-              fn: () => chrome.tabs.create({ url: 'http://localhost:3000/dashboard' }),
+              fn: () => chrome.tabs.create({ url: 'https://jobin.today/dashboard' }),
             },
           ].map(({ label, fn }) => (
             <button

@@ -17,7 +17,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'https://jobin-tmvb.onrender.com/api';
+const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.jobin.today/api';
 
 async function downloadCoverLetter(
   content: string,

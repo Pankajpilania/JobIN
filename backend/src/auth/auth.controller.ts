@@ -45,6 +45,26 @@ export class AuthController {
     return this.authService.clerkSync(body);
   }
 
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new user' })
+  @ApiResponse({ status: 201, description: 'User registered successfully' })
+  @ApiResponse({ status: 409, description: 'User already exists' })
+  async register(
+    @Body() body: { email: string; password: string; fullName?: string },
+  ) {
+    return this.authService.register(body);
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Log in with email and password' })
+  @ApiResponse({ status: 200, description: 'Authentication successful' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  async login(@Body() body: { email: string; password: string }) {
+    return this.authService.login(body);
+  }
+
   @Get('me')
   @UseGuards(SupabaseAuthGuard)
   @ApiBearerAuth()

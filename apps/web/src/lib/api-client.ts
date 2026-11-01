@@ -1,7 +1,7 @@
 import type { ApiError } from '@/types';
 
 // NEXT_PUBLIC_API_URL already contains the full base e.g. "http://localhost:4000/api"
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://jobin-tmvb.onrender.com/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.jobin.today/api';
 
 class HttpError extends Error {
   statusCode: number;

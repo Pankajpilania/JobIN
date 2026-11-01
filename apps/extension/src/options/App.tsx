@@ -9,11 +9,9 @@ import {
   setCachedResumes,
   getUserProfile,
   setUserProfile,
-  getDefaultResumeId,
   setDefaultResumeId,
 } from '../shared/storage';
 import {
-  validateToken,
   listResumes,
   getUserProfile as fetchProfile,
   signInWithEmail,
@@ -121,13 +119,8 @@ export default function OptionsApp() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Token input state
-  const [tokenInput, setTokenInput] = useState('');
-  const [tokenStatus, setTokenStatus] = useState<'idle' | 'validating' | 'ok' | 'error'>('idle');
-  const [tokenError, setTokenError] = useState('');
-
   // Native Auth State
-  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'token'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -146,7 +139,17 @@ export default function OptionsApp() {
   // ── Bootstrap ────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    Promise.all([getAuth(), getSettings(), getCachedResumes(), getUserProfile()])
+    Promise.all([
+      getAuth().catch((error: unknown) => {
+        setAuthError(
+          error instanceof Error ? error.message : 'Could not load your saved JobIN session.',
+        );
+        return null;
+      }),
+      getSettings(),
+      getCachedResumes(),
+      getUserProfile(),
+    ])
       .then(([a, s, r, p]) => {
         setAuthState(a);
         setSettingsState(s);
@@ -159,81 +162,11 @@ export default function OptionsApp() {
           setProfileLoc(p.location ?? '');
         }
       })
+      .catch((error: unknown) => {
+        setAuthError(error instanceof Error ? error.message : 'Could not load JobIN settings.');
+      })
       .finally(() => setLoading(false));
   }, []);
-
-  // ── Token validation & sign-in (Paste Token option) ───────────────────────
-
-  const handleConnect = async () => {
-    if (!tokenInput.trim()) {
-      setTokenError('Paste your API access token');
-      return;
-    }
-    setTokenStatus('validating');
-    setTokenError('');
-
-    try {
-      // Temporarily write token to test it
-      const testAuth: AuthState = {
-        token: tokenInput.trim(),
-        userId: '',
-        email: '',
-        fullName: '',
-        expiresAt: Date.now() + 3600_000, // assume 1h
-      };
-      await setAuth(testAuth);
-
-      const ok = await validateToken();
-      if (!ok) throw new Error('Token validation failed');
-
-      // Fetch real user data
-      const userProfile = await fetchProfile();
-      const fullAuth: AuthState = {
-        token: tokenInput.trim(),
-        userId: userProfile.id,
-        email: userProfile.email,
-        fullName: userProfile.fullName,
-        avatarUrl: userProfile.avatarUrl,
-        expiresAt: Date.now() + 3600_000,
-      };
-      await setAuth(fullAuth);
-      setAuthState(fullAuth);
-
-      // Load resumes
-      const rs = await listResumes();
-      await setCachedResumes(rs);
-      setResumes(rs);
-
-      // Default resume
-      if (rs.length) {
-        const def = rs.find((r) => r.isDefault) ?? rs[0];
-        await setDefaultResumeId(def.id);
-        await setSettingsState((prev) => (prev ? { ...prev, defaultResumeId: def.id } : prev));
-      }
-
-      // Fetch user profile from backend
-      try {
-        const profileData = await fetchProfile();
-        await setUserProfile({
-          fullName: profileData.fullName,
-          email: profileData.email,
-          workHistory: [],
-          education: [],
-        });
-      } catch {
-        /* ignore profile sync if it fails */
-      }
-
-      setTokenStatus('ok');
-      setTokenInput('');
-      showSaved();
-    } catch (err: any) {
-      await clearAuth();
-      setAuthState(null);
-      setTokenStatus('error');
-      setTokenError(err.message ?? 'Invalid token or network error');
-    }
-  };
 
   // ── Direct Login / Sign Up Auth Handler ───────────────────────────────────
 
@@ -259,6 +192,8 @@ export default function OptionsApp() {
         const data = await signInWithOci(authMode === 'signup', email.trim() || undefined);
         authState = {
           token: data.access_token,
+          refreshToken: data.refresh_token,
+          tokenEndpoint: data.token_endpoint,
           userId: data.user.sub,
           email: data.user.email ?? '',
           fullName: data.user.name ?? data.user.email?.split('@')[0] ?? '',
@@ -297,10 +232,16 @@ export default function OptionsApp() {
       }
 
       await setAuth(authState);
-      setAuthState(authState);
+      let rs: Resume[];
+      let profileData: Awaited<ReturnType<typeof fetchProfile>>;
+      try {
+        [rs, profileData] = await Promise.all([listResumes(), fetchProfile()]);
+      } catch (error) {
+        await clearAuth();
+        throw error;
+      }
 
-      // Load resumes
-      const rs = await listResumes();
+      setAuthState(authState);
       await setCachedResumes(rs);
       setResumes(rs);
 
@@ -311,20 +252,14 @@ export default function OptionsApp() {
         await setSettingsState((prev) => (prev ? { ...prev, defaultResumeId: def.id } : prev));
       }
 
-      // Sync profile from backend
-      try {
-        const profileData = await fetchProfile();
-        const initialProfile = {
-          fullName: profileData.fullName,
-          email: profileData.email,
-          workHistory: [],
-          education: [],
-        };
-        await setUserProfile(initialProfile);
-        setProfile(initialProfile);
-      } catch {
-        /* ignore profile sync if it fails */
-      }
+      const initialProfile = {
+        fullName: profileData.fullName,
+        email: profileData.email,
+        workHistory: [],
+        education: [],
+      };
+      await setUserProfile(initialProfile);
+      setProfile(initialProfile);
 
       showSaved();
     } catch (err: any) {
@@ -339,7 +274,6 @@ export default function OptionsApp() {
     await clearAuth();
     setAuthState(null);
     setResumes([]);
-    setTokenStatus('idle');
   };
 
   // ── Settings update helpers ───────────────────────────────────────────────
@@ -422,7 +356,7 @@ export default function OptionsApp() {
             width: 44,
             height: 44,
             borderRadius: 12,
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            background: 'linear-gradient(135deg,#00d991,#008c60)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -468,7 +402,7 @@ export default function OptionsApp() {
                   height: 40,
                   borderRadius: '50%',
                   flexShrink: 0,
-                  background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                  background: 'linear-gradient(135deg,#00d991,#008c60)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -545,30 +479,9 @@ export default function OptionsApp() {
               >
                 Sign Up
               </button>
-              <button
-                type="button"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: authMode === 'token' ? 'var(--primary)' : 'var(--text-muted)',
-                  fontWeight: 600,
-                  fontSize: 13,
-                  padding: '6px 0',
-                  borderBottom:
-                    authMode === 'token' ? '2px solid var(--primary)' : '2px solid transparent',
-                  cursor: 'pointer',
-                  marginLeft: 'auto',
-                }}
-                onClick={() => {
-                  setAuthMode('token');
-                  setAuthError('');
-                }}
-              >
-                Advanced Token
-              </button>
             </div>
 
-            {authMode === 'token' ? (
+            {/*
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
                   Paste your API access token from the JobIN web app to connect.
@@ -603,14 +516,14 @@ export default function OptionsApp() {
                   {tokenStatus === 'validating' ? 'Validating…' : 'Connect Account'}
                 </button>
               </div>
-            ) : (
-              <form
-                onSubmit={handleNativeAuth}
-                style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
-              >
-                {authMode === 'signup' &&
-                  import.meta.env.VITE_AUTH_PROVIDER !== 'auth0' &&
-                  import.meta.env.VITE_AUTH_PROVIDER !== 'oci' && (
+            */}
+            <form
+              onSubmit={handleNativeAuth}
+              style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+            >
+              {authMode === 'signup' &&
+                import.meta.env.VITE_AUTH_PROVIDER !== 'auth0' &&
+                import.meta.env.VITE_AUTH_PROVIDER !== 'oci' && (
                   <div className="field">
                     <label className="label">Full Name</label>
                     <input
@@ -623,19 +536,19 @@ export default function OptionsApp() {
                     />
                   </div>
                 )}
-                <div className="field">
-                  <label className="label">Email Address</label>
-                  <input
-                    type="email"
-                    className="input"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    required={import.meta.env.VITE_AUTH_PROVIDER !== 'oci'}
-                  />
-                </div>
-                {import.meta.env.VITE_AUTH_PROVIDER !== 'auth0' &&
-                  import.meta.env.VITE_AUTH_PROVIDER !== 'oci' && (
+              <div className="field">
+                <label className="label">Email Address</label>
+                <input
+                  type="email"
+                  className="input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required={import.meta.env.VITE_AUTH_PROVIDER !== 'oci'}
+                />
+              </div>
+              {import.meta.env.VITE_AUTH_PROVIDER !== 'auth0' &&
+                import.meta.env.VITE_AUTH_PROVIDER !== 'oci' && (
                   <div className="field">
                     <label className="label">Password</label>
                     <input
@@ -649,44 +562,43 @@ export default function OptionsApp() {
                   </div>
                 )}
 
-                {authError && (
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: authError.includes('successful') ? 'var(--emerald)' : 'var(--red)',
-                      background: authError.includes('successful')
-                        ? 'rgba(52,211,153,0.06)'
-                        : 'rgba(248,113,113,0.06)',
-                      padding: '8px 10px',
-                      borderRadius: 6,
-                      border: authError.includes('successful')
-                        ? '1px solid rgba(52,211,153,0.2)'
-                        : '1px solid rgba(248,113,113,0.2)',
-                    }}
-                  >
-                    {authError}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={authLoading}
-                  style={{ marginTop: 6 }}
+              {authError && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: authError.includes('successful') ? 'var(--emerald)' : 'var(--red)',
+                    background: authError.includes('successful')
+                      ? 'rgba(52,211,153,0.06)'
+                      : 'rgba(248,113,113,0.06)',
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    border: authError.includes('successful')
+                      ? '1px solid rgba(52,211,153,0.2)'
+                      : '1px solid rgba(248,113,113,0.2)',
+                  }}
                 >
-                  {authLoading
-                    ? 'Authenticating…'
-                    : import.meta.env.VITE_AUTH_PROVIDER === 'auth0' ||
-                        import.meta.env.VITE_AUTH_PROVIDER === 'oci'
-                      ? `Continue with ${
-                          import.meta.env.VITE_AUTH_PROVIDER === 'oci' ? 'OCI' : 'Auth0'
-                        }`
-                      : authMode === 'login'
-                        ? 'Sign In'
-                        : 'Create Account'}
-                </button>
-              </form>
-            )}
+                  {authError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={authLoading}
+                style={{ marginTop: 6 }}
+              >
+                {authLoading
+                  ? 'Authenticating…'
+                  : import.meta.env.VITE_AUTH_PROVIDER === 'auth0' ||
+                      import.meta.env.VITE_AUTH_PROVIDER === 'oci'
+                    ? `Continue with ${
+                        import.meta.env.VITE_AUTH_PROVIDER === 'oci' ? 'OCI' : 'Auth0'
+                      }`
+                    : authMode === 'login'
+                      ? 'Sign In'
+                      : 'Create Account'}
+              </button>
+            </form>
           </div>
         )}
       </Section>
@@ -862,25 +774,6 @@ export default function OptionsApp() {
           </div>
         </Section>
       )}
-
-      {/* ── Section 6: API Configuration ── */}
-      <Section title="🔧 API Configuration">
-        <div className="field">
-          <label className="label">JobIN API URL</label>
-          <input
-            className="input"
-            value={settings?.apiUrl ?? ''}
-            onChange={async (e) => {
-              await updateSetting('apiUrl', e.target.value);
-            }}
-            placeholder="https://jobin-tmvb.onrender.com/api"
-          />
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-            Use the deployed API URL or your local API during development. Default:
-            https://jobin-tmvb.onrender.com/api
-          </p>
-        </div>
-      </Section>
 
       {/* ── Footer ── */}
       <div

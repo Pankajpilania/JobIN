@@ -8,6 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -127,4 +128,157 @@ export class AuthService {
         : null,
     };
   }
+
+  private hashPassword(password: string): string {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto
+      .pbkdf2Sync(password, salt, 10000, 64, 'sha512')
+      .toString('hex');
+
+    return `${salt}:${hash}`;
+  }
+
+  private verifyPassword(password: string, passwordHash?: string | null): boolean {
+    if (!password || !passwordHash || !passwordHash.includes(':')) {
+      return false;
+    }
+
+    const [salt, hash] = passwordHash.split(':');
+    if (!salt || !hash) {
+      return false;
+    }
+
+    const derivedHash = crypto
+      .pbkdf2Sync(password, salt, 10000, 64, 'sha512')
+      .toString('hex');
+
+    try {
+      return crypto.timingSafeEqual(
+        Buffer.from(hash, 'hex'),
+        Buffer.from(derivedHash, 'hex'),
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private getRoleNames(roles: any[] | undefined): string[] {
+    if (!Array.isArray(roles)) {
+      return [];
+    }
+
+    return roles
+      .map((entry) => entry?.role?.name ?? entry?.name)
+      .filter((name): name is string => Boolean(name));
+  }
+
+  private getAiCreditsValue(user: any): number {
+    if (!user) {
+      return 0;
+    }
+
+    if (typeof user.aiCredits?.remaining === 'number') {
+      return user.aiCredits.remaining;
+    }
+
+    if (user.aiCredits) {
+      const totalCredits = Number(user.aiCredits.totalCredits ?? 0);
+      const usedCredits = Number(user.aiCredits.usedCredits ?? 0);
+      return totalCredits - usedCredits;
+    }
+
+    return 0;
+  }
+
+  async register(dto: { email: string; password: string; fullName?: string }) {
+    const email = dto.email?.trim().toLowerCase();
+    const password = dto.password?.trim();
+
+    if (!email || !password) {
+      throw new BadRequestException('email and password are required');
+    }
+
+    if (password.length < 8) {
+      throw new BadRequestException('password must be at least 8 characters long');
+    }
+
+    const existingUser = await this.prisma.user.findUnique({ where: { email } });
+
+    if (existingUser) {
+      throw new ConflictException('User already exists');
+    }
+
+    const user = (await this.prisma.user.create({
+      data: {
+        email,
+        fullName: dto.fullName?.trim() || 'New User',
+        passwordHash: this.hashPassword(password),
+        status: 'ACTIVE',
+        lastLoginAt: new Date(),
+        aiCredits: { create: { remaining: 50 } },
+      } as any,
+      include: { aiCredits: true, roles: { include: { role: true } } },
+    })) as any;
+
+    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email });
+
+    return {
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        status: user.status,
+        roles: this.getRoleNames(user.roles),
+        aiCredits: this.getAiCreditsValue(user),
+      },
+    };
+  }
+
+  async login(dto: { email: string; password: string }) {
+    const email = dto.email?.trim().toLowerCase();
+    const password = dto.password?.trim();
+
+    if (!email || !password) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const user = (await this.prisma.user.findUnique({
+      where: { email },
+      include: { roles: { include: { role: true } }, aiCredits: true },
+    })) as any;
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.status === 'SUSPENDED' || user.status === 'DELETED') {
+      throw new UnauthorizedException('Account is suspended');
+    }
+
+    if (!this.verifyPassword(password, user.passwordHash)) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const updatedUser = (await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+      include: { roles: { include: { role: true } }, aiCredits: true },
+    }).catch(() => user)) as any;
+
+    const accessToken = this.jwtService.sign({ sub: updatedUser.id, email: updatedUser.email });
+
+    return {
+      accessToken,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        status: updatedUser.status,
+        roles: this.getRoleNames(updatedUser.roles),
+        aiCredits: this.getAiCreditsValue(updatedUser),
+      },
+    };
+  }
+
 }

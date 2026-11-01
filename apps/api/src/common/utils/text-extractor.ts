@@ -21,21 +21,30 @@ export type SupportedMimeType = (typeof SUPPORTED_MIME_TYPES)[number];
  */
 export async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<string> {
   try {
-    if (mimeType === 'application/pdf') {
+    const normalizedMimeType = mimeType.toLowerCase().split(';', 1)[0].trim();
+
+    if (normalizedMimeType === 'application/pdf') {
       const data = await pdfParse(buffer);
       return cleanText(data.text);
     }
 
-    if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    if (
+      normalizedMimeType ===
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
       const { value } = await mammoth.extractRawText({ buffer });
       return cleanText(value);
     }
 
     logger.warn(`Unsupported MIME type for text extraction: ${mimeType}`);
     return '';
-  } catch (err) {
-    logger.error(`Text extraction failed for ${mimeType}: ${err.message}`);
-    // Return empty string — we still store the resume, analysis just won't run
+  } catch (error) {
+    logger.error(
+      `Text extraction failed for ${mimeType}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    // Return empty string ? we still store the resume, analysis just won't run
     return '';
   }
 }

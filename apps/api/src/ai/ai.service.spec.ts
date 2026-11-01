@@ -66,4 +66,46 @@ describe('AIService provider routing', () => {
       fetchMock.mockRestore();
     }
   });
+
+  it('answers support questions through the configured AI provider', async () => {
+    const crypto = new AISettingsCrypto(config);
+    const prisma = {
+      aIPlatformSettings: {
+        findUnique: jest.fn().mockResolvedValue({
+          activeProvider: 'OPENAI',
+          activeModel: 'gpt-test',
+          baseUrl: null,
+        }),
+      },
+      aIProviderCredential: {
+        findUnique: jest.fn().mockResolvedValue({
+          encryptedApiKey: crypto.encrypt('test-provider-key'),
+        }),
+      },
+    } as unknown as PrismaService;
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: 'Open the Applications page from your dashboard.' } }],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    try {
+      const service = new AIService(config, prisma, crypto);
+      const result = await service.answerSupportQuestion([
+        { role: 'user', content: 'Where do I see my applications?' },
+      ]);
+
+      expect(result.answer).toBe('Open the Applications page from your dashboard.');
+      const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as {
+        messages: Array<{ content: string }>;
+      };
+      expect(body.messages[0].content).toContain("JobIN's AI support assistant");
+      expect(body.messages[0].content).toContain('Where do I see my applications?');
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
 });

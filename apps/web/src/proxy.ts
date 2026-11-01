@@ -4,8 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 export async function proxy(request: NextRequest) {
   if (
     request.nextUrl.pathname === '/' &&
-    (request.nextUrl.searchParams.has('code') ||
-      request.nextUrl.searchParams.has('error')) &&
+    (request.nextUrl.searchParams.has('code') || request.nextUrl.searchParams.has('error')) &&
     !request.nextUrl.searchParams.has('state')
   ) {
     const callbackUrl = request.nextUrl.clone();
@@ -62,6 +61,12 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/auth/signup') ||
     request.nextUrl.pathname.startsWith('/sign-in') ||
     request.nextUrl.pathname.startsWith('/sign-up') ||
+    request.nextUrl.pathname === '/extension' ||
+    request.nextUrl.pathname === '/support' ||
+    request.nextUrl.pathname === '/contact' ||
+    request.nextUrl.pathname === '/careers' ||
+    request.nextUrl.pathname === '/jobs' ||
+    request.nextUrl.pathname === '/about' ||
     request.nextUrl.pathname.startsWith('/admin-login') ||
     request.nextUrl.pathname.startsWith('/auth/callback') ||
     request.nextUrl.pathname.startsWith('/api/');
@@ -75,7 +80,7 @@ export async function proxy(request: NextRequest) {
     if (request.nextUrl.pathname.startsWith('/admin')) {
       url.pathname = '/admin-login';
     } else {
-      url.searchParams.set('next', request.nextUrl.pathname);
+      url.searchParams.set('next', `${request.nextUrl.pathname}${request.nextUrl.search}`);
       url.pathname = '/sign-in';
     }
     const redirectResponse = NextResponse.redirect(url);

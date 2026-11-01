@@ -86,24 +86,54 @@ export class JobTrackerService {
     }>,
   ) {
     const userId = await this.resolveUserId(supabaseId);
-    const urls = [...new Set(jobs.map((job) => job.jobUrl).filter(Boolean))];
+    const normalizeUrl = (value: string): string => {
+      const trimmed = value.trim();
+      try {
+        const parsed = new URL(trimmed);
+        for (const key of [...parsed.searchParams.keys()]) {
+          if (key.toLowerCase().startsWith('utm_')) parsed.searchParams.delete(key);
+        }
+        parsed.hash = '';
+        parsed.pathname = parsed.pathname.replace(/\/$/, '');
+        return parsed.href;
+      } catch {
+        return trimmed;
+      }
+    };
+
+    const urls = [
+      ...new Set(
+        jobs
+          .map((job) => job.jobUrl)
+          .filter(Boolean)
+          .map(normalizeUrl),
+      ),
+    ];
     const existing = await this.prisma.jobApplication.findMany({
       where: { userId, jobUrl: { in: urls } },
       select: { jobUrl: true },
     });
-    const seenUrls = new Set(existing.map((application) => application.jobUrl).filter(Boolean));
+    const seenUrls = new Set(
+      existing
+        .map((application) => application.jobUrl)
+        .filter(Boolean)
+        .map(normalizeUrl),
+    );
+    const pendingUrls = new Set<string>();
     let imported = 0;
     let skipped = 0;
 
     for (const job of jobs) {
-      if (!job.jobUrl || seenUrls.has(job.jobUrl)) {
+      const normalized = normalizeUrl(job.jobUrl);
+      if (!normalized || seenUrls.has(normalized) || pendingUrls.has(normalized)) {
         skipped += 1;
         continue;
       }
 
+      const companyName = job.companyName || 'Unknown company';
       const company = await this.prisma.company.upsert({
-        where: { name: job.companyName },
-        create: { name: job.companyName, website: job.jobUrl },
+        where: { name: companyName },
+        create: { name: companyName, website: job.jobUrl },
         update: {},
       });
       await this.prisma.jobApplication.create({
@@ -111,7 +141,7 @@ export class JobTrackerService {
           userId,
           companyId: company.id,
           jobTitle: job.jobTitle,
-          companyName: job.companyName,
+          companyName,
           location: job.location,
           jobUrl: job.jobUrl,
           jobDescription: job.jobDescription,
@@ -120,7 +150,8 @@ export class JobTrackerService {
           status: 'SAVED',
         },
       });
-      seenUrls.add(job.jobUrl);
+      pendingUrls.add(normalized);
+      seenUrls.add(normalized);
       imported += 1;
     }
 

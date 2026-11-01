@@ -16,6 +16,8 @@ import {
   LogOut,
   ChevronRight,
   X,
+  LifeBuoy,
+  Download,
   Search,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
@@ -34,6 +36,8 @@ const navItems = [
   { href: '/interview', label: 'AI Copilot', icon: MessageSquare, badge: 'BETA' },
   { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/upgrade', label: 'Upgrade plan', icon: CreditCard },
+  { href: '/support', label: 'Support', icon: LifeBuoy },
+  { href: '/extension', label: 'Chrome extension', icon: Download },
 ];
 
 interface SidebarNavProps {
@@ -299,6 +303,22 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ isMobileOpen, onMobileCl
           >
             <LogOut style={{ height: '16px', width: '16px' }} />
           </button>
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 12,
+            marginTop: 12,
+            fontSize: 11,
+          }}
+        >
+          <Link href="/about" onClick={onMobileClose} style={{ color: 'var(--text-3)' }}>
+            About
+          </Link>
+          <Link href="/contact" onClick={onMobileClose} style={{ color: 'var(--text-3)' }}>
+            Contact
+          </Link>
         </div>
       </div>
     </aside>

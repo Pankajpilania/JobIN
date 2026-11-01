@@ -35,7 +35,7 @@ function ScoreBar({ label, before, after }: { label: string; before: number; aft
       <div
         style={{
           height: 4,
-          background: 'rgba(255,255,255,0.06)',
+          background: 'rgba(17,21,17,0.08)',
           borderRadius: 99,
           overflow: 'hidden',
         }}
@@ -46,7 +46,7 @@ function ScoreBar({ label, before, after }: { label: string; before: number; aft
             width: `${after}%`,
             background:
               delta >= 0
-                ? 'linear-gradient(90deg,#6366f1,#34d399)'
+                ? 'linear-gradient(90deg,#00d991,#008c60)'
                 : 'linear-gradient(90deg,#ef4444,#f97316)',
             borderRadius: 99,
             transition: 'width 0.8s ease',
@@ -532,7 +532,7 @@ function CoverLetterTab({
                 width: 14,
                 height: 14,
                 borderTopColor: 'white',
-                borderColor: 'rgba(255,255,255,0.2)',
+                borderColor: 'rgba(17,21,17,0.16)',
               }}
             />{' '}
             Generating…
@@ -609,6 +609,7 @@ function CoverLetterTab({
 export default function App() {
   const [tab, setTab] = useState<Tab>('tailor');
   const [auth, setAuth] = useState<AuthState | null>(null);
+  const [authError, setAuthError] = useState('');
   const [loading, setLoading] = useState(true);
   const [job, setJob] = useState<DetectedJob | null>(null);
   const [resumes, setResumes] = useState<Resume[]>([]);
@@ -616,13 +617,14 @@ export default function App() {
 
   useEffect(() => {
     Promise.all([
-      sendMsg<{ auth: AuthState | null }>(MSG.GET_AUTH),
+      sendMsg<{ auth: AuthState | null; error?: string }>(MSG.GET_AUTH),
       sendMsg<{ job: DetectedJob | null }>(MSG.GET_DETECTED_JOB),
       sendMsg<{ resumes: Resume[] }>(MSG.GET_RESUMES),
       sendMsg<{ settings: any }>(MSG.GET_SETTINGS),
     ])
       .then(([authRes, jobRes, resumesRes, settingsRes]) => {
         setAuth(authRes?.auth ?? null);
+        setAuthError(authRes?.error ?? '');
         setJob(jobRes?.job ?? null);
         const rs = resumesRes?.resumes ?? [];
         setResumes(rs);
@@ -631,6 +633,9 @@ export default function App() {
           ? rs.find((r: Resume) => r.id === defId)
           : rs.find((r: Resume) => r.isDefault);
         setDefaultResumeId(def?.id ?? rs[0]?.id ?? '');
+      })
+      .catch((error: unknown) => {
+        setAuthError(error instanceof Error ? error.message : 'Could not load your JobIN session.');
       })
       .finally(() => setLoading(false));
   }, []);
@@ -672,12 +677,17 @@ export default function App() {
         }}
       >
         <div style={{ fontSize: 48 }}>🔐</div>
+        {authError && (
+          <p role="alert" style={{ color: 'var(--red)', lineHeight: 1.5 }}>
+            {authError}
+          </p>
+        )}
         <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 22, fontWeight: 700 }}>
           Connect your JobIN account
         </h2>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: 280 }}>
-          Paste your Clerk JWT in the extension options to start tailoring resumes and generating
-          cover letters.
+          Sign in with your JobIN account in extension settings to tailor resumes and generate
+          cover letters. OCI sessions renew automatically while they remain valid.
         </p>
         <button
           className="btn btn-primary"
@@ -705,7 +715,7 @@ export default function App() {
           gap: 10,
           padding: '12px 16px',
           borderBottom: '1px solid var(--border)',
-          background: 'linear-gradient(180deg,rgba(99,102,241,0.08),transparent)',
+          background: 'linear-gradient(180deg,rgba(0,217,145,0.1),transparent)',
           flexShrink: 0,
         }}
       >
@@ -714,7 +724,7 @@ export default function App() {
             width: 28,
             height: 28,
             borderRadius: 7,
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            background: 'linear-gradient(135deg,#00d991,#008c60)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

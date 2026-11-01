@@ -185,7 +185,7 @@ function BrandMark() {
 
 function MatchPreview({ job }: { job: Job }) {
   return (
-    <div className="match-preview" data-ui="job-match-preview">
+    <div className="match-preview" data-ui="job-match-preview" data-reveal>
       <div className="preview-topline">
         <span className="preview-live">
           <i /> Example match
@@ -304,37 +304,45 @@ function FeatureFragment({ kind }: { kind: string }) {
   );
 }
 
+function MotionEffects() {
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!('IntersectionObserver' in window)) return;
+
+    const page = document.querySelector<HTMLElement>('.jobin-home');
+    if (!page) return;
+
+    const revealElements = page.querySelectorAll<HTMLElement>('[data-reveal]');
+    if (!revealElements.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.12 },
+    );
+
+    page.classList.add('motion-ready');
+    revealElements.forEach((element) => observer.observe(element));
+
+    return () => {
+      observer.disconnect();
+      page.classList.remove('motion-ready');
+    };
+  }, []);
+
+  return null;
+}
+
 export default function LandingPage() {
   const [activeTab, setActiveTab] = useState('Best matches');
   const [searchQuery, setSearchQuery] = useState('');
   const [workType, setWorkType] = useState('All');
   const [location, setLocation] = useState('All');
-
-  useEffect(() => {
-    const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
-    if (!targets.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    document.documentElement.classList.add('motion-ready');
-    if (!('IntersectionObserver' in window)) {
-      targets.forEach((target) => target.classList.add('is-visible'));
-      return () => document.documentElement.classList.remove('motion-ready');
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.14, rootMargin: '0px 0px -35px 0px' },
-    );
-    targets.forEach((target) => observer.observe(target));
-    return () => {
-      observer.disconnect();
-      document.documentElement.classList.remove('motion-ready');
-    };
-  }, []);
 
   const filteredJobs = useMemo(
     () =>
@@ -370,6 +378,8 @@ export default function LandingPage() {
 
   return (
     <main className="jobin-home">
+      <MotionEffects />
+
       <nav className="home-nav" aria-label="Main navigation">
         <Link href="/" className="brand-lockup" aria-label="JobIN home">
           <BrandMark />
@@ -396,6 +406,10 @@ export default function LandingPage() {
 
       <section className="home-hero">
         <div className="hero-copy">
+          <div className="hero-kicker">
+            <Sparkles size={14} />
+            <span>A clearer path to your next role</span>
+          </div>
           <h1>
             <span className="hero-title-line">
               <span>Apply smarter.</span>
@@ -427,6 +441,13 @@ export default function LandingPage() {
         </div>
         <div className="hero-product">
           <MatchPreview job={ALL_JOBS[5]} />
+          <div className="floating-match-badge" aria-hidden="true">
+            <span className="floating-match-icon"><Check size={14} /></span>
+            <span>
+              Skills aligned
+              <small>3 profile matches · Example</small>
+            </span>
+          </div>
           <div className="hero-product-note">
             <span className="note-spark">
               <Sparkles size={15} />
@@ -620,7 +641,7 @@ export default function LandingPage() {
         <div className="pricing-grid">
           {PLANS.map((plan) => (
             <article
-              className={`price-card ${plan.popular ? 'price-card-featured' : ''}`}
+              className="price-card"
               data-reveal
               key={plan.plan}
             >
@@ -633,7 +654,7 @@ export default function LandingPage() {
               <p className="plan-desc">{plan.desc}</p>
               <Link
                 href={`/upgrade?plan=${plan.plan === 'Pro Max' ? 'PRO' : 'PREMIUM'}`}
-                className={`button ${plan.popular ? 'button-dark' : 'button-outline'}`}
+                className="button button-outline price-plan-button"
               >
                 {plan.cta} <ArrowRight size={15} />
               </Link>
@@ -686,6 +707,7 @@ export default function LandingPage() {
             <a href="#jobs">Job matches</a>
             <a href="#features">Resume tools</a>
             <a href="#how-it-works">How it works</a>
+            <Link href="/extension">Chrome extension</Link>
           </div>
           <div className="footer-column">
             <b>Account</b>
@@ -695,9 +717,11 @@ export default function LandingPage() {
           </div>
           <div className="footer-column">
             <b>Company</b>
+            <Link href="/about">About JobIN</Link>
+            <Link href="/support">Support</Link>
             <a href="#privacy">Privacy policy</a>
             <a href="#terms">Terms of service</a>
-            <a href="mailto:hello@jobin.app">Contact</a>
+            <Link href="/contact">Contact</Link>
           </div>
         </div>
         <div className="footer-bottom">
