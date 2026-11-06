@@ -160,6 +160,12 @@ export default function AdminAISettingsPage() {
             onChange={(event) => setModel(event.target.value)}
             placeholder="Model identifier from your provider"
           />
+          {provider === 'KIMI' && (
+            <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>
+              Enter any Kimi model ID enabled for your Moonshot AI API key. The default is
+              kimi-k3.1-pro; model availability depends on your account.
+            </span>
+          )}
         </label>
         {provider !== 'GEMINI' && (
           <label
@@ -262,9 +268,9 @@ export default function AdminAISettingsPage() {
         </Button>
       </Card>
       <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0 }}>
-        Supported adapters: Gemini, OpenAI-compatible APIs (OpenAI, DeepSeek, Groq, NVIDIA NIM,
-        and compatible Ollama hosts), and Anthropic Claude. OpenAI API billing is separate from a
-        ChatGPT subscription.
+        Supported adapters: Gemini, OpenAI-compatible APIs (OpenAI, DeepSeek, Groq, Kimi, NVIDIA
+        NIM, and compatible Ollama hosts), and Anthropic Claude. OpenAI API billing is separate from
+        a ChatGPT subscription.
       </p>
     </div>
   );

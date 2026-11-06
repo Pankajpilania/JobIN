@@ -110,7 +110,7 @@ export class AIService {
       body = {
         model,
         messages: [{ role: 'user', content: prompt }],
-        ...(json && (provider === 'OPENAI' || provider === 'GROQ')
+        ...(json && (provider === 'OPENAI' || provider === 'GROQ' || provider === 'KIMI')
           ? { response_format: { type: 'json_object' } }
           : {}),
       };
@@ -168,6 +168,8 @@ export class AIService {
         return 'https://api.deepseek.com';
       case 'GROQ':
         return 'https://api.groq.com/openai/v1';
+      case 'KIMI':
+        return 'https://api.moonshot.ai/v1';
       case 'NVIDIA':
         return 'https://integrate.api.nvidia.com/v1';
       default:

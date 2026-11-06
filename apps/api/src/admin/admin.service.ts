@@ -803,6 +803,12 @@ export class AdminService {
         baseUrl: 'https://api.groq.com/openai/v1',
       },
       {
+        id: 'KIMI',
+        label: 'Kimi (Moonshot AI)',
+        model: 'kimi-k3.1-pro',
+        baseUrl: 'https://api.moonshot.ai/v1',
+      },
+      {
         id: 'NVIDIA',
         label: 'NVIDIA NIM',
         model: 'meta/llama-3.1-8b-instruct',
