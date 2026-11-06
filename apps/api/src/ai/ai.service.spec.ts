@@ -234,4 +234,69 @@ describe('AIService provider routing', () => {
       fetchMock.mockRestore();
     }
   });
+
+  it('retries short Kimi concurrency rate limits and then returns the completion', async () => {
+    const crypto = new AISettingsCrypto(config);
+    const prisma = {
+      aIPlatformSettings: {
+        findUnique: jest.fn().mockResolvedValue({
+          activeProvider: 'KIMI',
+          activeModel: 'kimi-custom-model',
+          baseUrl: null,
+        }),
+      },
+      aIProviderCredential: {
+        findUnique: jest.fn().mockResolvedValue({
+          encryptedApiKey: crypto.encrypt('test-kimi-key'),
+        }),
+      },
+    } as unknown as PrismaService;
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              message:
+                'request reached max organization concurrency: 1, please try again after 0.01 seconds',
+              type: 'rate_limit_reached_error',
+            },
+          }),
+          { status: 429, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    healthScore: 80,
+                    summary: 'Clear and relevant.',
+                    formattingIssues: [],
+                    keywordSuggestions: [],
+                    missingSections: [],
+                    strengths: ['Relevant experience'],
+                    improvements: [],
+                  }),
+                },
+              },
+            ],
+            usage: { prompt_tokens: 25, completion_tokens: 15 },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+
+    try {
+      const service = new AIService(config, prisma, crypto);
+      const result = await service.analyseResume('Candidate resume');
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(result.result.healthScore).toBe(80);
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
 });

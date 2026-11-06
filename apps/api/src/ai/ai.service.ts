@@ -54,6 +54,7 @@ interface AICompletion {
 @Injectable()
 export class AIService {
   private readonly logger = new Logger(AIService.name);
+  private kimiRequestQueue: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly config: ConfigService,
@@ -116,13 +117,15 @@ export class AIService {
       };
     }
 
-    const response = await fetch(endpoint, {
+    const requestOptions: RequestInit = {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120_000),
-    });
-    const responseText = await response.text();
+    };
+    const { response, responseText } =
+      provider === 'KIMI'
+        ? await this.fetchKimiCompletion(endpoint, requestOptions)
+        : await this.fetchCompletion(endpoint, requestOptions);
     if (!response.ok) {
       throw new Error(
         `${provider} request failed (${response.status}): ${responseText.slice(0, 500)}`,
@@ -156,6 +159,64 @@ export class AIService {
       inputTokens: payload.usage?.prompt_tokens ?? payload.usage?.input_tokens ?? 0,
       outputTokens: payload.usage?.completion_tokens ?? payload.usage?.output_tokens ?? 0,
     };
+  }
+
+  private async fetchCompletion(
+    endpoint: string,
+    requestOptions: RequestInit,
+  ): Promise<{ response: Response; responseText: string }> {
+    const response = await fetch(endpoint, {
+      ...requestOptions,
+      signal: AbortSignal.timeout(120_000),
+    });
+    return { response, responseText: await response.text() };
+  }
+
+  private async fetchKimiCompletion(
+    endpoint: string,
+    requestOptions: RequestInit,
+  ): Promise<{ response: Response; responseText: string }> {
+    const previousRequest = this.kimiRequestQueue;
+    let releaseRequest!: () => void;
+    this.kimiRequestQueue = new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
+
+    await previousRequest;
+    try {
+      for (let attempt = 0; ; attempt += 1) {
+        const result = await this.fetchCompletion(endpoint, requestOptions);
+        if (result.response.status !== 429 || attempt >= 2) return result;
+
+        const retryDelayMs = this.kimiRetryDelayMs(result.response, result.responseText, attempt);
+        if (retryDelayMs === null) return result;
+
+        this.logger.warn(`Kimi rate limit reached; retrying in ${retryDelayMs}ms.`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+    } finally {
+      releaseRequest();
+    }
+  }
+
+  private kimiRetryDelayMs(
+    response: Response,
+    responseText: string,
+    attempt: number,
+  ): number | null {
+    const retryAfter = response.headers.get('retry-after');
+    let delayMs: number;
+    if (retryAfter && Number.isFinite(Number(retryAfter))) {
+      delayMs = Number(retryAfter) * 1000;
+    } else if (retryAfter) {
+      delayMs = Date.parse(retryAfter) - Date.now();
+    } else {
+      const seconds = responseText.match(/try again after\s+(\d+(?:\.\d+)?)\s*seconds?/i);
+      delayMs = seconds ? Number(seconds[1]) * 1000 : 1000 * 2 ** attempt;
+    }
+
+    if (!Number.isFinite(delayMs) || delayMs < 0 || delayMs > 5000) return null;
+    return Math.ceil(delayMs + Math.random() * 250);
   }
 
   private defaultBaseUrl(provider: string): string {
