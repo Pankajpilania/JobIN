@@ -244,9 +244,10 @@ export default function App() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div className="extension-popup" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       {/* ── Header ── */}
       <div
+        className="extension-header"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -306,7 +307,7 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="extension-popup-content" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {/* ── Job detected ── */}
         {job ? (
           <div

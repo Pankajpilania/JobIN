@@ -1,0 +1,35 @@
+:root {
+  --color-paper: oklch(99.5% 0.002 155);
+  --color-paper-2: oklch(97% 0.008 155);
+  --color-paper-3: oklch(94% 0.018 155);
+  --color-ink: oklch(18% 0.012 155);
+  --color-ink-2: oklch(35% 0.018 155);
+  --color-muted: oklch(49% 0.018 155);
+  --color-rule: oklch(89% 0.012 155);
+  --color-accent: oklch(78% 0.17 160);
+  --color-accent-ink: oklch(18% 0.012 155);
+  --color-focus: oklch(52% 0.12 160);
+  --font-display: var(--font-titillium), 'Titillium Web', ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-outlier: var(--font-body);
+  --radius-card: 16px;
+  --radius-pill: 999px;
+  --rule-hair: 1px;
+  --shadow-card: none;
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+  --space-4xl: 144px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+}

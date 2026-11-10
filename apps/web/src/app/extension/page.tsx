@@ -5,7 +5,7 @@ const extensionUrl = process.env.NEXT_PUBLIC_CHROME_EXTENSION_URL?.trim();
 
 export default function ExtensionPage() {
   return (
-    <main style={{ minHeight: '100vh', background: 'var(--surface-2)', color: 'var(--text-1)' }}>
+    <main className="public-page public-extension-page" style={{ minHeight: '100vh', background: 'var(--surface-2)', color: 'var(--text-1)' }}>
       <header
         style={{
           display: 'flex',

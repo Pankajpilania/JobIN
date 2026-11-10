@@ -1,0 +1,43 @@
+html,
+body {
+  overflow-x: clip;
+}
+
+html {
+  scroll-padding-top: 6rem;
+  scrollbar-color: var(--color-muted) var(--color-paper-2);
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  caret-color: var(--color-accent);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-accent) 22%, transparent);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

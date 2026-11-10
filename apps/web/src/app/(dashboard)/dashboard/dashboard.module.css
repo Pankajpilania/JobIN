@@ -353,3 +353,55 @@
   .heroPrimary, .heroSecondary { transition: none; }
   .orbit, .flightPath path, .artBriefcase, .artSparkle, .floatCard { animation: none; }
 }
+
+/* JobIN's product canvas follows the flat-paper and restrained-motion system. */
+.hero {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: #111512;
+  box-shadow: none;
+}
+
+.hero::before,
+.hero::after { display: none; }
+
+.hero h1 { letter-spacing: -.035em !important; }
+.hero h1 span { color: #00d991 !important; }
+.heroArt::before { background: #18392b; box-shadow: none; }
+.orbit { animation: none; border-color: rgba(221, 255, 239, .18); }
+.orbitTwo { border-style: solid; }
+.artBriefcase { animation: none; box-shadow: none; backdrop-filter: none; }
+.artSparkle, .floatCard { animation: none; backdrop-filter: none; box-shadow: none; }
+.floatCard { border-color: #dce5de; }
+
+.statsGrid :global(.app-glass-card) {
+  border-color: var(--border) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+
+.statsGrid :global(.app-glass-card-interactive:hover) {
+  border-color: #00a96f !important;
+  box-shadow: none !important;
+}
+
+.contentGrid :global(.app-glass-card) {
+  border-color: var(--border) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+
+.contentGrid :global(.app-glass-card a > div) {
+  border: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.contentGrid :global(.app-glass-card a > div:hover) {
+  background: var(--surface-2) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit, .flightPath path, .artBriefcase, .artSparkle, .floatCard { animation: none !important; }
+}
