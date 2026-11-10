@@ -10,8 +10,10 @@ import {
   IsUrl,
   ValidateNested,
   IsArray,
+  IsISO8601,
+  MinLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 // ─── List users ───────────────────────────────────────────────────────────────
@@ -111,6 +113,60 @@ export class UpdateStripePricesDto {
   @ValidateNested({ each: true })
   @Type(() => StripePriceInputDto)
   prices!: StripePriceInputDto[];
+}
+
+export class CreateDiscountCodeDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @IsString()
+  @MinLength(3)
+  @MaxLength(40)
+  @Matches(/^[A-Z0-9-]+$/)
+  code!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  percentOff!: number;
+
+  @IsEnum(['ONCE', 'REPEATING', 'FOREVER'])
+  duration!: 'ONCE' | 'REPEATING' | 'FOREVER';
+
+  @ApiPropertyOptional({ description: 'Required when duration is REPEATING.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  durationInMonths?: number;
+
+  @ApiPropertyOptional({ description: 'UTC ISO 8601 timestamp after which new redemptions stop.' })
+  @IsOptional()
+  @IsISO8601({ strict: true, strictSeparator: true })
+  @Matches(/Z$/)
+  expiresAt?: string;
+
+  @ApiPropertyOptional({ description: 'Global redemption limit across all customers.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  maxRedemptions?: number;
+}
+
+export class ListDiscountCodesDto {
+  @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 50;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  startingAfter?: string;
 }
 
 export class UpdateAIPlatformSettingsDto {

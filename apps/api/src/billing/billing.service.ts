@@ -233,6 +233,9 @@ export class BillingService {
       const session = await this.stripe.checkout.sessions.create({
         mode: 'subscription',
         line_items: [{ price: priceId, quantity: 1 }],
+        // Codes are entered on Stripe Checkout, so their future billing duration is unknown here.
+        // Always collect a payment method so finite 100% discounts can renew successfully later.
+        payment_method_collection: 'always',
         success_url: `${appOrigin.origin}/upgrade?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${appOrigin.origin}/upgrade?checkout=cancelled`,
         client_reference_id: user.id,

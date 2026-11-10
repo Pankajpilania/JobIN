@@ -422,6 +422,57 @@ model SavedJob {
   @@index([userId])
 }
 
+/// Public job-board listing shared across candidate searches.
+model JobListing {
+  id             String    @id @default(uuid())
+  source         String
+  sourceBoard    String    @default("")
+  externalId     String
+  title          String
+  company        String
+  location       String?
+  remote         Boolean   @default(false)
+  workplaceType  String?
+  employmentType String?
+  url            String    @db.Text
+  description    String?   @db.Text
+  salary         String?
+  tags           String[]  @default([])
+  postedAt       DateTime?
+  isActive       Boolean   @default(true)
+  firstSeenAt    DateTime  @default(now())
+  lastSeenAt     DateTime  @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([source, sourceBoard, externalId])
+  @@index([isActive, postedAt])
+  @@index([isActive, remote, postedAt])
+  @@index([location])
+  @@index([source, isActive])
+}
+
+/// Per-feed scheduler state and a short lease preventing duplicate refreshes.
+model JobFeedSyncState {
+  id            String    @id @default(uuid())
+  source        String
+  sourceBoard   String    @default("")
+  lastAttemptAt DateTime?
+  lastSuccessAt DateTime?
+  nextSyncAt    DateTime?
+  lastError     String?   @db.Text
+  lastJobCount  Int       @default(0)
+  lockToken     String?
+  lockedUntil   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([source, sourceBoard])
+  @@index([nextSyncAt])
+  @@index([lastSuccessAt])
+}
+
 enum AccountStatus {
   ACTIVE
   SUSPENDED

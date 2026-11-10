@@ -10,6 +10,7 @@ import {
   Loader2,
   ShieldCheck,
   Sparkles,
+  Tag,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
@@ -600,6 +601,31 @@ export default function UpgradePage() {
                     : 'Sign in to continue'
                   : 'Not available yet'}
           </button>
+          <p
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 9,
+              margin: '-8px 0 0',
+              padding: '11px 12px',
+              border: '1px solid #dceee3',
+              borderRadius: 10,
+              background: '#f5fbf6',
+              color: 'var(--text-2)',
+              fontSize: 12,
+              lineHeight: 1.55,
+            }}
+          >
+            <Tag
+              size={15}
+              aria-hidden="true"
+              style={{ flex: '0 0 auto', marginTop: 1, color: 'var(--brand-dark)' }}
+            />
+            <span>
+              <strong style={{ color: 'var(--text-1)' }}>Have a discount code?</strong>{' '}
+              Continue to Stripe Checkout and enter it there. Stripe will show the discounted amount before you confirm. For offers that expire, it may collect payment details for future renewals.
+            </span>
+          </p>
         </div>
 
         <aside

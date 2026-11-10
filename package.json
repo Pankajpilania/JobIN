@@ -25,12 +25,15 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "husky": "^9.0.11",
-    "lint-staged": "^15.2.2",
-    "prettier": "^3.2.4"
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.9.10"
   },
   "overrides": {
-    "multer": "2.5.0"
+    "multer": "2.5.0",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.5"
+    }
   },
   "lint-staged": {
     "apps/**/*.{ts,tsx}": [

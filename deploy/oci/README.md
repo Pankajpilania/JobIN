@@ -127,7 +127,7 @@ curl -fsS https://api.jobin.today/api/health/ready
 
 ## 5. Connect the Vercel frontend
 
-In the Vercel project that deploys the website, set `NEXT_PUBLIC_API_URL` to `https://api.jobin.today/api` and `NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY` to the Web3Forms access key for the `159ring@gmail.com` inbox, then redeploy. `NEXT_PUBLIC_*` values are bundled at build time, so changing a variable alone does not update an existing deployment. Keep Preview pointed at Production only if that is intentional.
+In the Vercel project that deploys the website, set `NEXT_PUBLIC_API_URL` to `https://api.jobin.today/api` and `NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY` to the Web3Forms access key configured for the `info@jobin.today` inbox, then redeploy. `NEXT_PUBLIC_*` values are bundled at build time, so changing a variable alone does not update an existing deployment. Keep Preview pointed at Production only if that is intentional.
 
 The web app's fallback API URL is also `https://api.jobin.today/api`; an explicit Vercel variable is recommended so the deployment configuration remains visible.
 

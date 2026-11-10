@@ -49,7 +49,7 @@ export default function SupportPage() {
           </p>
           <Web3FormsForm type="support" />
           <a
-            href="mailto:159ring@gmail.com?subject=JobIN%20Support"
+            href="mailto:info@jobin.today?subject=JobIN%20Support"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -59,7 +59,7 @@ export default function SupportPage() {
               fontWeight: 800,
             }}
           >
-            <Mail size={17} /> Or email 159ring@gmail.com
+            <Mail size={17} /> Or email info@jobin.today
           </a>
         </section>
 

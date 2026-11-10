@@ -8,7 +8,9 @@ describe('BillingService customer portal', () => {
   let config: { get: jest.Mock };
   let prisma: {
     user: { findUnique: jest.Mock };
-    stripePriceConfig: { findMany: jest.Mock };
+    plan: { findUnique: jest.Mock; findFirst: jest.Mock };
+    stripePriceConfig: { findUnique: jest.Mock; findMany: jest.Mock };
+    subscription: { findFirst: jest.Mock; create: jest.Mock };
     aIUsage: { aggregate: jest.Mock };
   };
   let service: BillingService;
@@ -17,7 +19,15 @@ describe('BillingService customer portal', () => {
     config = { get: jest.fn((key: string, fallback?: string) => fallback) };
     prisma = {
       user: { findUnique: jest.fn() },
-      stripePriceConfig: { findMany: jest.fn().mockResolvedValue([]) },
+      plan: { findUnique: jest.fn(), findFirst: jest.fn().mockResolvedValue(null) },
+      stripePriceConfig: {
+        findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      subscription: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'db-subscription' }),
+      },
       aIUsage: {
         aggregate: jest.fn().mockResolvedValue({
           _sum: { creditUnits: 0, totalTokens: 0, estimatedCostUsd: 0 },
@@ -51,6 +61,52 @@ describe('BillingService customer portal', () => {
     await expect(service.createPortalSession('supabase-user-id')).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('enables Stripe Checkout codes and always collects a payment method', async () => {
+    config.get.mockImplementation((key: string, fallback?: string) =>
+      key === 'STRIPE_SECRET_KEY' ? 'sk_test_dummy' : fallback,
+    );
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'user@example.com', subscriptions: [] });
+    prisma.plan.findUnique.mockResolvedValue({ id: 'plan-1', isActive: true });
+    prisma.stripePriceConfig.findUnique.mockResolvedValue({ stripePriceId: 'price_test' });
+    const createSession = jest.spyOn(service['stripe'].checkout.sessions, 'create').mockResolvedValue({
+      id: 'cs_test_1', url: 'https://checkout.stripe.test/session',
+    } as Stripe.Response<Stripe.Checkout.Session>);
+
+    await expect(service.createCheckoutSession('supabase-1', {
+      plan: 'PREMIUM', currency: 'GBP', interval: 'MONTHLY',
+    })).resolves.toEqual({ url: 'https://checkout.stripe.test/session', sessionId: 'cs_test_1' });
+    expect(createSession).toHaveBeenCalledWith(expect.objectContaining({
+      allow_promotion_codes: true,
+      payment_method_collection: 'always',
+      mode: 'subscription',
+    }));
+  });
+
+  it('activates a subscription from a completed zero-total Checkout webhook', async () => {
+    prisma.stripePriceConfig.findUnique.mockResolvedValue({
+      plan: { id: 'plan-1' },
+    });
+    jest.spyOn(service['stripe'].webhooks, 'constructEvent').mockReturnValue({
+      type: 'checkout.session.completed',
+      data: { object: {
+        mode: 'subscription', subscription: 'sub_zero_total',
+        payment_status: 'no_payment_required', metadata: { userId: 'user-1' },
+      } },
+    } as Stripe.Event);
+    jest.spyOn(service['stripe'].subscriptions, 'retrieve').mockResolvedValue({
+      id: 'sub_zero_total', status: 'active', current_period_start: 1_800_000_000,
+      current_period_end: 1_802_592_000, cancel_at_period_end: false,
+      items: { data: [{ price: { id: 'price_test' } }] },
+    } as unknown as Stripe.Response<Stripe.Subscription>);
+
+    await expect(service.handleWebhook(Buffer.from('event'), 'signature')).resolves.toEqual({ received: true });
+    expect(prisma.subscription.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        userId: 'user-1', planId: 'plan-1', stripeSubscriptionId: 'sub_zero_total', status: 'ACTIVE',
+      }),
+    }));
   });
 
   it('only advertises currencies and intervals with active configured Stripe prices', async () => {

@@ -43,9 +43,6 @@ const signupHref = '/sign-up';
 export function Logo() {
   return (
     <Link href="/careers" className={styles.logo} aria-label="JobIN home">
-      <span className={styles.logoMark}>
-        <Sparkles size={19} aria-hidden="true" />
-      </span>
       JobIN
     </Link>
   );

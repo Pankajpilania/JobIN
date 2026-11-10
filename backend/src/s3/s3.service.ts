@@ -76,7 +76,7 @@ export class S3Service {
       await this.s3.send(command);
       this.logger.log(`Deleted file from S3: ${key}`);
     } catch (error) {
-      this.logger.error(`Failed to delete file from S3: ${error.message}`);
+      this.logger.error(`Failed to delete file from S3: ${error instanceof Error ? error.message : String(error)}`);
       throw new InternalServerErrorException('Failed to delete file from storage');
     }
   }
@@ -91,7 +91,7 @@ export class S3Service {
       const url = await getSignedUrl(this.s3, command, { expiresIn });
       return url;
     } catch (error) {
-      this.logger.error(`Failed to generate signed URL: ${error.message}`);
+      this.logger.error(`Failed to generate signed URL: ${error instanceof Error ? error.message : String(error)}`);
       throw new InternalServerErrorException('Failed to generate download URL');
     }
   }

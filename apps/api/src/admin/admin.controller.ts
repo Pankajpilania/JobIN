@@ -23,6 +23,8 @@ import {
   ListSubscriptionsDto,
   UpdateStripePricesDto,
   UpdateAIPlatformSettingsDto,
+  CreateDiscountCodeDto,
+  ListDiscountCodesDto,
 } from './dto/admin.dto';
 
 @ApiTags('Admin')
@@ -56,6 +58,37 @@ export class AdminController {
   @RequireAdminRole('FINANCE_ADMIN')
   updateStripePrices(@Body() dto: UpdateStripePricesDto, @Req() req: any) {
     return this.adminService.updateStripePrices(req.adminUser?.id ?? 'system', dto, req.ip);
+  }
+
+  @Get('discount-codes')
+  @RequireAdminRole('FINANCE_ADMIN')
+  @ApiOperation({ summary: 'List Stripe subscription discount codes' })
+  getDiscountCodes(@Query() dto: ListDiscountCodesDto) {
+    return this.adminService.getDiscountCodes(dto);
+  }
+
+  @Post('discount-codes')
+  @HttpCode(HttpStatus.CREATED)
+  @RequireAdminRole('FINANCE_ADMIN')
+  @ApiOperation({ summary: 'Create a public percentage discount code for subscriptions' })
+  createDiscountCode(@Body() dto: CreateDiscountCodeDto, @Req() req: any) {
+    return this.adminService.createDiscountCode(
+      req.adminUser?.id ?? 'system',
+      dto,
+      req.ip ?? req.headers?.['x-forwarded-for'],
+    );
+  }
+
+  @Patch('discount-codes/:id/deactivate')
+  @HttpCode(HttpStatus.OK)
+  @RequireAdminRole('FINANCE_ADMIN')
+  @ApiOperation({ summary: 'Deactivate a public Stripe promotion code' })
+  deactivateDiscountCode(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.deactivateDiscountCode(
+      req.adminUser?.id ?? 'system',
+      id,
+      req.ip ?? req.headers?.['x-forwarded-for'],
+    );
   }
 
   @Get('ai-settings')

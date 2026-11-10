@@ -44,7 +44,7 @@ export default function ContactPage() {
             don’t include passwords, sign-in codes, or payment details.
           </p>
           <a
-            href="mailto:159ring@gmail.com"
+            href="mailto:info@jobin.today"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -53,7 +53,7 @@ export default function ContactPage() {
               fontWeight: 800,
             }}
           >
-            159ring@gmail.com <ArrowUpRight size={16} />
+            info@jobin.today <ArrowUpRight size={16} />
           </a>
         </section>
       </div>
