@@ -266,7 +266,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     cursor: 'pointer',
                     backgroundColor: active ? 'var(--brand-light)' : 'transparent',
                     color: active ? 'var(--brand)' : 'var(--text-2)',
-                    border: active ? '1px solid rgba(79, 70, 229, 0.2)' : '1px solid transparent',
+                    border: active ? '1px solid color-mix(in oklab, var(--brand) 20%, transparent)' : '1px solid transparent',
                   }}
                 >
                   <Icon
@@ -280,7 +280,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <span style={{ flex: 1 }}>{label}</span>
                   {active && (
                     <ChevronRight
-                      style={{ height: '12px', width: '12px', color: 'rgba(79, 70, 229, 0.5)' }}
+                      style={{ height: '12px', width: '12px', color: 'var(--brand-mid)' }}
                     />
                   )}
                 </motion.div>
@@ -294,7 +294,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           style={{
             borderTop: '1px solid var(--border)',
             padding: '16px',
-            backgroundColor: 'rgba(248, 249, 255, 0.3)',
+            backgroundColor: 'var(--surface-2)',
           }}
         >
           <div

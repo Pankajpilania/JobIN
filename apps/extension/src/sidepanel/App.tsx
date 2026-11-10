@@ -706,9 +706,10 @@ export default function App() {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div className="extension-sidepanel" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Header */}
       <div
+        className="extension-header"
         style={{
           display: 'flex',
           alignItems: 'center',

@@ -173,7 +173,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ isMobileOpen, onMobileCl
                   cursor: 'pointer',
                   backgroundColor: active ? 'var(--brand-light)' : 'transparent',
                   color: active ? 'var(--brand)' : 'var(--text-2)',
-                  border: active ? '1px solid rgba(79, 70, 229, 0.2)' : '1px solid transparent',
+                  border: active ? '1px solid color-mix(in oklab, var(--brand) 20%, transparent)' : '1px solid transparent',
                 }}
               >
                 <Icon
@@ -189,7 +189,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ isMobileOpen, onMobileCl
                   <span
                     style={{
                       borderRadius: '999px',
-                      backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                      backgroundColor: 'var(--brand-light)',
                       padding: '2px 6px',
                       fontSize: '10px',
                       fontWeight: 700,
@@ -201,7 +201,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ isMobileOpen, onMobileCl
                 )}
                 {active && (
                   <ChevronRight
-                    style={{ height: '12px', width: '12px', color: 'rgba(79, 70, 229, 0.5)' }}
+                    style={{ height: '12px', width: '12px', color: 'var(--brand-mid)' }}
                   />
                 )}
               </motion.div>
@@ -215,7 +215,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ isMobileOpen, onMobileCl
         style={{
           borderTop: '1px solid var(--border)',
           padding: '16px',
-          backgroundColor: 'rgba(248, 249, 255, 0.3)',
+          backgroundColor: 'var(--surface-2)',
         }}
       >
         <div

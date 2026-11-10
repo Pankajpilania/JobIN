@@ -341,6 +341,7 @@ export default function OptionsApp() {
 
   return (
     <div
+      className="extension-options"
       style={{
         maxWidth: 640,
         margin: '0 auto',
@@ -350,7 +351,7 @@ export default function OptionsApp() {
       }}
     >
       {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
+      <div className="extension-options-header" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
         <div
           style={{
             width: 44,

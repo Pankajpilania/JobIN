@@ -8,7 +8,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, style, hoverEffect = true, ...props }, ref) => {
     const surfaceColor =
       style?.backgroundColor === undefined || style.backgroundColor === 'var(--surface)'
-        ? 'rgba(255, 255, 255, 0.78)'
+        ? 'var(--surface)'
         : style.backgroundColor;
 
     return (
@@ -17,15 +17,15 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
         className={`app-glass-card${hoverEffect ? ' app-glass-card-interactive' : ''}${className ? ` ${className}` : ''}`}
         style={{
           borderRadius: 'var(--radius)',
-          border: '1px solid rgba(255, 255, 255, 0.82)',
+          border: '1px solid var(--border)',
           padding: '24px',
           transition: 'var(--transition)',
           color: 'var(--text-1)',
-          boxShadow: hoverEffect ? 'var(--shadow-sm)' : 'none',
+          boxShadow: 'none',
           ...style,
           backgroundColor: surfaceColor,
-          backdropFilter: 'blur(18px) saturate(1.24)',
-          WebkitBackdropFilter: 'blur(18px) saturate(1.24)',
+          backdropFilter: 'none',
+          WebkitBackdropFilter: 'none',
         }}
         {...props}
       />

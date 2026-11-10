@@ -3,7 +3,7 @@ import { ArrowRight, Compass, Sparkles } from 'lucide-react';
 
 export default function AboutPage() {
   return (
-    <main style={{ minHeight: '100vh', padding: '24px', background: 'var(--surface-2)' }}>
+    <main className="public-page public-about-page" style={{ minHeight: '100vh', padding: '24px', background: 'var(--surface-2)' }}>
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
         <Link href="/" style={{ color: 'var(--brand-dark)', fontWeight: 800 }}>
           JobIN

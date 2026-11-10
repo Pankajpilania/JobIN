@@ -1,4 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+/* Hallmark · shape: app screens · genre: modern-minimal · theme: JobIN brand · redesign: full
+ * paper: oklch(99.5% 0.002 155) · accent: oklch(78% 0.17 160) · display: Titillium Web · body: Inter
+ * nav: kept dashboard and admin shells · signature: job discovery workspace · states: existing loading, empty, error, full
+ * axes: light/grotesk-sans/cool · posture: restrained · contrast: verify · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E3 S4 R4 V3 · weakest: E, kept each route’s custom layout and refined the shared surfaces */
+@import url('./tokens.css');
+@import url('./base.css');
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -94,7 +100,7 @@ input, select, textarea {
   font-size: 14px;
 }
 
-* { transition: var(--transition); }
+button, a, input, select, textarea, [role='button'] { transition: var(--transition); }
 
 /* ─── Mobile Responsiveness (max-width: 768px) ───────────────────────────── */
 @media (max-width: 768px) {
@@ -203,26 +209,66 @@ input, select, textarea {
   }
 }
 
+/* Shared product styling across dashboard, admin, account and utility pages. */
+html { scroll-behavior: smooth; }
+body { background-color: var(--surface-2); }
+main:not(.jobin-home) h1,
+main:not(.jobin-home) h2,
+main:not(.jobin-home) h3 { font-family: var(--font-display), var(--font-sans); }
+main:not(.jobin-home) :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+  min-height: 42px;
+  border-color: var(--border);
+  background-color: rgba(255,255,255,.9);
+  color: var(--text-1);
+  transition: background-color .18s ease;
+}
+main:not(.jobin-home) textarea { min-height: 90px; }
+main:not(.jobin-home) :is(input,select,textarea)::placeholder { color: var(--text-3); }
+main:not(.jobin-home) :is(input,select,textarea):focus { background-color: var(--surface); }
+main:not(.jobin-home) button:not(:disabled) { transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease; }
+main:not(.jobin-home) button:not(:disabled):active { transform: translateY(1px) scale(.99); }
+.dashboard-shell { background: #f3f7f4 !important; }
+.dashboard-sidebar { background: rgba(251,253,251,.94) !important; border-right-color: rgba(219,231,221,.9) !important; }
+.dashboard-sidebar nav a > div { border: 1px solid transparent; }
+.dashboard-sidebar nav a:hover > div { background: #f0f7f2 !important; }
+.dashboard-sidebar nav a > div[aria-current='page'] { box-shadow: inset 3px 0 #087d59; }
+.dashboard-topbar { background-color: rgba(255,255,255,.88) !important; backdrop-filter: blur(18px) saturate(1.15) !important; }
+.app-glass-card { box-shadow: 0 8px 28px rgba(26,58,38,.055); }
+.app-glass-card-interactive:hover { box-shadow: 0 18px 42px rgba(20,72,43,.11); }
+.admin-portal-shell { background: #f3f7f4; }
+.admin-portal-shell > aside { border-right: 1px solid rgba(219,231,221,.88); }
+:focus-visible { outline: 3px solid rgba(8,125,89,.24); outline-offset: 2px; }
+
+@media (max-width: 768px) {
+  main:not(.jobin-home) h1 { font-size: clamp(30px, 8vw, 38px); line-height: 1.08; }
+  main:not(.jobin-home) h2 { font-size: clamp(22px, 6vw, 29px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  main:not(.jobin-home) { animation: none; }
+}
+
 /* JobIN visual system: adapted from the Jobright DESIGN.md in awesome-design-md. */
 :root {
   color-scheme: light;
-  --brand: #00d991;
-  --brand-dark: #007f57;
-  --brand-light: #ecffe0;
-  --brand-mid: #54e9b1;
+  --brand: #007f57;
+  --brand-dark: #005d41;
+  --brand-light: #edffe5;
+  --brand-mid: #00d991;
   --surface: #ffffff;
-  --surface-2: #f3ffeF;
-  --surface-3: #e9f6e5;
-  --text-1: #111511;
+  --surface-2: #f7faf7;
+  --surface-3: #edffe5;
+  --text-1: #111512;
   --text-2: #3d4942;
   --text-3: #68756d;
   --border: #dce5de;
-  --radius: 14px;
-  --radius-sm: 8px;
+  --radius: 16px;
+  --radius-sm: 10px;
   --radius-pill: 999px;
-  --shadow-card: 0 16px 48px rgba(20, 35, 26, .08);
-  --shadow-sm: 0 4px 16px rgba(20, 35, 26, .05);
-  --transition: color .16s ease, background-color .16s ease, border-color .16s ease, transform .16s ease;
+  --shadow-card: none;
+  --shadow-sm: none;
+  --transition: color .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
   --font-sans: var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: var(--font-titillium), 'Titillium Web', var(--font-sans);
 }
@@ -230,14 +276,14 @@ input, select, textarea {
 @media (prefers-color-scheme: dark) {
   :root {
     --surface: #ffffff;
-    --surface-2: #f3ffef;
-    --surface-3: #e9f6e5;
-    --text-1: #111511;
-    --text-2: #3d4942;
-    --text-3: #68756d;
-    --border: #dce5de;
-    --brand-light: #ecffe0;
-    --shadow-card: 0 16px 48px rgba(20, 35, 26, .08);
+    --surface-2: #f4f8f5;
+    --surface-3: #eaf2ec;
+    --text-1: #16241b;
+    --text-2: #4e5d53;
+    --text-3: #76847b;
+    --border: #dfe8e1;
+    --brand-light: #e9f8ef;
+    --shadow-card: 0 18px 46px rgba(21, 53, 34, .085);
   }
 }
 
@@ -248,23 +294,26 @@ input, select, textarea {
 main:not(.jobin-home) { animation: app-route-enter .28s cubic-bezier(.22,1,.36,1) both; }
 .dashboard-main, .admin-portal-main {
   background-image:
-    radial-gradient(ellipse at 92% 4%, rgba(0, 217, 145, .09), transparent 34%),
-    radial-gradient(ellipse at 8% 94%, rgba(106, 225, 168, .08), transparent 38%);
+    radial-gradient(ellipse at 92% 4%, rgba(8, 125, 89, .075), transparent 34%),
+    radial-gradient(ellipse at 8% 94%, rgba(144, 206, 163, .09), transparent 38%);
   background-attachment: fixed;
   background-size: 140% 140%;
   animation: dashboard-aurora 24s ease-in-out infinite alternate;
 }
 .dashboard-topbar { border-bottom-color: rgba(215, 229, 220, .78) !important; }
+.dashboard-sidebar { box-shadow: 10px 0 34px rgba(26, 60, 39, .035); }
+.dashboard-sidebar nav a { border-radius: 12px; }
+.dashboard-topbar input { border-radius: 9px; }
 .app-glass-card {
-  border-color: rgba(255, 255, 255, .86);
-  backdrop-filter: blur(18px) saturate(1.24);
-  -webkit-backdrop-filter: blur(18px) saturate(1.24);
+  border-color: rgba(255, 255, 255, .92);
+  backdrop-filter: blur(18px) saturate(1.18);
+  -webkit-backdrop-filter: blur(18px) saturate(1.18);
 }
 .app-glass-card-interactive { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
 .app-glass-card-interactive:hover {
-  transform: translateY(-2px);
-  border-color: rgba(0, 140, 96, .18);
-  box-shadow: 0 16px 38px rgba(20, 72, 43, .1);
+  transform: translateY(-3px);
+  border-color: rgba(8, 125, 89, .22);
+  box-shadow: 0 18px 42px rgba(20, 72, 43, .11);
 }
 .admin-portal-shell > aside {
   background-color: rgba(255, 255, 255, .82) !important;
@@ -276,6 +325,15 @@ section[aria-label="Subscription checkout"] {
   backdrop-filter: blur(20px) saturate(1.25);
   -webkit-backdrop-filter: blur(20px) saturate(1.25);
 }
+main:not(.jobin-home) :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+  border-radius: 11px;
+}
+main:not(.jobin-home) :is(input, select, textarea):focus-visible {
+  outline: 3px solid rgba(8, 125, 89, .16);
+  outline-offset: 1px;
+}
+main:not(.jobin-home) button:not(:disabled):active { transform: translateY(1px) scale(.99); }
+main:not(.jobin-home) a { text-underline-offset: 3px; }
 @keyframes app-route-enter {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -283,6 +341,84 @@ section[aria-label="Subscription checkout"] {
 @keyframes dashboard-aurora {
   from { background-position: 0% 0%, 100% 100%; }
   to { background-position: 100% 45%, 0% 60%; }
+}
+
+/* Shared JobIN website finish: steady paper surfaces, clear hierarchy, responsive controls. */
+html, body { overflow-x: clip; }
+body { background: var(--surface-2); }
+main:not(.jobin-home) h1,
+main:not(.jobin-home) h2,
+main:not(.jobin-home) h3 {
+  color: var(--text-1);
+  font-family: var(--font-display), var(--font-sans);
+  letter-spacing: -.025em;
+  text-wrap: balance;
+}
+main:not(.jobin-home) h1 { font-size: clamp(32px, 3vw, 46px); font-weight: 700; line-height: 1.08; }
+main:not(.jobin-home) h2 { font-size: clamp(23px, 2vw, 30px); font-weight: 700; line-height: 1.16; }
+main:not(.jobin-home) h3 { font-size: 19px; font-weight: 650; line-height: 1.28; }
+main:not(.jobin-home) p { line-height: 1.65; }
+main:not(.jobin-home) :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-1);
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+main:not(.jobin-home) :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+main:not(.jobin-home) button:not(:disabled) { transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out), box-shadow var(--dur-short) var(--ease-out); }
+main:not(.jobin-home) button:not(:disabled):active { transform: translateY(1px); }
+.dashboard-main, .admin-portal-main {
+  background-color: var(--surface-2) !important;
+  background-image: none !important;
+  background-attachment: initial !important;
+  animation: none !important;
+}
+.dashboard-sidebar {
+  background: var(--surface) !important;
+  box-shadow: 1px 0 0 var(--border) !important;
+}
+.dashboard-topbar {
+  background: color-mix(in oklab, var(--surface) 94%, transparent) !important;
+  backdrop-filter: blur(12px) !important;
+}
+.dashboard-sidebar nav a > div[aria-current='page'],
+.admin-portal-shell nav a[aria-current='page'] { box-shadow: inset 3px 0 var(--brand); }
+.admin-portal-shell > aside {
+  background: var(--surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.app-glass-card {
+  border-color: var(--border) !important;
+  background: var(--surface) !important;
+  box-shadow: var(--shadow-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.app-glass-card-interactive:hover {
+  border-color: color-mix(in oklab, var(--brand) 38%, var(--border)) !important;
+  box-shadow: 0 5px 16px color-mix(in oklab, var(--brand) 9%, transparent) !important;
+  transform: translateY(-2px);
+}
+.dashboard-sidebar nav a, .admin-portal-shell nav a { color: var(--text-2); }
+.dashboard-sidebar nav a:hover, .admin-portal-shell nav a:hover { color: var(--brand-dark); }
+main:not(.jobin-home) :is(table) { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+main:not(.jobin-home) :is(th) { color: var(--text-2); font-weight: 600; }
+main:not(.jobin-home) :is(td, th) { border-color: var(--border); }
+main:not(.jobin-home) a { text-underline-offset: .18em; }
+main:not(.jobin-home) :is(button, a, input, select, textarea) { scroll-margin-block: 1rem; }
+
+@media (max-width: 768px) {
+  .dashboard-main, .admin-portal-main { padding: 20px 16px !important; }
+  main:not(.jobin-home) h1 { font-size: clamp(29px, 8vw, 36px); }
+  main:not(.jobin-home) h2 { font-size: clamp(22px, 6vw, 28px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-main, .admin-portal-main, .app-glass-card-interactive:hover { animation: none !important; transform: none; }
 }
 
 .jobin-home {
@@ -785,5 +921,63 @@ section[aria-label="Subscription checkout"] {
   select,
   textarea {
     font-size: 16px;
+  }
+}
+
+/* Public pages use the same flat JobIN surfaces as the product workspace. */
+.home-hero {
+  background: var(--brand-light);
+}
+.home-hero::before,
+.home-hero::after,
+.hero-orbit { display: none; }
+.hero-product { animation: none; }
+.match-preview,
+.floating-match-badge {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.match-preview::before,
+.floating-match-badge::before { display: none; }
+.jobin-home.motion-ready [data-reveal] {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+.public-about-page > div { max-width: 1050px !important; }
+.public-about-page > div > section {
+  border: 0 !important;
+  border-top: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.public-about-page > div > section > div:last-of-type {
+  grid-template-columns: 1.15fr 1fr 1fr !important;
+  gap: 0 !important;
+  margin-top: 40px !important;
+  border-top: 1px solid var(--border);
+}
+.public-about-page > div > section > div:last-of-type article {
+  border: 0 !important;
+  border-right: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 24px 24px 24px 0 !important;
+}
+.public-about-page > div > section > div:last-of-type article + article { padding-left: 24px !important; }
+.public-about-page > div > section > div:last-of-type article:last-child { border-right: 0 !important; }
+.public-contact-page > div > section { box-shadow: none !important; }
+
+@media (max-width: 700px) {
+  .public-about-page > div > section > div:last-of-type { grid-template-columns: 1fr !important; }
+  .public-about-page > div > section > div:last-of-type article,
+  .public-about-page > div > section > div:last-of-type article + article {
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 20px 0 !important;
   }
 }
