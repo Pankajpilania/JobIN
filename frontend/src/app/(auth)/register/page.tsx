@@ -106,10 +106,10 @@ export default function RegisterPage() {
               variables: {
                 colorPrimary: 'hsl(217, 91%, 60%)',
                 colorBackground: 'hsl(224, 20%, 8%)',
-                colorText: 'hsl(210, 40%, 98%)',
-                colorTextSecondary: 'hsl(215, 20%, 55%)',
-                colorInputBackground: 'hsl(224, 15%, 14%)',
-                colorInputText: 'hsl(210, 40%, 98%)',
+                colorForeground: 'hsl(210, 40%, 98%)',
+                colorMutedForeground: 'hsl(215, 20%, 55%)',
+                colorInput: 'hsl(224, 15%, 14%)',
+                colorInputForeground: 'hsl(210, 40%, 98%)',
                 borderRadius: '0.75rem',
                 fontFamily: 'Inter, sans-serif',
               },
@@ -128,7 +128,7 @@ export default function RegisterPage() {
                 dividerText: 'text-muted-foreground',
               },
             }}
-            redirectUrl="/onboarding"
+            forceRedirectUrl="/onboarding"
           />
         </div>
       </motion.div>

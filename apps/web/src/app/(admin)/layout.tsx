@@ -17,6 +17,7 @@ import {
   AlertCircle,
   ChevronRight,
   Settings2,
+  Tag,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
@@ -27,6 +28,7 @@ const NAV = [
   { href: '/admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
   { href: '/admin/billing', label: 'Billing', icon: DollarSign },
   { href: '/admin/payment-settings', label: 'Payment settings', icon: Settings2 },
+  { href: '/admin/discount-codes', label: 'Discount codes', icon: Tag },
   { href: '/admin/ai-settings', label: 'AI settings', icon: Bot },
   { href: '/admin/ai-usage', label: 'AI Usage', icon: Bot },
   { href: '/admin/tickets', label: 'Support', icon: AlertCircle },

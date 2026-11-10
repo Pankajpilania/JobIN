@@ -2,7 +2,7 @@
 
 import { useUser as useClerkUser, useAuth } from '@clerk/nextjs'
 import { useQuery } from '@tanstack/react-query'
-import { createApiClient } from '@/lib/api-client'
+import { apiClient } from '@/lib/api-client'
 import { QUERY_KEYS } from '@/lib/constants'
 import type { User, DashboardStats } from '@/types'
 
@@ -14,8 +14,7 @@ export function useUser() {
     queryKey: QUERY_KEYS.user,
     queryFn: async () => {
       const token = await getToken()
-      const client = createApiClient(token)
-      const response = await client.get<{ data: User }>('/api/v1/users/me')
+      const response = await apiClient.get<{ data: User }>('/users/me', token ?? undefined)
       return response.data
     },
     enabled: isSignedIn,
@@ -39,8 +38,7 @@ export function useDashboardStats() {
     queryKey: [...QUERY_KEYS.user, 'stats'],
     queryFn: async () => {
       const token = await getToken()
-      const client = createApiClient(token)
-      const response = await client.get<{ data: DashboardStats }>('/api/v1/users/stats')
+      const response = await apiClient.get<{ data: DashboardStats }>('/users/stats', token ?? undefined)
       return response.data
     },
     enabled: isSignedIn,
@@ -49,10 +47,9 @@ export function useDashboardStats() {
       applicationsThisWeek: 12,
       totalApplications: 48,
       interviewRate: 24,
-      avgAtsScore: 87,
-      offersCount: 2,
-      creditsRemaining: 150,
-      creditsTotal: 200,
-    } as DashboardStats,
+      resumeHealthScore: 87,
+      aiCreditsRemaining: 150,
+      activeInterviews: 2,
+    },
   })
 }

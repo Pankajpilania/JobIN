@@ -1,5 +1,8 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { JobTrackerService } from '../job-tracker/job-tracker.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { BrowseJobListingsDto } from './dto/browse-job-listings.dto';
 import { SearchJobsDto } from './dto/search-jobs.dto';
 
 export interface SearchJob {
@@ -14,6 +17,24 @@ export interface SearchJob {
   postedAt?: string;
   source: string;
   tags: string[];
+  workplaceType?: string;
+  employmentType?: string;
+}
+
+export interface SyncableJobFeed {
+  source: string;
+  sourceBoard: string;
+  name: string;
+  fetch: () => Promise<{ jobs: SearchJob[]; completeSnapshot: boolean }>;
+}
+
+interface ConfiguredBoardFeed {
+  source: string;
+  sourceBoard: string;
+  name: string;
+  attributionUrl: string;
+  load: () => Promise<SearchJob[]>;
+  fetchFresh: () => Promise<SearchJob[]>;
 }
 
 interface SourceResult {
@@ -27,6 +48,46 @@ export interface JobSearchResponse {
   sources: Array<{ name: string; attributionUrl: string }>;
   sourceErrors: Array<{ name: string; error: string }>;
   importSummary: { imported: number; skipped: number } | null;
+}
+
+export interface CatalogueSearchResponse {
+  jobs: SearchJob[];
+  pagination: { page: number; pageSize: number; total: number; totalPages: number };
+  lastSyncedAt: string | null;
+  sources: Array<{
+    name: string;
+    source: string;
+    sourceBoard: string;
+    attributionUrl: string;
+    availability: 'available' | 'stale' | 'pending' | 'unavailable';
+    lastSuccessAt: string | null;
+  }>;
+  sourceErrors: Array<{ name: string; error: string }>;
+}
+
+interface CatalogueJobRow {
+  id: string;
+  title: string;
+  company: string;
+  location: string | null;
+  remote: boolean;
+  workplaceType: string | null;
+  employmentType: string | null;
+  url: string;
+  description: string | null;
+  salary: string | null;
+  tags: string[];
+  visaSponsorshipLikely: boolean;
+  postedAt: Date | null;
+  source: string;
+}
+
+interface FeedSyncStatusRow {
+  source: string;
+  sourceBoard: string;
+  lastAttemptAt: Date | null;
+  lastSuccessAt: Date | null;
+  lastError: string | null;
 }
 
 interface CacheEntry {
@@ -43,6 +104,10 @@ interface RemotiveResponse {
   jobs?: Array<Record<string, unknown>>;
 }
 
+interface AshbyResponse {
+  jobs?: Array<Record<string, unknown>>;
+}
+
 @Injectable()
 export class JobSearchService {
   private readonly logger = new Logger(JobSearchService.name);
@@ -50,7 +115,127 @@ export class JobSearchService {
   private readonly inFlight = new Map<string, Promise<SearchJob[]>>();
   private remotiveLastRequestedAt = 0;
 
-  constructor(private readonly jobTrackerService: JobTrackerService) {}
+  constructor(
+    private readonly jobTrackerService: JobTrackerService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  async browseCatalogue(dto: BrowseJobListingsDto): Promise<CatalogueSearchResponse> {
+    const queryTerms = dto.query?.trim().split(/\s+/).filter(Boolean) ?? [];
+    const predicates: Prisma.Sql[] = [Prisma.sql`"isActive" = TRUE`];
+
+    for (const term of queryTerms) {
+      const pattern = `%${escapeLike(term)}%`;
+      predicates.push(Prisma.sql`(
+        "title" ILIKE ${pattern} OR "company" ILIKE ${pattern} OR
+        COALESCE("location", '') ILIKE ${pattern} OR
+        COALESCE("description", '') ILIKE ${pattern} OR
+        array_to_string("tags", ' ') ILIKE ${pattern}
+      )`);
+    }
+
+    const location = dto.location?.trim();
+    if (location) {
+      predicates.push(Prisma.sql`COALESCE("location", '') ILIKE ${`%${escapeLike(location)}%`}`);
+    }
+    if (dto.remoteOnly) predicates.push(Prisma.sql`"remote" = TRUE`);
+    if (dto.visaSponsorshipOnly) predicates.push(visaSponsorshipMatchSql());
+    if (dto.source) predicates.push(Prisma.sql`"source" = ${dto.source}`);
+
+    const postedAfter = postedWithinDate(dto.postedWithin);
+    if (postedAfter) predicates.push(Prisma.sql`"postedAt" >= ${postedAfter}`);
+
+    const where = Prisma.sql`WHERE ${Prisma.join(predicates, ' AND ')}`;
+    const offset = (dto.page - 1) * dto.pageSize;
+    const order = buildCatalogueOrder(dto.sort, queryTerms);
+
+    let rows: CatalogueJobRow[];
+    let total: number;
+    let feedStates: FeedSyncStatusRow[];
+    try {
+      const [jobRows, countRows, statuses] = await Promise.all([
+        this.prisma.$queryRaw<CatalogueJobRow[]>(Prisma.sql`
+          SELECT "id", "title", "company", "location", "remote", "workplaceType",
+                 "employmentType", "url", "description", "salary", "tags", "postedAt", "source",
+                 ${visaSponsorshipMatchSql()} AS "visaSponsorshipLikely"
+          FROM "JobListing"
+          ${where}
+          ${order}
+          LIMIT ${dto.pageSize} OFFSET ${offset}
+        `),
+        this.prisma.$queryRaw<Array<{ total: bigint }>>(Prisma.sql`
+          SELECT COUNT(*)::bigint AS total FROM "JobListing" ${where}
+        `),
+        this.prisma.jobFeedSyncState.findMany({
+          select: { source: true, sourceBoard: true, lastAttemptAt: true, lastSuccessAt: true, lastError: true },
+          orderBy: [{ source: 'asc' }, { sourceBoard: 'asc' }],
+        }),
+      ]);
+      rows = jobRows;
+      total = Number(countRows[0]?.total ?? 0n);
+      feedStates = statuses;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('JobListing') || message.includes('JobFeedSyncState')) {
+        throw new ServiceUnavailableException(
+          'The job catalogue is not ready yet. Apply the catalogue migration and wait for its first sync.',
+        );
+      }
+      throw error;
+    }
+
+    const sources = feedStates.map((state) => {
+      const hasSuccess = Boolean(state.lastSuccessAt);
+      const availability = state.lastError
+        ? hasSuccess
+          ? 'stale'
+          : 'unavailable'
+        : hasSuccess
+          ? 'available'
+          : 'pending';
+      return {
+        name: state.sourceBoard ? `${state.source} (${state.sourceBoard})` : state.source,
+        source: state.source,
+        sourceBoard: state.sourceBoard,
+        attributionUrl: sourceAttributionUrl(state.source, state.sourceBoard),
+        availability,
+        lastSuccessAt: state.lastSuccessAt?.toISOString() ?? null,
+      } as const;
+    });
+    const successfulSyncs = feedStates.flatMap((state) =>
+      state.lastSuccessAt ? [state.lastSuccessAt.getTime()] : [],
+    );
+
+    return {
+      jobs: rows.map((job) => ({
+        id: job.id,
+        title: job.title,
+        company: job.company,
+        location: job.location ?? 'Location not specified',
+        remote: job.remote,
+        workplaceType: job.workplaceType ?? undefined,
+        employmentType: job.employmentType ?? undefined,
+        url: job.url,
+        description: job.description ?? '',
+        salary: job.salary ?? undefined,
+        tags: job.tags,
+        visaSponsorshipLikely: job.visaSponsorshipLikely,
+        postedAt: job.postedAt?.toISOString(),
+        source: job.source,
+      })),
+      pagination: {
+        page: dto.page,
+        pageSize: dto.pageSize,
+        total,
+        totalPages: Math.ceil(total / dto.pageSize),
+      },
+      lastSyncedAt: successfulSyncs.length ? new Date(Math.max(...successfulSyncs)).toISOString() : null,
+      sources,
+      sourceErrors: sources
+        .filter((source) => source.availability === 'stale' || source.availability === 'unavailable')
+        .map(({ name }) => ({ name, error: 'This source is temporarily unavailable.' })),
+    };
+  }
 
   async search(userId: string, dto: SearchJobsDto): Promise<JobSearchResponse> {
     const sources: Array<{
@@ -158,6 +343,60 @@ export class JobSearchService {
     });
   }
 
+  getSyncableFeeds(): SyncableJobFeed[] {
+    // Remotive stays request-only because its public API terms restrict third-party job-site republication.
+    return [
+      {
+        source: 'Arbeitnow',
+        sourceBoard: '',
+        name: 'Arbeitnow',
+        fetch: () => this.fetchArbeitnowSnapshot(),
+      },
+      ...this.getConfiguredBoards().map((feed) => ({
+        source: feed.source,
+        sourceBoard: feed.sourceBoard,
+        name: feed.name,
+        fetch: async () => ({ jobs: await feed.fetchFresh(), completeSnapshot: true }),
+      })),
+    ];
+  }
+
+  private async fetchArbeitnowSnapshot(): Promise<{
+    jobs: SearchJob[];
+    completeSnapshot: boolean;
+  }> {
+    const jobs: SearchJob[] = [];
+    const visitedPages = new Set<string>();
+    let nextPage: string | null = 'https://www.arbeitnow.com/api/job-board-api?page=1';
+    let completeSnapshot = false;
+
+    for (let pageCount = 0; pageCount < 50 && nextPage; pageCount += 1) {
+      if (visitedPages.has(nextPage)) throw new Error('Arbeitnow pagination repeated a page.');
+      visitedPages.add(nextPage);
+
+      const response = await this.fetchJson<ArbeitnowResponse>(nextPage);
+      jobs.push(...(response.data ?? []).map((job) => this.normalizeArbeitnow(job)));
+
+      if (!response.links?.next) {
+        completeSnapshot = true;
+        nextPage = null;
+        continue;
+      }
+
+      const parsedNextPage = new URL(response.links.next, 'https://www.arbeitnow.com');
+      if (
+        parsedNextPage.protocol !== 'https:' ||
+        !['arbeitnow.com', 'www.arbeitnow.com'].includes(parsedNextPage.hostname) ||
+        parsedNextPage.pathname !== '/api/job-board-api'
+      ) {
+        throw new Error('Arbeitnow returned an invalid pagination URL.');
+      }
+      nextPage = parsedNextPage.href;
+    }
+
+    return { jobs, completeSnapshot };
+  }
+
   private async getRemotiveJobs(): Promise<SearchJob[]> {
     return this.getCached('remotive', 8 * 60 * 60 * 1000, async () => {
       const minimumInterval = 6 * 60 * 60 * 1000;
@@ -172,33 +411,64 @@ export class JobSearchService {
     });
   }
 
-  private getConfiguredBoards() {
+  private getConfiguredBoards(): ConfiguredBoardFeed[] {
     const greenhouseBoards = this.readBoardSlugs('JOB_SEARCH_GREENHOUSE_BOARDS');
     const leverBoards = this.readBoardSlugs('JOB_SEARCH_LEVER_BOARDS');
+    const ashbyBoards = this.readBoardSlugs('JOB_SEARCH_ASHBY_BOARDS');
     return [
       ...greenhouseBoards.map((board) => ({
+        source: 'Greenhouse',
+        sourceBoard: board,
         name: `Greenhouse (${board})`,
         attributionUrl: `https://boards.greenhouse.io/${encodeURIComponent(board)}`,
         load: () =>
-          this.getCached(`greenhouse:${board}`, 15 * 60 * 1000, async () => {
-            const response = await this.fetchJson<{ jobs?: Array<Record<string, unknown>> }>(
-              `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(board)}/jobs?content=true`,
-            );
-            return (response.jobs ?? []).map((job) => this.normalizeGreenhouse(job, board));
-          }),
+          this.getCached(`greenhouse:${board}`, 15 * 60 * 1000, () =>
+            this.fetchGreenhouseBoard(board),
+          ),
+        fetchFresh: () => this.fetchGreenhouseBoard(board),
       })),
       ...leverBoards.map((board) => ({
+        source: 'Lever',
+        sourceBoard: board,
         name: `Lever (${board})`,
         attributionUrl: `https://jobs.lever.co/${encodeURIComponent(board)}`,
         load: () =>
-          this.getCached(`lever:${board}`, 15 * 60 * 1000, async () => {
-            const response = await this.fetchJson<Array<Record<string, unknown>>>(
-              `https://api.lever.co/v0/postings/${encodeURIComponent(board)}?mode=json`,
-            );
-            return response.map((job) => this.normalizeLever(job, board));
-          }),
+          this.getCached(`lever:${board}`, 15 * 60 * 1000, () => this.fetchLeverBoard(board)),
+        fetchFresh: () => this.fetchLeverBoard(board),
+      })),
+      ...ashbyBoards.map((board) => ({
+        source: 'Ashby',
+        sourceBoard: board,
+        name: `Ashby (${board})`,
+        attributionUrl: `https://jobs.ashbyhq.com/${encodeURIComponent(board)}`,
+        load: () =>
+          this.getCached(`ashby:${board}`, 15 * 60 * 1000, () => this.fetchAshbyBoard(board)),
+        fetchFresh: () => this.fetchAshbyBoard(board),
       })),
     ];
+  }
+
+  private async fetchGreenhouseBoard(board: string): Promise<SearchJob[]> {
+    const response = await this.fetchJson<{ jobs?: Array<Record<string, unknown>> }>(
+      `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(board)}/jobs?content=true`,
+    );
+    return (response.jobs ?? []).map((job) => this.normalizeGreenhouse(job, board));
+  }
+
+  private async fetchLeverBoard(board: string): Promise<SearchJob[]> {
+    const response = await this.fetchJson<Array<Record<string, unknown>>>(
+      `https://api.lever.co/v0/postings/${encodeURIComponent(board)}?mode=json`,
+    );
+    return response.map((job) => this.normalizeLever(job, board));
+  }
+
+  private async fetchAshbyBoard(board: string): Promise<SearchJob[]> {
+    const response = await this.fetchJson<AshbyResponse>(
+      `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(board)}?includeCompensation=true`,
+    );
+    return (response.jobs ?? [])
+      .filter((job) => job.isListed === true)
+      .map((job) => this.normalizeAshby(job, board));
   }
 
   private readBoardSlugs(variable: string): string[] {
@@ -314,6 +584,33 @@ export class JobSearchService {
       tags: [stringValue(categories?.team), stringValue(categories?.commitment)].filter(Boolean),
     };
   }
+
+  private normalizeAshby(job: Record<string, unknown>, board: string): SearchJob {
+    const workplaceType = stringValue(job.workplaceType);
+    const compensation = job.compensation as Record<string, unknown> | undefined;
+    const tags = [
+      stringValue(job.department),
+      stringValue(job.team),
+      stringValue(job.employmentType),
+      workplaceType,
+    ].filter(Boolean);
+    return {
+      id: `ashby:${board}:${stringValue(job.jobUrl) || stringValue(job.applyUrl)}`,
+      title: stringValue(job.title) || 'Untitled role',
+      company: board,
+      location: stringValue(job.location) || 'Location not specified',
+      remote:
+        job.isRemote === true || /^(remote|hybrid)$/i.test(workplaceType),
+      url: safeHttpUrl(job.jobUrl) || safeHttpUrl(job.applyUrl),
+      description: stripHtml(stringValue(job.descriptionPlain) || stringValue(job.descriptionHtml)),
+      salary: stringValue(compensation?.scrapeableCompensationSalarySummary) || undefined,
+      postedAt: validDate(job.publishedAt),
+      source: 'Ashby',
+      tags,
+      workplaceType: workplaceType || undefined,
+      employmentType: stringValue(job.employmentType) || undefined,
+    };
+  }
 }
 
 function stringValue(value: unknown): string {
@@ -373,5 +670,90 @@ function normalizeUrl(value: string): string {
     return url.href;
   } catch {
     return value;
+  }
+}
+
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
+const SPONSORSHIP_POSITIVE_PATTERNS = [
+  '%visa sponsorship%',
+  '%work visa sponsorship%',
+  '%sponsorship available%',
+  '%offer sponsorship%',
+  '%provide sponsorship%',
+  '%sponsor your visa%',
+  '%sponsor a work visa%',
+  '%will sponsor%',
+  '%we sponsor%',
+  '%can sponsor%',
+];
+
+const SPONSORSHIP_NEGATIVE_PATTERNS = [
+  '%no sponsorship%',
+  '%no visa sponsorship%',
+  '%sponsorship not available%',
+  '%not offering sponsorship%',
+  '%not offer sponsorship%',
+  '%not provide sponsorship%',
+  '%not sponsor%',
+  '%do not sponsor%',
+  '%does not sponsor%',
+  "%don't sponsor%",
+  "%doesn't sponsor%",
+  '%cannot sponsor%',
+  "%can't sponsor%",
+  '%unable to sponsor%',
+  '%not able to sponsor%',
+  '%will not sponsor%',
+  '%without sponsorship%',
+];
+
+function visaSponsorshipMatchSql(): Prisma.Sql {
+  const searchableText = Prisma.sql`CONCAT_WS(' ', COALESCE("title", ''), COALESCE("description", ''), array_to_string("tags", ' '))`;
+  const matchesAny = (patterns: string[]) =>
+    Prisma.sql`${searchableText} ILIKE ANY (ARRAY[${Prisma.join(patterns.map((pattern) => Prisma.sql`${pattern}`))}]::TEXT[])`;
+
+  return Prisma.sql`(${matchesAny(SPONSORSHIP_POSITIVE_PATTERNS)} AND NOT ${matchesAny(SPONSORSHIP_NEGATIVE_PATTERNS)})`;
+}
+
+function postedWithinDate(value?: BrowseJobListingsDto['postedWithin']): Date | null {
+  const ageMs = value === '24h' ? 24 * 60 * 60 * 1000 : value === '7d' ? 7 * 86400000 : value === '30d' ? 30 * 86400000 : 0;
+  return ageMs ? new Date(Date.now() - ageMs) : null;
+}
+
+function buildCatalogueOrder(
+  sort: BrowseJobListingsDto['sort'],
+  queryTerms: string[],
+): Prisma.Sql {
+  if (sort !== 'relevance' || queryTerms.length === 0) {
+    return Prisma.sql`ORDER BY "postedAt" DESC NULLS LAST, "createdAt" DESC`;
+  }
+
+  const scores = queryTerms.map((term) => {
+    const escaped = escapeLike(term);
+    return Prisma.sql`CASE
+      WHEN "title" ILIKE ${`${escaped}%`} THEN 3
+      WHEN "title" ILIKE ${`%${escaped}%`} THEN 2
+      WHEN "company" ILIKE ${`%${escaped}%`} THEN 1
+      ELSE 0
+    END`;
+  });
+  return Prisma.sql`ORDER BY (${Prisma.join(scores, ' + ')}) DESC,
+    "postedAt" DESC NULLS LAST, "createdAt" DESC`;
+}
+
+function sourceAttributionUrl(source: string, sourceBoard: string): string {
+  const board = encodeURIComponent(sourceBoard);
+  switch (source) {
+    case 'Greenhouse':
+      return `https://boards.greenhouse.io/${board}`;
+    case 'Lever':
+      return `https://jobs.lever.co/${board}`;
+    case 'Ashby':
+      return `https://jobs.ashbyhq.com/${board}`;
+    default:
+      return 'https://www.arbeitnow.com/';
   }
 }

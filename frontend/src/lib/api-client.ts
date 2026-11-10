@@ -1,4 +1,3 @@
-import { auth } from "@clerk/nextjs";
 import type { ApiError } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -10,18 +9,10 @@ class ApiClient {
     this.baseUrl = `${baseUrl}/api/v1`;
   }
 
-  private async getHeaders(): Promise<Record<string, string>> {
+  private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    // Works in Server Components via Clerk
-    try {
-      const { getToken } = auth();
-      const token = await getToken();
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-    } catch {
-      // Client-side: token injected by caller
-    }
     return headers;
   }
 

@@ -1,5 +1,7 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { JobTrackerService } from '../job-tracker/job-tracker.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { BrowseJobListingsDto } from './dto/browse-job-listings.dto';
 import { JobSearchService } from './job-search.service';
 import { SearchJobsDto } from './dto/search-jobs.dto';
 
@@ -19,6 +21,47 @@ describe('JobSearchService', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('filters the catalogue by sponsorship wording and returns the sponsorship signal', async () => {
+    const row = {
+      id: 'listing-1',
+      title: 'Software Engineer',
+      company: 'Acme',
+      location: 'London',
+      remote: false,
+      workplaceType: null,
+      employmentType: null,
+      url: 'https://jobs.example/1',
+      description: 'We offer visa sponsorship for this role.',
+      salary: null,
+      tags: [],
+      visaSponsorshipLikely: true,
+      postedAt: new Date('2026-11-08T12:00:00.000Z'),
+      source: 'Greenhouse',
+    };
+    const queryRaw = jest.fn((query: { sql: string }) =>
+      Promise.resolve(query.sql.includes('COUNT(*)') ? [{ total: 1n }] : [row]),
+    );
+    const prisma = {
+      $queryRaw: queryRaw,
+      jobFeedSyncState: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new JobSearchService(
+      tracker as unknown as JobTrackerService,
+      prisma as unknown as PrismaService,
+    );
+
+    const result = await service.browseCatalogue(
+      Object.assign(new BrowseJobListingsDto(), { visaSponsorshipOnly: true }),
+    );
+
+    const statements = queryRaw.mock.calls.map(([query]) => query.sql);
+    expect(statements.every((sql) => sql.includes('ILIKE ANY'))).toBe(true);
+    expect(statements.every((sql) => sql.includes('AND NOT'))).toBe(true);
+    expect(result.jobs).toHaveLength(1);
+    expect(result.jobs[0].visaSponsorshipLikely).toBe(true);
+    expect(result.jobs[0].description).toContain('visa sponsorship');
   });
 
   it('filters results, deduplicates links, applies the cap, and imports matches', async () => {

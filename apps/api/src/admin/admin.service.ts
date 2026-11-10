@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   ServiceUnavailableException,
   InternalServerErrorException,
@@ -22,6 +23,8 @@ import type {
   ListSubscriptionsDto,
   UpdateStripePricesDto,
   UpdateAIPlatformSettingsDto,
+  CreateDiscountCodeDto,
+  ListDiscountCodesDto,
 } from './dto/admin.dto';
 
 @Injectable()
@@ -773,6 +776,179 @@ export class AdminService {
       ipAddress,
     );
     return this.getStripePrices();
+  }
+
+  async getDiscountCodes(dto: ListDiscountCodesDto) {
+    const stripe = this.discountStripeClient();
+    try {
+      const page = await stripe.promotionCodes.list({
+        limit: dto.limit,
+        starting_after: dto.startingAfter,
+        expand: ['data.coupon'],
+      });
+      return {
+        data: page.data.map((promotionCode) => this.discountCodeSummary(promotionCode)),
+        hasMore: page.has_more,
+        nextCursor: page.has_more ? page.data.at(-1)?.id ?? null : null,
+      };
+    } catch (error) {
+      this.throwDiscountStripeError(error, 'list discount codes');
+    }
+  }
+
+  async createDiscountCode(
+    adminId: string,
+    dto: CreateDiscountCodeDto,
+    ipAddress?: string,
+  ) {
+    const code = dto.code.trim().toUpperCase();
+    if (!/^[A-Z0-9-]{3,40}$/.test(code)) {
+      throw new BadRequestException('Use 3–40 letters, numbers, or hyphens for the discount code.');
+    }
+    if (dto.duration === 'REPEATING' && (!Number.isInteger(dto.durationInMonths) || (dto.durationInMonths ?? 0) < 1)) {
+      throw new BadRequestException('Enter a positive number of months for a repeating discount.');
+    }
+    if (dto.duration !== 'REPEATING' && dto.durationInMonths !== undefined) {
+      throw new BadRequestException('Only repeating discounts can have a month duration.');
+    }
+
+    const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
+    if (expiresAt && (!Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() <= Date.now())) {
+      throw new BadRequestException('The expiry date must be in the future.');
+    }
+
+    const stripe = this.discountStripeClient();
+    let couponId: string | null = null;
+    try {
+      const coupon = await stripe.coupons.create({
+        name: `${code} ${dto.percentOff}% off`.slice(0, 40),
+        percent_off: dto.percentOff,
+        duration: dto.duration.toLowerCase() as Stripe.CouponCreateParams.Duration,
+        ...(dto.duration === 'REPEATING' ? { duration_in_months: dto.durationInMonths } : {}),
+        metadata: { jobinPromotionCode: code, createdByAdminId: adminId },
+      });
+      couponId = coupon.id;
+
+      const promotionCode = await stripe.promotionCodes.create({
+        coupon: coupon.id,
+        code,
+        ...(expiresAt ? { expires_at: Math.ceil(expiresAt.getTime() / 1000) } : {}),
+        ...(dto.maxRedemptions !== undefined ? { max_redemptions: dto.maxRedemptions } : {}),
+        metadata: { createdByAdminId: adminId },
+        expand: ['coupon'],
+      });
+      const summary = this.discountCodeSummary(promotionCode);
+
+      await this.audit(
+        adminId,
+        'ADMIN_CREATE_DISCOUNT_CODE',
+        'StripePromotionCode',
+        promotionCode.id,
+        undefined,
+        summary,
+        { couponId: coupon.id },
+        ipAddress,
+      );
+      return summary;
+    } catch (error) {
+      if (couponId) {
+        await stripe.coupons.del(couponId).catch((cleanupError) => {
+          const errorType = cleanupError instanceof Error ? cleanupError.name : 'unknown error';
+          this.logger.error(`Discount coupon cleanup failed (${errorType}).`);
+        });
+      }
+      this.throwDiscountStripeError(error, 'create discount code');
+    }
+  }
+
+  async deactivateDiscountCode(adminId: string, promotionCodeId: string, ipAddress?: string) {
+    const stripe = this.discountStripeClient();
+    try {
+      const current = await stripe.promotionCodes.retrieve(promotionCodeId, { expand: ['coupon'] });
+      if (!current.active) return this.discountCodeSummary(current);
+
+      const updated = await stripe.promotionCodes.update(
+        promotionCodeId,
+        { active: false, expand: ['coupon'] },
+      );
+      const beforeState = this.discountCodeSummary(current);
+      const afterState = this.discountCodeSummary(updated);
+      await this.audit(
+        adminId,
+        'ADMIN_DEACTIVATE_DISCOUNT_CODE',
+        'StripePromotionCode',
+        promotionCodeId,
+        beforeState,
+        afterState,
+        undefined,
+        ipAddress,
+      );
+      return afterState;
+    } catch (error) {
+      if (
+        error instanceof Stripe.errors.StripeInvalidRequestError &&
+        error.statusCode === 404
+      ) {
+        throw new NotFoundException('Discount code not found.');
+      }
+      this.throwDiscountStripeError(error, 'deactivate discount code');
+    }
+  }
+
+  private discountStripeClient(): Stripe {
+    const stripeSecretKey = this.config.get<string>('STRIPE_SECRET_KEY')?.trim();
+    if (!stripeSecretKey) {
+      throw new ServiceUnavailableException(
+        'Configure STRIPE_SECRET_KEY before managing discount codes.',
+      );
+    }
+    return new Stripe(stripeSecretKey, { apiVersion: '2024-06-20' as any });
+  }
+
+  private discountCodeSummary(promotionCode: Stripe.PromotionCode) {
+    const coupon = promotionCode.coupon;
+    const now = Math.floor(Date.now() / 1000);
+    const expired = Boolean(promotionCode.expires_at && promotionCode.expires_at <= now) || !coupon.valid;
+    const exhausted = Boolean(
+      promotionCode.max_redemptions &&
+        promotionCode.times_redeemed >= promotionCode.max_redemptions,
+    );
+    const status = expired
+      ? 'expired'
+      : exhausted
+        ? 'exhausted'
+        : promotionCode.active
+          ? 'active'
+          : 'inactive';
+
+    return {
+      id: promotionCode.id,
+      couponId: coupon.id,
+      code: promotionCode.code,
+      percentOff: coupon.percent_off,
+      duration: coupon.duration,
+      durationInMonths: coupon.duration_in_months,
+      active: promotionCode.active,
+      status,
+      expiresAt: promotionCode.expires_at ? new Date(promotionCode.expires_at * 1000).toISOString() : null,
+      maxRedemptions: promotionCode.max_redemptions,
+      timesRedeemed: promotionCode.times_redeemed,
+      createdAt: new Date(promotionCode.created * 1000).toISOString(),
+    };
+  }
+
+  private throwDiscountStripeError(error: unknown, operation: string): never {
+    if (error instanceof Stripe.errors.StripeInvalidRequestError) {
+      if (error.code === 'promotion_code_exists') {
+        throw new ConflictException('That discount code is already active. Choose a different code.');
+      }
+      throw new BadRequestException(
+        'Stripe rejected the discount-code details. Check the code, expiry, and discount duration.',
+      );
+    }
+    const errorType = error instanceof Error ? error.name : 'unknown error';
+    this.logger.error(`Stripe could not ${operation} (${errorType}).`);
+    throw new ServiceUnavailableException('Discount codes are temporarily unavailable.');
   }
 
   private aiProviderDefaults() {

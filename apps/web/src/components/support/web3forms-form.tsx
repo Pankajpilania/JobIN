@@ -29,7 +29,7 @@ export function Web3FormsForm({ type }: Web3FormsFormProps) {
     if (!accessKey) {
       setStatus({
         kind: 'error',
-        message: 'The message form is not configured yet. Please email 159ring@gmail.com.',
+        message: 'The message form is not configured yet. Please email info@jobin.today.',
       });
       return;
     }
@@ -69,7 +69,7 @@ export function Web3FormsForm({ type }: Web3FormsFormProps) {
         message:
           submissionError instanceof Error
             ? submissionError.message
-            : 'The message could not be sent. Please email 159ring@gmail.com.',
+            : 'The message could not be sent. Please email info@jobin.today.',
       });
     } finally {
       setIsSending(false);

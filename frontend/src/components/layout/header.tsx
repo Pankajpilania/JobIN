@@ -28,7 +28,6 @@ export function Header({ credits = 0 }: HeaderProps) {
 
         {/* Clerk user button */}
         <UserButton
-          afterSignOutUrl="/"
           appearance={{
             elements: {
               avatarBox: "h-9 w-9 ring-2 ring-primary/30",

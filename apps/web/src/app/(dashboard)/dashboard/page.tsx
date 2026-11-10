@@ -18,6 +18,9 @@ import {
   Activity,
   BarChart2,
   ArrowUpRight,
+  BriefcaseBusiness,
+  CircleCheck,
+  Sparkles,
 } from 'lucide-react';
 import { useDashboardSummary } from '@/hooks/use-dashboard';
 import { useSessionProfile } from '@/hooks/use-session-profile';
@@ -26,6 +29,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PlanCreditsPanel } from '@/components/billing/plan-credits-panel';
+import JobSearchPanel from '@/components/jobs/job-search-panel';
+import styles from './dashboard.module.css';
 
 const STATUS_CONFIG: Record<
   ApplicationStatus,
@@ -485,6 +490,7 @@ export default function DashboardPage() {
 
   return (
     <div
+      className={styles.dashboardPage}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -494,30 +500,68 @@ export default function DashboardPage() {
       }}
     >
       {/* Header Greeting */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <h1
-          style={{
-            fontSize: '32px',
-            fontWeight: 800,
-            letterSpacing: '-1.2px',
-            color: 'var(--text-1)',
-            margin: 0,
-          }}
-        >
-          {greeting}, <span style={{ color: 'var(--brand)' }}>{firstName}</span> 👋
-        </h1>
-        <p
-          style={{
-            marginTop: '8px',
-            color: 'var(--text-2)',
-            fontSize: '14px',
-            fontWeight: 500,
-            margin: '8px 0 0 0',
-          }}
-        >
-          Here&apos;s your job search overview. Keep the momentum going!
-        </p>
+      <motion.div
+        className={styles.hero}
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className={styles.heroContent}>
+          <div className={styles.heroCopy}>
+          <span className={styles.eyebrow}><span /> YOUR NEXT CHAPTER STARTS HERE</span>
+          <h1
+            style={{
+              fontSize: '32px',
+              fontWeight: 800,
+              letterSpacing: '-1.2px',
+              color: 'var(--text-1)',
+              margin: 0,
+            }}
+          >
+            {greeting}, <span style={{ color: 'var(--brand)' }}>{firstName}</span> 👋
+          </h1>
+          <p
+            style={{
+              marginTop: '8px',
+              color: 'var(--text-2)',
+              fontSize: '14px',
+              fontWeight: 500,
+              margin: '8px 0 0 0',
+            }}
+          >
+            Your search, <strong>in motion.</strong> Here&apos;s where the next opportunity begins.
+          </p>
+          </div>
+          <div className={styles.heroActions}>
+            <Link href="/job-search" className={styles.heroPrimary}>
+              <Zap size={16} /> Explore roles <ArrowUpRight size={16} />
+            </Link>
+            <Link href="/tracker" className={styles.heroSecondary}>
+              View my tracker <ChevronRight size={15} />
+            </Link>
+          </div>
+        </div>
+        <div className={styles.heroArt} aria-hidden="true">
+          <div className={`${styles.orbit} ${styles.orbitOne}`} />
+          <div className={`${styles.orbit} ${styles.orbitTwo}`} />
+          <svg className={styles.flightPath} viewBox="0 0 320 220" fill="none">
+            <path d="M26 163C61 163 57 62 112 62S171 166 209 139 246 56 295 57" />
+            <circle cx="26" cy="163" r="4" />
+            <circle cx="295" cy="57" r="4" />
+          </svg>
+          <div className={styles.artSparkle}><Sparkles size={19} /></div>
+          <div className={styles.artBriefcase}><BriefcaseBusiness size={42} strokeWidth={1.5} /></div>
+          <div className={`${styles.floatCard} ${styles.profileCard}`}>
+            <span className={styles.profileIcon}><CircleCheck size={17} /></span>
+            <span><b>YOUR PROFILE</b><i /><i /></span>
+          </div>
+          <div className={`${styles.floatCard} ${styles.nextStepCard}`}>
+            <span className={styles.nextStepIcon}><ArrowUpRight size={16} /></span>
+            <span><b>WHAT&apos;S NEXT?</b><small>Make your move</small></span>
+          </div>
+        </div>
       </motion.div>
+
+      <JobSearchPanel />
 
       {dashboardQuery.isError && !summary && (
         <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>
@@ -526,7 +570,7 @@ export default function DashboardPage() {
       )}
 
       {/* Stat cards grid */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+      <div className={styles.statsGrid} style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
         <DashboardStatCard
           delay={0.05}
           label="Total Applications"
@@ -601,7 +645,7 @@ export default function DashboardPage() {
       )}
 
       {/* Main dashboard columns */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
+      <div className={styles.contentGrid} style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
         {/* Recent activity column */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
