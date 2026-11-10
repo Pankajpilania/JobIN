@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowDownUp,
   ArrowUpRight,
@@ -148,6 +149,7 @@ function availabilityLabel(value: SearchResponse['sources'][number]['availabilit
 
 export default function JobSearchPage() {
   const { getToken, isReady, isSignedIn } = useAuth();
+  const reduceMotion = useReducedMotion();
   const createApplication = useCreateApplication();
   const [filters, setFilters] = useState<JobFilters>(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<JobFilters>(DEFAULT_FILTERS);
@@ -235,16 +237,21 @@ export default function JobSearchPage() {
   const endResult = pagination ? Math.min(currentPage * pagination.pageSize, pagination.total) : 0;
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} id="job-discovery">
       <header className={styles.pageHeader}>
         <div>
-          <span className={styles.eyebrow}><span /> OPPORTUNITY, IN MOTION</span>
-          <h1>Find your next move.</h1>
-          <p>Fresh roles from public job boards, all in one focused search.</p>
+          <span className={styles.eyebrow}><span /> YOUR NEXT OPPORTUNITY</span>
+          <h1>Find work that moves you forward.</h1>
+          <p>Explore fresh roles, then save the ones worth pursuing.</p>
         </div>
-        <div className={styles.syncPill} title={response?.lastSyncedAt ?? 'Waiting for the first feed sync'}>
+        <div
+          className={`${styles.syncPill} ${feedNotReady ? (waitingForSync ? styles.syncWaiting : styles.syncUnavailable) : ''}`}
+          title={response?.lastSyncedAt ?? 'Waiting for the first feed sync'}
+        >
           <span className={styles.syncDot} />
-          {formatSyncTime(response?.lastSyncedAt ?? null)}
+          {feedNotReady
+            ? waitingForSync ? 'Updating from job boards' : 'Job feed needs attention'
+            : formatSyncTime(response?.lastSyncedAt ?? null)}
         </div>
       </header>
 
@@ -415,10 +422,16 @@ export default function JobSearchPage() {
             </Card>
           ) : (
             <div className={styles.jobList}>
-              {response.jobs.map((job) => {
+              {response.jobs.map((job, index) => {
                 const saved = savedJobs.has(job.id);
                 return (
-                  <Card className={styles.jobCard} hoverEffect={false} key={job.id}>
+                  <motion.div
+                    key={job.id}
+                    initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.28, delay: reduceMotion ? 0 : Math.min(index * 0.035, 0.28) }}
+                  >
+                  <Card className={styles.jobCard} hoverEffect={false}>
                     <div className={styles.jobMain}>
                       <div className={styles.companyMark} aria-hidden="true">{job.company.trim().charAt(0).toUpperCase() || 'J'}</div>
                       <div className={styles.jobDetails}>
@@ -456,6 +469,7 @@ export default function JobSearchPage() {
                       </a>
                     </div>
                   </Card>
+                  </motion.div>
                 );
               })}
             </div>

@@ -532,7 +532,7 @@ export default function DashboardPage() {
           </p>
           </div>
           <div className={styles.heroActions}>
-            <Link href="/job-search" className={styles.heroPrimary}>
+            <Link href="#job-discovery" className={styles.heroPrimary}>
               <Zap size={16} /> Explore roles <ArrowUpRight size={16} />
             </Link>
             <Link href="/tracker" className={styles.heroSecondary}>
