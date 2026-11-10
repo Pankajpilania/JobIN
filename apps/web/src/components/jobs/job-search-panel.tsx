@@ -66,6 +66,7 @@ interface SearchResponse {
     attributionUrl: string;
     availability: 'available' | 'stale' | 'pending' | 'unavailable';
     lastSuccessAt: string | null;
+    error?: string | null;
   }>;
   sourceErrors: Array<{ name: string; error: string }>;
 }
@@ -223,6 +224,13 @@ export default function JobSearchPage() {
   };
 
   const pagination = response?.pagination;
+  const healthyFeed = response?.sources.some((source) =>
+    source.availability === 'available' || source.availability === 'stale',
+  ) ?? false;
+  const feedNotReady = Boolean(response && response.jobs.length === 0 && !healthyFeed);
+  const waitingForSync = Boolean(
+    feedNotReady && response?.sources.every((source) => source.availability === 'pending'),
+  );
   const startResult = pagination && pagination.total > 0 ? (currentPage - 1) * pagination.pageSize + 1 : 0;
   const endResult = pagination ? Math.min(currentPage * pagination.pageSize, pagination.total) : 0;
 
@@ -350,8 +358,18 @@ export default function JobSearchPage() {
           <div className={styles.resultsHeader}>
             <div>
               <span className={styles.resultsKicker}>YOUR RESULTS</span>
-              <h2>{pagination?.total ?? 0} open {pagination?.total === 1 ? 'role' : 'roles'}</h2>
-              <p>Showing {startResult}–{endResult}{pagination?.total ? ` of ${pagination.total}` : ''}</p>
+              <h2>
+                {feedNotReady
+                  ? waitingForSync ? 'Jobs are syncing' : 'Job feeds unavailable'
+                  : `${pagination?.total ?? 0} open ${pagination?.total === 1 ? 'role' : 'roles'}`}
+              </h2>
+              <p>
+                {feedNotReady
+                  ? waitingForSync
+                    ? 'The first feed refresh is underway. Check back shortly.'
+                    : 'The job feed could not be refreshed. The API will retry automatically.'
+                  : `Showing ${startResult}–${endResult}${pagination?.total ? ` of ${pagination.total}` : ''}`}
+              </p>
             </div>
             <div className={styles.sortSummary}><ArrowDownUp size={15} /> {filters.sort === 'newest' ? 'Newest first' : 'Most relevant'}</div>
           </div>
@@ -367,11 +385,26 @@ export default function JobSearchPage() {
             </div>
           )}
 
-          {response.sourceErrors.map((source) => (
+          {!feedNotReady && response.sourceErrors.map((source) => (
             <p className={styles.sourceError} role="status" key={source.name}>{source.name}: {source.error}</p>
           ))}
 
-          {response.jobs.length === 0 ? (
+          {response.jobs.length === 0 && feedNotReady ? (
+            <Card className={styles.errorState} role="status" hoverEffect={false}>
+              <div><BriefcaseBusiness size={20} /></div>
+              <section>
+                <h2>{waitingForSync ? 'Waiting for the first feed sync' : 'We could not load current jobs'}</h2>
+                <p>
+                  {response.sourceErrors.length > 0
+                    ? response.sourceErrors.map(({ name, error: sourceError }) => `${name}: ${sourceError}`).join(' · ')
+                    : 'No job feeds have reported a successful refresh yet.'}
+                </p>
+              </section>
+              <button type="button" className={styles.retryButton} onClick={() => void loadJobs(filters, 1)} disabled={loading}>
+                {loading ? <LoaderCircle size={15} className={styles.spinning} /> : <Search size={15} />} Retry
+              </button>
+            </Card>
+          ) : response.jobs.length === 0 ? (
             <Card className={styles.emptyState} hoverEffect={false}>
               <div className={styles.emptyIcon}><BriefcaseBusiness size={24} /></div>
               <h3>No roles match those filters</h3>

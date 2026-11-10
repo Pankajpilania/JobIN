@@ -74,7 +74,7 @@ export class JobFeedSyncService implements OnModuleInit {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown feed sync error';
       this.logger.warn(`${feed.name}: job feed sync failed: ${message}`);
-      if (lockToken) await this.recordFailure(feed, lockToken, message);
+      if (lockToken) await this.recordFailure(feed, lockToken, publicFeedError(message));
     }
   }
 
@@ -206,6 +206,17 @@ export class JobFeedSyncService implements OnModuleInit {
       );
     }
   }
+}
+
+function publicFeedError(message: string): string {
+  const httpStatus = message.match(/^Feed returned HTTP (\d{3})$/)?.[1];
+  if (httpStatus) return `The public feed returned HTTP ${httpStatus}.`;
+  if (message.includes('pagination repeated')) return 'The public feed returned a repeated page link.';
+  if (message.includes('invalid pagination URL')) return 'The public feed returned an invalid page link.';
+  if (message.includes('fetch failed') || message.includes('network') || message.includes('timeout')) {
+    return 'The API could not connect to the public feed. It will retry automatically.';
+  }
+  return 'The public feed returned an invalid response. It will retry automatically.';
 }
 
 function deduplicateJobs(jobs: SearchJob[]): SearchJob[] {
