@@ -5,18 +5,22 @@
   --search-green: #087d59;
   display: grid;
   max-width: 1180px;
-  gap: 22px;
+  gap: 25px;
   margin: 0 auto;
   padding: 8px 0 52px;
 }
 
 .pageHeader {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 24px;
-  padding: 8px 2px 2px;
+  padding: 12px 4px 4px;
 }
+
+.pageHeader::after { position: absolute; z-index: -1; top: -22px; right: 12%; width: 180px; height: 110px; border: 1px solid rgba(12, 125, 89, .08); border-radius: 50%; box-shadow: 0 0 0 20px rgba(12, 125, 89, .025), 0 0 0 42px rgba(12, 125, 89, .018); content: ''; pointer-events: none; }
 
 .eyebrow,
 .resultsKicker {
@@ -68,7 +72,12 @@
   white-space: nowrap;
 }
 
-.syncDot { width: 7px; height: 7px; border-radius: 50%; background: #1bb77b; box-shadow: 0 0 0 4px rgba(27, 183, 123, .11); }
+.syncDot { width: 7px; height: 7px; border-radius: 50%; background: #1bb77b; box-shadow: 0 0 0 4px rgba(27, 183, 123, .11); animation: sync-pulse 2s ease-out infinite; }
+.syncWaiting { border-color: #eadbb5; background: #fffaf0; color: #80601b; }
+.syncWaiting .syncDot { background: #d6a43c; box-shadow: 0 0 0 4px rgba(214, 164, 60, .13); }
+.syncUnavailable { border-color: #efcfca; background: #fff7f5; color: #934c42; }
+.syncUnavailable .syncDot { background: #d45f50; box-shadow: 0 0 0 4px rgba(212, 95, 80, .12); animation: none; }
+@keyframes sync-pulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(27, 183, 123, .11); } 50% { box-shadow: 0 0 0 7px rgba(27, 183, 123, .025); } }
 
 .filterCard,
 .jobCard {
@@ -158,8 +167,10 @@
 .status_unavailable i { background: #d55a4f; }
 .sourceError { margin: -7px 0 0; color: #805a18; font-size: 11px; }
 
-.jobList { display: grid; gap: 12px; }
-.jobCard { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 18px; padding: 19px 20px !important; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease !important; }
+.jobList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.jobList > div { min-width: 0; }
+.jobCard { position: relative; display: grid; min-height: 230px; grid-template-rows: 1fr auto; align-items: stretch; gap: 18px; overflow: hidden; padding: 21px 22px !important; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease !important; }
+.jobCard::before { position: absolute; top: 0; left: 21px; width: 42px; height: 3px; border-radius: 0 0 4px 4px; background: linear-gradient(90deg, #0aa674, #7be2ae); content: ''; opacity: .8; }
 .jobCard:hover { transform: translateY(-2px); border-color: #c7dfd0 !important; box-shadow: 0 14px 32px rgba(27, 64, 40, .08) !important; }
 .jobMain { display: flex; min-width: 0; align-items: flex-start; gap: 14px; }
 .companyMark { display: grid; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; border: 1px solid #d9e9de; border-radius: 14px; background: linear-gradient(145deg, #f2fbf3, #e3f5e9); color: #087d59; font-family: var(--font-display); font-size: 18px; font-weight: 800; }
@@ -175,7 +186,7 @@
 .description { display: -webkit-box; overflow: hidden; margin: 10px 0 0; color: #66746b; font-size: 11px; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .tags > span { padding: 4px 8px; border-radius: 7px; background: #f0f7f1; color: #557060; font-size: 9px; font-weight: 650; }
-.jobActions { display: flex; flex-direction: column; align-items: stretch; gap: 9px; }
+.jobActions { display: flex; flex-direction: row; align-items: center; justify-content: flex-end; gap: 9px; padding-top: 13px; border-top: 1px solid #edf2ee; }
 .saveButton, .savedButton, .originalLink { display: inline-flex; min-height: 35px; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid #dce8df; border-radius: 9px; background: #fff; color: #365445; font: inherit; font-size: 10px; font-weight: 750; text-decoration: none; white-space: nowrap; }
 .saveButton { cursor: pointer; }
 .saveButton:hover:not(:disabled) { border-color: #96c9aa; background: #f6fcf7; color: #087d59; }
@@ -213,6 +224,7 @@
 @media (max-width: 900px) {
   .filterGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .keywordField { grid-column: span 2; }
+  .jobList { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 650px) {
@@ -244,5 +256,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .searchButton, .retryButton, .jobCard { transition: none !important; }
+  .syncDot { animation: none; }
   .spinning { animation-duration: 2s; }
 }
