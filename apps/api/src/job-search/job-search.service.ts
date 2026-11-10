@@ -61,6 +61,7 @@ export interface CatalogueSearchResponse {
     attributionUrl: string;
     availability: 'available' | 'stale' | 'pending' | 'unavailable';
     lastSuccessAt: string | null;
+    error: string | null;
   }>;
   sourceErrors: Array<{ name: string; error: string }>;
 }
@@ -200,6 +201,7 @@ export class JobSearchService {
         attributionUrl: sourceAttributionUrl(state.source, state.sourceBoard),
         availability,
         lastSuccessAt: state.lastSuccessAt?.toISOString() ?? null,
+        error: safeFeedError(state.lastError),
       } as const;
     });
     const successfulSyncs = feedStates.flatMap((state) =>
@@ -233,7 +235,10 @@ export class JobSearchService {
       sources,
       sourceErrors: sources
         .filter((source) => source.availability === 'stale' || source.availability === 'unavailable')
-        .map(({ name }) => ({ name, error: 'This source is temporarily unavailable.' })),
+        .map(({ name, error }) => ({
+          name,
+          error: error ?? 'The public feed has not completed a successful sync yet.',
+        })),
     };
   }
 
@@ -369,11 +374,13 @@ export class JobSearchService {
     const visitedPages = new Set<string>();
     let nextPage: string | null = 'https://www.arbeitnow.com/api/job-board-api?page=1';
     let completeSnapshot = false;
+    let pageCount = 0;
 
-    for (let pageCount = 0; pageCount < 50 && nextPage; pageCount += 1) {
+    for (; pageCount < 50 && nextPage; pageCount += 1) {
       if (visitedPages.has(nextPage)) throw new Error('Arbeitnow pagination repeated a page.');
       visitedPages.add(nextPage);
 
+      if (pageCount > 0) await delay(1_000);
       const response = await this.fetchJson<ArbeitnowResponse>(nextPage);
       jobs.push(...(response.data ?? []).map((job) => this.normalizeArbeitnow(job)));
 
@@ -501,12 +508,29 @@ export class JobSearchService {
   }
 
   private async fetchJson<T>(url: string): Promise<T> {
-    const response = await fetch(url, {
-      headers: { Accept: 'application/json', 'User-Agent': 'JobIN job search' },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) throw new Error(`Feed returned HTTP ${response.status}`);
-    return (await response.json()) as T;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json', 'User-Agent': 'JobIN job search' },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (response.ok) return (await response.json()) as T;
+
+      const retryable = response.status === 429 || response.status >= 500;
+      if (!retryable || attempt === 3) throw new Error(`Feed returned HTTP ${response.status}`);
+
+      const retryAfter = response.headers.get('retry-after');
+      const retryAfterSeconds = retryAfter ? Number(retryAfter) : NaN;
+      const retryAfterDate = retryAfter && Number.isNaN(retryAfterSeconds)
+        ? Date.parse(retryAfter) - Date.now()
+        : NaN;
+      const waitMs = Number.isFinite(retryAfterSeconds)
+        ? retryAfterSeconds * 1000
+        : Number.isFinite(retryAfterDate)
+          ? retryAfterDate
+          : 1_000 * (2 ** attempt);
+      await delay(Math.max(1_000, Math.min(waitMs, 120_000)));
+    }
+    throw new Error('Feed request retries were exhausted.');
   }
 
   private normalizeArbeitnow(job: Record<string, unknown>): SearchJob {
@@ -756,4 +780,21 @@ function sourceAttributionUrl(source: string, sourceBoard: string): string {
     default:
       return 'https://www.arbeitnow.com/';
   }
+}
+
+function delay(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function safeFeedError(error: string | null): string | null {
+  if (!error) return null;
+  if (error.startsWith('The public feed ')) return error;
+  const status = error.match(/^Feed returned HTTP (\d{3})$/)?.[1];
+  if (status) return `The public feed returned HTTP ${status}.`;
+  if (error.includes('pagination repeated')) return 'The public feed returned a repeated page link.';
+  if (error.includes('invalid pagination URL')) return 'The public feed returned an invalid page link.';
+  if (error.includes('fetch failed') || error.includes('network') || error.includes('timeout')) {
+    return 'The API could not connect to the public feed. It will retry automatically.';
+  }
+  return 'The public feed returned an invalid response. It will retry automatically.';
 }
