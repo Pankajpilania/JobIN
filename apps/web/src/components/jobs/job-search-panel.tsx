@@ -24,7 +24,7 @@ import { apiClient } from '@/lib/api-client';
 import { Card } from '@/components/ui/card';
 import styles from './job-search-panel.module.css';
 
-type SourceName = 'Arbeitnow' | 'Greenhouse' | 'Lever' | 'Ashby';
+type SourceName = 'Arbeitnow' | 'Remote OK' | 'Greenhouse' | 'Lever' | 'Ashby';
 type PostedWithin = '' | '24h' | '7d' | '30d';
 type SortOrder = 'newest' | 'relevance';
 
@@ -83,7 +83,7 @@ const DEFAULT_FILTERS: JobFilters = {
   pageSize: 25,
 };
 
-const sourceOptions: SourceName[] = ['Arbeitnow', 'Greenhouse', 'Lever', 'Ashby'];
+const sourceOptions: SourceName[] = ['Arbeitnow', 'Remote OK', 'Greenhouse', 'Lever', 'Ashby'];
 
 function relativeTime(value?: string | null) {
   if (!value) return 'Date not provided';
