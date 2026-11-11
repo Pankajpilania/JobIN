@@ -64,6 +64,7 @@ export interface JobSearchResponse {
 
 export interface CatalogueSearchResponse {
   jobs: SearchJob[];
+  suggestions: { roles: string[]; locations: string[] };
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
   lastSyncedAt: string | null;
   sources: Array<{
@@ -122,6 +123,11 @@ interface AshbyResponse {
 }
 
 const MAX_ARBEITNOW_SYNC_PAGES = 5;
+const COUNTRY_LOCATION_ALIASES: Record<string, string[]> = {
+  'united states': ['United States', 'USA', 'US'],
+  'united kingdom': ['United Kingdom', 'UK', 'Britain', 'England', 'Scotland', 'Wales'],
+  'united arab emirates': ['United Arab Emirates', 'UAE'],
+};
 
 @Injectable()
 export class JobSearchService {
@@ -151,7 +157,17 @@ export class JobSearchService {
 
     const location = dto.location?.trim();
     if (location) {
-      predicates.push(Prisma.sql`COALESCE("location", '') ILIKE ${`%${escapeLike(location)}%`}`);
+      const aliases = COUNTRY_LOCATION_ALIASES[location.toLocaleLowerCase()];
+      if (aliases) {
+        predicates.push(Prisma.sql`(${Prisma.join(aliases.map((alias) => {
+          if (/^[A-Z]{2,3}$/.test(alias)) {
+            return Prisma.sql`COALESCE("location", '') ~* ${`(^|[^[:alpha:]])${alias}([^[:alpha:]]|$)`}`;
+          }
+          return Prisma.sql`COALESCE("location", '') ILIKE ${`%${escapeLike(alias)}%`}`;
+        }), ' OR ')})`);
+      } else {
+        predicates.push(Prisma.sql`COALESCE("location", '') ILIKE ${`%${escapeLike(location)}%`}`);
+      }
     }
     if (dto.remoteOnly) predicates.push(Prisma.sql`"remote" = TRUE`);
     if (dto.visaSponsorshipOnly) predicates.push(visaSponsorshipMatchSql());
@@ -167,8 +183,10 @@ export class JobSearchService {
     let rows: CatalogueJobRow[];
     let total: number;
     let feedStates: FeedSyncStatusRow[];
+    let roleSuggestions: Array<{ value: string }>;
+    let locationSuggestions: Array<{ value: string }>;
     try {
-      const [jobRows, countRows, statuses] = await Promise.all([
+      const [jobRows, countRows, statuses, roleRows, locationRows] = await Promise.all([
         this.prisma.$queryRaw<CatalogueJobRow[]>(Prisma.sql`
           SELECT "id", "title", "company", "location", "remote", "workplaceType",
                  "employmentType", "url", "description", "salary", "tags", "postedAt", "source",
@@ -185,10 +203,28 @@ export class JobSearchService {
           select: { source: true, sourceBoard: true, lastAttemptAt: true, lastSuccessAt: true, lastError: true },
           orderBy: [{ source: 'asc' }, { sourceBoard: 'asc' }],
         }),
+        this.prisma.$queryRaw<Array<{ value: string }>>(Prisma.sql`
+          SELECT "title" AS value
+          FROM "JobListing"
+          WHERE "isActive" = TRUE AND "title" <> ''
+          GROUP BY "title"
+          ORDER BY COUNT(*) DESC, "title" ASC
+          LIMIT 80
+        `),
+        this.prisma.$queryRaw<Array<{ value: string }>>(Prisma.sql`
+          SELECT "location" AS value
+          FROM "JobListing"
+          WHERE "isActive" = TRUE AND COALESCE("location", '') <> ''
+          GROUP BY "location"
+          ORDER BY COUNT(*) DESC, "location" ASC
+          LIMIT 100
+        `),
       ]);
       rows = jobRows;
       total = Number(countRows[0]?.total ?? 0n);
       feedStates = statuses;
+      roleSuggestions = roleRows;
+      locationSuggestions = locationRows;
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       if (message.includes('JobListing') || message.includes('JobFeedSyncState')) {
@@ -246,6 +282,10 @@ export class JobSearchService {
         totalPages: Math.ceil(total / dto.pageSize),
       },
       lastSyncedAt: successfulSyncs.length ? new Date(Math.max(...successfulSyncs)).toISOString() : null,
+      suggestions: {
+        roles: roleSuggestions.map(({ value }) => value),
+        locations: locationSuggestions.map(({ value }) => value),
+      },
       sources,
       sourceErrors: sources
         .filter((source) => source.availability === 'stale' || source.availability === 'unavailable')

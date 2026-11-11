@@ -59,6 +59,7 @@ interface SearchJob {
 interface SearchResponse {
   jobs: SearchJob[];
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
+  suggestions?: { roles: string[]; locations: string[] };
   lastSyncedAt: string | null;
   sources: Array<{
     name: string;
@@ -80,7 +81,7 @@ const DEFAULT_FILTERS: JobFilters = {
   source: '',
   postedWithin: '',
   sort: 'newest',
-  pageSize: 25,
+  pageSize: 50,
 };
 
 const sourceOptions: SourceName[] = ['Arbeitnow', 'Remote OK', 'Greenhouse', 'Lever', 'Ashby'];
@@ -128,7 +129,7 @@ function readInitialFilters(): { filters: JobFilters; page: number } {
       source: source as JobFilters['source'],
       postedWithin: posted as PostedWithin,
       sort,
-      pageSize: [10, 25, 50, 100].includes(pageSize) ? pageSize : 25,
+      pageSize: [10, 25, 50, 100].includes(pageSize) ? pageSize : 50,
     },
     page: Math.max(1, Number(params.get('page')) || 1),
   };
@@ -145,6 +146,16 @@ function availabilityLabel(value: SearchResponse['sources'][number]['availabilit
     default:
       return 'Waiting for sync';
   }
+}
+
+const POPULAR_COUNTRIES = [
+  'Australia', 'Brazil', 'Canada', 'France', 'Germany', 'India', 'Ireland', 'Japan',
+  'Netherlands', 'New Zealand', 'Singapore', 'Spain', 'United Arab Emirates',
+  'United Kingdom', 'United States',
+];
+
+function unique(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
 
 export default function JobSearchPage() {
@@ -235,6 +246,8 @@ export default function JobSearchPage() {
   );
   const startResult = pagination && pagination.total > 0 ? (currentPage - 1) * pagination.pageSize + 1 : 0;
   const endResult = pagination ? Math.min(currentPage * pagination.pageSize, pagination.total) : 0;
+  const roleSuggestions = unique(response?.suggestions?.roles ?? []);
+  const locationSuggestions = unique([...POPULAR_COUNTRIES, ...(response?.suggestions?.locations ?? [])]);
 
   return (
     <div className={styles.page} id="job-discovery">
@@ -242,7 +255,7 @@ export default function JobSearchPage() {
         <div>
           <span className={styles.eyebrow}><span /> YOUR NEXT OPPORTUNITY</span>
           <h1>Find work that moves you forward.</h1>
-          <p>Explore fresh roles, then save the ones worth pursuing.</p>
+          <p>Search <strong>{pagination?.total.toLocaleString() ?? 'fresh'}</strong> opportunities by role, skill, company, or place.</p>
         </div>
         <div
           className={`${styles.syncPill} ${feedNotReady ? (waitingForSync ? styles.syncWaiting : styles.syncUnavailable) : ''}`}
@@ -267,22 +280,34 @@ export default function JobSearchPage() {
 
           <div className={styles.filterGrid}>
             <label className={`${styles.field} ${styles.keywordField}`}>
-              <span>Keywords</span>
+              <span>Job role or skills</span>
               <input
                 value={filters.query}
                 onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))}
-                placeholder="Role, skill, or company"
+                placeholder="e.g. Product Designer"
                 maxLength={100}
+                autoComplete="off"
+                list="job-role-suggestions"
+                aria-autocomplete="list"
               />
+              <datalist id="job-role-suggestions">
+                {roleSuggestions.map((role) => <option key={role} value={role} />)}
+              </datalist>
             </label>
             <label className={styles.field}>
-              <span>Location</span>
+              <span>Country or city</span>
               <input
                 value={filters.location}
                 onChange={(event) => setFilters((current) => ({ ...current, location: event.target.value }))}
-                placeholder="City or country"
+                placeholder="Start typing a country or city"
                 maxLength={100}
+                autoComplete="off"
+                list="job-location-suggestions"
+                aria-autocomplete="list"
               />
+              <datalist id="job-location-suggestions">
+                {locationSuggestions.map((location) => <option key={location} value={location} />)}
+              </datalist>
             </label>
             <label className={styles.field}>
               <span>Source</span>
@@ -343,12 +368,12 @@ export default function JobSearchPage() {
                   onChange={(event) => setFilters((current) => ({ ...current, pageSize: Number(event.target.value) }))}
                   aria-label="Jobs per page"
                 >
-                  {[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+                  {[25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
                 </select>
               </label>
             </div>
             <div className={styles.filterActions}>
-              <button type="button" className={styles.clearButton} onClick={() => setFilters(DEFAULT_FILTERS)}>
+              <button type="button" className={styles.clearButton} onClick={() => { setFilters(DEFAULT_FILTERS); void loadJobs(DEFAULT_FILTERS, 1); }}>
                 Clear filters
               </button>
               <button type="submit" className={styles.searchButton} disabled={loading}>
@@ -364,7 +389,7 @@ export default function JobSearchPage() {
         <section className={styles.resultsSection} aria-live="polite">
           <div className={styles.resultsHeader}>
             <div>
-              <span className={styles.resultsKicker}>YOUR RESULTS</span>
+              <span className={styles.resultsKicker}>LIVE JOB MARKET</span>
               <h2>
                 {feedNotReady
                   ? waitingForSync ? 'Jobs are syncing' : 'Job feeds unavailable'
