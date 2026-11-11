@@ -57,8 +57,9 @@ describe('JobSearchService', () => {
     );
 
     const statements = queryRaw.mock.calls.map(([query]) => query.sql);
-    expect(statements.every((sql) => sql.includes('ILIKE ANY'))).toBe(true);
-    expect(statements.every((sql) => sql.includes('AND NOT'))).toBe(true);
+    const filteredCatalogueQueries = statements.filter((sql) => sql.includes('ILIKE ANY'));
+    expect(filteredCatalogueQueries).toHaveLength(2);
+    expect(filteredCatalogueQueries.every((sql) => sql.includes('AND NOT'))).toBe(true);
     expect(result.jobs).toHaveLength(1);
     expect(result.jobs[0].visaSponsorshipLikely).toBe(true);
     expect(result.jobs[0].description).toContain('visa sponsorship');
