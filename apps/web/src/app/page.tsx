@@ -10,8 +10,10 @@ import {
   Clock3,
   FileText,
   MapPin,
+  Menu,
   Search,
   Sparkles,
+  X,
 } from 'lucide-react';
 
 type Job = {
@@ -343,6 +345,7 @@ export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [workType, setWorkType] = useState('All');
   const [location, setLocation] = useState('All');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const filteredJobs = useMemo(
     () =>
@@ -402,6 +405,42 @@ export default function LandingPage() {
             Get started <ArrowUpRight size={15} />
           </Link>
         </div>
+        <button
+          type="button"
+          className="home-menu-toggle"
+          aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={mobileNavOpen}
+          aria-controls="home-mobile-navigation"
+          onClick={() => setMobileNavOpen((open) => !open)}
+        >
+          {mobileNavOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+        {mobileNavOpen && (
+          <nav
+            id="home-mobile-navigation"
+            className="home-mobile-navigation"
+            aria-label="Mobile navigation"
+          >
+            <a href="#features" onClick={() => setMobileNavOpen(false)}>
+              Features
+            </a>
+            <a href="#jobs" onClick={() => setMobileNavOpen(false)}>
+              Job matches
+            </a>
+            <a href="#pricing" onClick={() => setMobileNavOpen(false)}>
+              Pricing
+            </a>
+            <a href="#how-it-works" onClick={() => setMobileNavOpen(false)}>
+              How it works
+            </a>
+            <Link href="/about" onClick={() => setMobileNavOpen(false)}>
+              About JobIN
+            </Link>
+            <Link href="/contact" onClick={() => setMobileNavOpen(false)}>
+              Contact
+            </Link>
+          </nav>
+        )}
       </nav>
 
       <section className="home-hero">
