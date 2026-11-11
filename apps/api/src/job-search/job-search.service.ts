@@ -25,7 +25,7 @@ export interface SyncableJobFeed {
   source: string;
   sourceBoard: string;
   name: string;
-  fetch: () => Promise<{ jobs: SearchJob[]; completeSnapshot: boolean }>;
+  fetch: () => Promise<{ jobs: SearchJob[]; completeSnapshot: boolean; warning?: string }>;
 }
 
 interface ConfiguredBoardFeed {
@@ -36,6 +36,18 @@ interface ConfiguredBoardFeed {
   load: () => Promise<SearchJob[]>;
   fetchFresh: () => Promise<SearchJob[]>;
 }
+
+const DEFAULT_GREENHOUSE_BOARDS = [
+  'stripe',
+  'figma',
+  'reddit',
+  'coinbase',
+  'cloudflare',
+  'duolingo',
+  'asana',
+  'ramp',
+];
+const DEFAULT_ASHBY_BOARDS = ['openai', 'cursor', 'notion', 'perplexity'];
 
 interface SourceResult {
   name: string;
@@ -108,6 +120,8 @@ interface RemotiveResponse {
 interface AshbyResponse {
   jobs?: Array<Record<string, unknown>>;
 }
+
+const MAX_ARBEITNOW_SYNC_PAGES = 5;
 
 @Injectable()
 export class JobSearchService {
@@ -357,7 +371,13 @@ export class JobSearchService {
         name: 'Arbeitnow',
         fetch: () => this.fetchArbeitnowSnapshot(),
       },
-      ...this.getConfiguredBoards().map((feed) => ({
+      {
+        source: 'Remote OK',
+        sourceBoard: '',
+        name: 'Remote OK',
+        fetch: () => this.fetchRemoteOkSnapshot(),
+      },
+      ...this.getConfiguredBoards(true).map((feed) => ({
         source: feed.source,
         sourceBoard: feed.sourceBoard,
         name: feed.name,
@@ -369,6 +389,7 @@ export class JobSearchService {
   private async fetchArbeitnowSnapshot(): Promise<{
     jobs: SearchJob[];
     completeSnapshot: boolean;
+    warning?: string;
   }> {
     const jobs: SearchJob[] = [];
     const visitedPages = new Set<string>();
@@ -376,12 +397,22 @@ export class JobSearchService {
     let completeSnapshot = false;
     let pageCount = 0;
 
-    for (; pageCount < 50 && nextPage; pageCount += 1) {
+    for (; pageCount < MAX_ARBEITNOW_SYNC_PAGES && nextPage; pageCount += 1) {
       if (visitedPages.has(nextPage)) throw new Error('Arbeitnow pagination repeated a page.');
       visitedPages.add(nextPage);
 
       if (pageCount > 0) await delay(1_000);
-      const response = await this.fetchJson<ArbeitnowResponse>(nextPage);
+      let response: ArbeitnowResponse;
+      try {
+        response = await this.fetchJson<ArbeitnowResponse>(nextPage);
+      } catch (error) {
+        if (jobs.length === 0) throw error;
+        return {
+          jobs,
+          completeSnapshot: false,
+          warning: error instanceof Error ? error.message : 'Feed refresh was incomplete.',
+        };
+      }
       jobs.push(...(response.data ?? []).map((job) => this.normalizeArbeitnow(job)));
 
       if (!response.links?.next) {
@@ -404,6 +435,19 @@ export class JobSearchService {
     return { jobs, completeSnapshot };
   }
 
+  private async fetchRemoteOkSnapshot(): Promise<{
+    jobs: SearchJob[];
+    completeSnapshot: boolean;
+  }> {
+    const response = await this.fetchJson<Array<Record<string, unknown>>>(
+      'https://remoteok.com/api',
+    );
+    const jobs = response
+      .filter((job) => stringValue(job.id) && stringValue(job.position) && stringValue(job.company))
+      .map((job) => this.normalizeRemoteOk(job));
+    return { jobs, completeSnapshot: true };
+  }
+
   private async getRemotiveJobs(): Promise<SearchJob[]> {
     return this.getCached('remotive', 8 * 60 * 60 * 1000, async () => {
       const minimumInterval = 6 * 60 * 60 * 1000;
@@ -418,10 +462,16 @@ export class JobSearchService {
     });
   }
 
-  private getConfiguredBoards(): ConfiguredBoardFeed[] {
-    const greenhouseBoards = this.readBoardSlugs('JOB_SEARCH_GREENHOUSE_BOARDS');
+  private getConfiguredBoards(useDefaults = false): ConfiguredBoardFeed[] {
+    const greenhouseBoards = this.readBoardSlugs(
+      'JOB_SEARCH_GREENHOUSE_BOARDS',
+      useDefaults ? DEFAULT_GREENHOUSE_BOARDS : [],
+    );
     const leverBoards = this.readBoardSlugs('JOB_SEARCH_LEVER_BOARDS');
-    const ashbyBoards = this.readBoardSlugs('JOB_SEARCH_ASHBY_BOARDS');
+    const ashbyBoards = this.readBoardSlugs(
+      'JOB_SEARCH_ASHBY_BOARDS',
+      useDefaults ? DEFAULT_ASHBY_BOARDS : [],
+    );
     return [
       ...greenhouseBoards.map((board) => ({
         source: 'Greenhouse',
@@ -478,12 +528,13 @@ export class JobSearchService {
       .map((job) => this.normalizeAshby(job, board));
   }
 
-  private readBoardSlugs(variable: string): string[] {
-    return (process.env[variable] ?? '')
+  private readBoardSlugs(variable: string, defaults: string[] = []): string[] {
+    const configured = (process.env[variable] ?? '')
       .split(',')
       .map((board) => board.trim())
       .filter((board) => /^[a-zA-Z0-9_-]{1,80}$/.test(board))
       .slice(0, 20);
+    return configured.length ? configured : defaults;
   }
 
   private getCached(
@@ -550,6 +601,29 @@ export class JobSearchService {
       postedAt: validDate(job.created_at, 'seconds'),
       source: 'Arbeitnow',
       tags,
+    };
+  }
+
+  private normalizeRemoteOk(job: Record<string, unknown>): SearchJob {
+    const location = stringValue(job.location) || 'Remote';
+    const minimum = Number(job.salary_min);
+    const maximum = Number(job.salary_max);
+    const salary =
+      Number.isFinite(minimum) && Number.isFinite(maximum) && (minimum > 0 || maximum > 0)
+        ? [minimum, maximum].filter((amount) => amount > 0).join('–')
+        : undefined;
+    return {
+      id: `remoteok:${stringValue(job.id)}`,
+      title: stringValue(job.position) || 'Untitled role',
+      company: stringValue(job.company) || 'Company not specified',
+      location,
+      remote: true,
+      url: safeHttpUrl(job.url) || safeHttpUrl(job.apply_url),
+      description: stripHtml(stringValue(job.description)),
+      salary,
+      postedAt: validDate(job.date),
+      source: 'Remote OK',
+      tags: toStringArray(job.tags),
     };
   }
 
@@ -771,6 +845,8 @@ function buildCatalogueOrder(
 function sourceAttributionUrl(source: string, sourceBoard: string): string {
   const board = encodeURIComponent(sourceBoard);
   switch (source) {
+    case 'Remote OK':
+      return 'https://remoteok.com/';
     case 'Greenhouse':
       return `https://boards.greenhouse.io/${board}`;
     case 'Lever':

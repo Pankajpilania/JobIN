@@ -85,7 +85,33 @@ describe('JobFeedSyncService', () => {
     expect(prisma.jobFeedSyncState.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ lockToken: expect.any(String) }),
-        data: expect.objectContaining({ lastError: 'provider unavailable', nextSyncAt: expect.any(Date) }),
+        data: expect.objectContaining({
+          lastError: 'The public feed returned an invalid response. It will retry automatically.',
+          nextSyncAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it('saves partial results after a rate limit and schedules a shorter retry', async () => {
+    const { service, transaction } = makeService(async () => ({
+      jobs: [job],
+      completeSnapshot: false,
+      warning: 'Feed returned HTTP 429',
+    }));
+
+    await service['syncDueFeeds']();
+
+    expect(transaction.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(transaction.jobListing.updateMany).not.toHaveBeenCalled();
+    expect(transaction.jobFeedSyncState.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lastSuccessAt: expect.any(Date),
+          lastError: 'The public feed returned HTTP 429.',
+          nextSyncAt: expect.any(Date),
+          lastJobCount: 1,
+        }),
       }),
     );
   });

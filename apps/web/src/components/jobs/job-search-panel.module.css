@@ -247,7 +247,13 @@
   .jobTitleRow h3 { font-size: 15px; }
   .jobActions { flex-direction: row; justify-content: flex-end; }
   .saveButton, .savedButton, .originalLink { min-height: 36px; }
-  .sourcesBar { gap: 6px; }
+  .sourcesBar { max-width: 100%; gap: 6px; }
+  .jobList { min-width: 0; }
+  .jobList > div, .jobCard, .jobDetails { min-width: 0; }
+  .pagination { flex-wrap: wrap; gap: 10px; }
+  .resultsHeader { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .filterGrid > * { min-width: 0; }
+  .filterGrid input, .filterGrid select { width: 100%; min-width: 0; }
   .sourceStatus b { display: none; }
   .errorState { align-items: flex-start; flex-wrap: wrap; }
   .retryButton { margin-left: 50px; }

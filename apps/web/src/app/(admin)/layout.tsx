@@ -9,6 +9,8 @@ import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LogOut,
+  Menu,
+  X,
   BarChart2,
   Users,
   CreditCard,
@@ -40,6 +42,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { isReady, isSignedIn, getToken, signOut, profile } = useAuth();
   const [adminVerified, setAdminVerified] = useState(false);
   const [adminError, setAdminError] = useState('');
+  const [adminNavOpen, setAdminNavOpen] = useState(false);
 
   useEffect(() => {
     if (isReady && !isSignedIn) {
@@ -65,6 +68,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       active = false;
     };
   }, [getToken, isReady, isSignedIn]);
+
+  useEffect(() => {
+    if (!adminNavOpen) return;
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    const previousOverflow = document.body.style.overflow;
+    if (isMobile) document.body.style.overflow = 'hidden';
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setAdminNavOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [adminNavOpen]);
 
   const handleSignOut = async () => {
     try {
@@ -160,6 +178,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     >
       {/* ── Sidebar Nav ── */}
       <aside
+        id="admin-navigation"
+        className={`admin-sidebar${adminNavOpen ? ' is-open' : ''}`}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -250,7 +270,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || (href !== '/admin' && pathname.startsWith(href));
             return (
-              <Link key={href} href={href} style={{ textDecoration: 'none' }}>
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setAdminNavOpen(false)}
+                style={{ textDecoration: 'none' }}
+              >
                 <motion.div
                   whileHover={{ x: 2 }}
                   whileTap={{ scale: 0.98 }}
@@ -372,12 +397,36 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
+      {adminNavOpen && (
+        <button
+          type="button"
+          className="admin-sidebar-backdrop"
+          aria-label="Close admin navigation"
+          onClick={() => setAdminNavOpen(false)}
+        />
+      )}
+
       {/* ── Main content wrapper ── */}
       <main
         className="admin-portal-main"
         style={{ flex: 1, overflowY: 'auto', padding: '32px', backgroundColor: 'var(--surface-2)' }}
       >
+        <div className="admin-mobile-topbar">
+          <button
+            type="button"
+            className="admin-menu-button"
+            aria-label={adminNavOpen ? 'Close admin navigation' : 'Open admin navigation'}
+            aria-expanded={adminNavOpen}
+            aria-controls="admin-navigation"
+            onClick={() => setAdminNavOpen((open) => !open)}
+          >
+            {adminNavOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          <span>JobIN <b>Admin</b></span>
+          <Avatar src={avatarUrl} alt={displayName} fallback={getInitials(displayName)} size="sm" />
+        </div>
         <motion.div
+          className="admin-page-content"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}

@@ -1,3 +1,5 @@
+/* Hallmark · JobIN extension · modern-minimal · redesign: full · locked JobIN mint/ink brand */
+/* Hallmark · pre-emit critique: P4 H4 E3 S4 R4 V3 · keep popup, side panel and settings flows */
 /* ─── JobIN Extension — Global Styles ──────────────────────────────────────── */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -75,7 +77,7 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
-  transition: all 0.2s ease;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
   white-space: nowrap;
 }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -118,7 +120,7 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
   width: 100%;
 }
 .input::placeholder, .textarea::placeholder { color: var(--text-dim); }
-.input:focus, .textarea:focus, .select:focus { border-color: var(--primary-border); }
+.input:focus, .textarea:focus, .select:focus { background: var(--bg-card); }
 .textarea { resize: vertical; min-height: 80px; }
 .select { appearance: none; cursor: pointer; }
 
@@ -157,7 +159,7 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .tabs { display: flex; border-bottom: 1px solid var(--border); }
 .tab {
   flex: 1; padding: 10px 0; font-size: 12px; font-weight: 600; text-align: center;
-  color: var(--text-muted); transition: all 0.2s ease;
+  color: var(--text-muted); transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
   border-bottom: 2px solid transparent;
   cursor: pointer; border-top-left-radius: 4px; border-top-right-radius: 4px;
 }
@@ -244,9 +246,9 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
   content: ''; position: absolute; width: 14px; height: 14px;
   left: 2px; top: 50%; transform: translateY(-50%);
   background: white; border-radius: 50%;
-  transition: left 0.2s ease;
+  transition: transform 0.2s ease;
 }
-.switch input:checked + .switch-track::after { left: 18px; }
+.switch input:checked + .switch-track::after { transform: translate(16px, -50%); }
 
 body {
   background-color: var(--bg);
@@ -365,7 +367,7 @@ body {
 .btn-primary { background: linear-gradient(135deg, #148860, #075e43); }
 .btn-emerald { background: linear-gradient(135deg, #16875f, #075c42); }
 .input, .textarea, .select { border-radius: 11px; }
-.input:focus, .textarea:focus, .select:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(8,125,89,.11); }
+.input:focus, .textarea:focus, .select:focus { background: #fff; }
 .extension-popup { min-height: 100vh; background: linear-gradient(160deg, rgba(255,255,255,.7), transparent 56%); }
 .extension-header { background: linear-gradient(135deg, rgba(232,248,237,.98), rgba(255,255,255,.92)) !important; }
 .extension-options { max-width: 720px !important; padding: 36px 24px !important; background: transparent !important; }
@@ -385,4 +387,90 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   body, body > #root, .card, .glass { animation: none !important; }
+}
+
+/* JobIN extension finish, shared with the website's paper, ink and mint system. */
+:root {
+  --bg: #f7faf7;
+  --bg-card: #ffffff;
+  --bg-card-2: #f7faf7;
+  --border: #dce5de;
+  --border-hover: #9bb6a5;
+  --primary: #007f57;
+  --primary-dim: #e9f8ef;
+  --primary-border: #b7e4ce;
+  --text: #111512;
+  --text-muted: #3d4942;
+  --text-dim: #68756d;
+  --emerald: #007f57;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --font-display: "Titillium Web", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html, body { overflow-x: clip; }
+body {
+  background: var(--bg) !important;
+  background-image: none !important;
+  color: var(--text);
+  font-family: var(--font-body);
+  animation: none !important;
+}
+body > #root { min-height: 100%; animation: none !important; }
+h1, h2, h3, .font-outfit { font-family: var(--font-display); }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+.card, .glass {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  background-image: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: none !important;
+}
+.card { transition: border-color 180ms ease, background-color 180ms ease; }
+.card:hover { border-color: var(--border-hover); box-shadow: none; transform: none; }
+.btn {
+  min-height: 42px;
+  border-radius: 999px;
+  font-weight: 650;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
+}
+.btn-primary { color: #ffffff; background: #111512; box-shadow: none; }
+.btn-primary:hover:not(:disabled) { background: #29332d; filter: none; transform: translateY(-1px); }
+.btn-emerald { color: #111512; background: #00d991; box-shadow: none; }
+.btn-emerald:hover:not(:disabled) { background: #25e2a3; filter: none; transform: translateY(-1px); }
+.btn-secondary { color: var(--text); background: var(--bg-card); }
+.btn:not(:disabled):active { transform: translateY(1px); }
+.btn:disabled { border: 1px solid var(--border); opacity: .62; }
+.label { color: var(--text-muted); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.input, .textarea, .select {
+  min-height: 42px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.input:focus, .textarea:focus, .select:focus { border-color: var(--primary); box-shadow: none; }
+.tabs { gap: 8px; }
+.tab { min-height: 42px; border-radius: 10px 10px 0 0; transition: color 160ms ease, border-color 160ms ease; }
+.extension-popup { background: var(--bg); }
+.extension-header { background: var(--bg-card) !important; }
+.extension-options { padding: clamp(20px, 5vw, 36px) 24px !important; }
+.extension-options-header { border-color: var(--border); border-radius: 18px 18px 18px 4px; background: var(--bg-card); box-shadow: none; }
+.extension-options .card { margin-bottom: 14px !important; }
+.extension-sidepanel { background: var(--bg); }
+.extension-sidepanel > .tabs { border-color: var(--border); background: var(--bg-card); }
+
+@media (max-width: 420px) {
+  .page { padding: 14px; gap: 14px; }
+  .extension-options { padding: 18px 14px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; }
+  .card, .btn, .tab, .input, .textarea, .select { transition: none !important; }
+  .card:hover, .btn:not(:disabled):active { transform: none !important; }
+  .spinner { animation: none !important; }
 }

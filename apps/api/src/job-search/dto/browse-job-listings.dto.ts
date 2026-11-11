@@ -2,7 +2,7 @@ import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-const JOB_SOURCES = ['Arbeitnow', 'Greenhouse', 'Lever', 'Ashby'] as const;
+const JOB_SOURCES = ['Arbeitnow', 'Remote OK', 'Greenhouse', 'Lever', 'Ashby'] as const;
 const POSTED_WITHIN = ['24h', '7d', '30d'] as const;
 const SORT_OPTIONS = ['newest', 'relevance'] as const;
 

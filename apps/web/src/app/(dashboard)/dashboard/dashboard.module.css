@@ -1,3 +1,4 @@
+/* Hallmark · JobIN dashboard · modern-minimal · redesign: full · job search is the signature */
 .dashboardPage {
   --dash-ink: #15251e;
   --dash-muted: #64736b;
@@ -400,6 +401,38 @@
 
 .contentGrid :global(.app-glass-card a > div:hover) {
   background: var(--surface-2) !important;
+}
+
+.dashboardPage {
+  width: min(100%, 1240px);
+  margin-inline: auto;
+  gap: var(--space-lg) !important;
+}
+
+.hero {
+  min-height: 300px;
+  padding: clamp(var(--space-lg), 4vw, var(--space-2xl));
+  border-radius: 20px 20px 20px 5px;
+}
+
+.heroContent { gap: var(--space-lg); }
+.hero h1 { max-width: 600px; text-wrap: balance; }
+.heroPrimary { min-height: 48px; border-radius: 999px; box-shadow: none; }
+.statsGrid { gap: var(--space-sm) !important; }
+.statsGrid :global(.app-glass-card) {
+  min-height: 130px;
+  border-radius: 16px !important;
+}
+.contentGrid { gap: var(--space-md) !important; }
+.contentGrid :global(.app-glass-card) { border-radius: 17px !important; }
+.contentGrid :global(.app-glass-card a > div) { padding-block: 13px !important; }
+
+@media (max-width: 560px) {
+  .dashboardPage { gap: var(--space-md) !important; }
+  .hero { padding: var(--space-lg) var(--space-md) var(--space-sm); border-radius: 18px 18px 18px 4px; }
+  .hero h1 { max-width: 20ch; font-size: clamp(28px, 8vw, 34px) !important; }
+  .heroArt { height: 180px; flex-basis: 180px; }
+  .statsGrid :global(.app-glass-card) { min-height: 118px; padding: 15px !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
