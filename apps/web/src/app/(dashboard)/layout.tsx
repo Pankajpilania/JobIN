@@ -81,7 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '32px',
+            padding: 'clamp(20px, 3vw, 36px)',
             backgroundColor: 'var(--surface-2)',
           }}
         >

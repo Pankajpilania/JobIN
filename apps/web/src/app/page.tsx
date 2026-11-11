@@ -758,8 +758,8 @@ export default function LandingPage() {
             <b>Company</b>
             <Link href="/about">About JobIN</Link>
             <Link href="/support">Support</Link>
-            <a href="#privacy">Privacy policy</a>
-            <a href="#terms">Terms of service</a>
+            <Link href="/privacy-policy">Privacy policy</Link>
+            <Link href="/terms-of-service">Terms of service</Link>
             <Link href="/contact">Contact</Link>
           </div>
         </div>

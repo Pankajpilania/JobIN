@@ -125,12 +125,10 @@ describe('JobSearchService', () => {
   });
 
   it('returns available results and names a feed that failed', async () => {
-    jest.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
-      if (String(input).includes('arbeitnow.com')) {
-        return new Response('unavailable', { status: 503 });
-      }
-      return new Response(
-        JSON.stringify({
+    const service = new JobSearchService(tracker as unknown as JobTrackerService);
+    jest.spyOn(service as any, 'fetchJson').mockImplementation((url: string) => {
+      if (url.includes('arbeitnow.com')) return Promise.reject(new Error('Feed returned HTTP 503'));
+      return Promise.resolve({
           jobs: [
             {
               id: 1,
@@ -141,10 +139,8 @@ describe('JobSearchService', () => {
               description: 'Design products',
             },
           ],
-        }),
-      );
+        });
     });
-    const service = new JobSearchService(tracker as unknown as JobTrackerService);
 
     const result = await service.search(
       'user-1',
@@ -156,6 +152,31 @@ describe('JobSearchService', () => {
       { name: 'Arbeitnow', error: 'This source is temporarily unavailable.' },
     ]);
     expect(tracker.importSearchResults).not.toHaveBeenCalled();
+  });
+
+  it('keeps successfully fetched Arbeitnow pages when a later page is rate limited', async () => {
+    const service = new JobSearchService(tracker as unknown as JobTrackerService);
+    jest
+      .spyOn(service as any, 'fetchJson')
+      .mockResolvedValueOnce({
+        data: [
+          {
+            slug: 'role-1',
+            title: 'Engineer',
+            company_name: 'Example Co',
+            url: 'https://jobs.example/role-1',
+            created_at: 1767312000,
+          },
+        ],
+        links: { next: 'https://www.arbeitnow.com/api/job-board-api?page=2' },
+      })
+      .mockRejectedValueOnce(new Error('Feed returned HTTP 429'));
+
+    const result = await service['fetchArbeitnowSnapshot']();
+
+    expect(result.jobs).toHaveLength(1);
+    expect(result.completeSnapshot).toBe(false);
+    expect(result.warning).toBe('Feed returned HTTP 429');
   });
 
   it('fails explicitly when every configured source is unavailable', async () => {

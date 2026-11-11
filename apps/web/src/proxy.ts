@@ -67,6 +67,8 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname === '/careers' ||
     request.nextUrl.pathname === '/jobs' ||
     request.nextUrl.pathname === '/about' ||
+    request.nextUrl.pathname === '/privacy-policy' ||
+    request.nextUrl.pathname === '/terms-of-service' ||
     request.nextUrl.pathname.startsWith('/admin-login') ||
     request.nextUrl.pathname.startsWith('/auth/callback') ||
     request.nextUrl.pathname.startsWith('/api/');

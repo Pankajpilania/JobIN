@@ -69,7 +69,7 @@ export class JobFeedSyncService implements OnModuleInit {
       const validJobs = deduplicateJobs(jobsWithUrls);
       const isComplete = snapshot.completeSnapshot && jobsWithUrls.length === snapshot.jobs.length;
 
-      await this.persistSnapshot(feed, validJobs, fetchedAt, isComplete, lockToken);
+      await this.persistSnapshot(feed, validJobs, fetchedAt, isComplete, lockToken, snapshot.warning);
       this.logger.log(`${feed.name}: synced ${validJobs.length} public job listings.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown feed sync error';
@@ -110,6 +110,7 @@ export class JobFeedSyncService implements OnModuleInit {
     syncedAt: Date,
     completeSnapshot: boolean,
     lockToken: string,
+    warning?: string,
   ) {
     const records = jobs.map((job) => ({
       id: randomUUID(),
@@ -172,8 +173,8 @@ export class JobFeedSyncService implements OnModuleInit {
           },
           data: {
             lastSuccessAt: syncedAt,
-            nextSyncAt: new Date(syncedAt.getTime() + SYNC_INTERVAL_MS),
-            lastError: null,
+            nextSyncAt: new Date(syncedAt.getTime() + (warning ? FAILURE_RETRY_MS : SYNC_INTERVAL_MS)),
+            lastError: warning ? publicFeedError(warning) : null,
             lastJobCount: records.length,
             lockToken: null,
             lockedUntil: null,

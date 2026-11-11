@@ -25,7 +25,7 @@ export interface SyncableJobFeed {
   source: string;
   sourceBoard: string;
   name: string;
-  fetch: () => Promise<{ jobs: SearchJob[]; completeSnapshot: boolean }>;
+  fetch: () => Promise<{ jobs: SearchJob[]; completeSnapshot: boolean; warning?: string }>;
 }
 
 interface ConfiguredBoardFeed {
@@ -120,6 +120,8 @@ interface RemotiveResponse {
 interface AshbyResponse {
   jobs?: Array<Record<string, unknown>>;
 }
+
+const MAX_ARBEITNOW_SYNC_PAGES = 5;
 
 @Injectable()
 export class JobSearchService {
@@ -387,6 +389,7 @@ export class JobSearchService {
   private async fetchArbeitnowSnapshot(): Promise<{
     jobs: SearchJob[];
     completeSnapshot: boolean;
+    warning?: string;
   }> {
     const jobs: SearchJob[] = [];
     const visitedPages = new Set<string>();
@@ -394,12 +397,22 @@ export class JobSearchService {
     let completeSnapshot = false;
     let pageCount = 0;
 
-    for (; pageCount < 50 && nextPage; pageCount += 1) {
+    for (; pageCount < MAX_ARBEITNOW_SYNC_PAGES && nextPage; pageCount += 1) {
       if (visitedPages.has(nextPage)) throw new Error('Arbeitnow pagination repeated a page.');
       visitedPages.add(nextPage);
 
       if (pageCount > 0) await delay(1_000);
-      const response = await this.fetchJson<ArbeitnowResponse>(nextPage);
+      let response: ArbeitnowResponse;
+      try {
+        response = await this.fetchJson<ArbeitnowResponse>(nextPage);
+      } catch (error) {
+        if (jobs.length === 0) throw error;
+        return {
+          jobs,
+          completeSnapshot: false,
+          warning: error instanceof Error ? error.message : 'Feed refresh was incomplete.',
+        };
+      }
       jobs.push(...(response.data ?? []).map((job) => this.normalizeArbeitnow(job)));
 
       if (!response.links?.next) {

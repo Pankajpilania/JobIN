@@ -29,7 +29,7 @@
   --radius-pill: 999px;
   --shadow-card: 0 4px 24px rgba(79,70,229,.08);
   --shadow-sm: 0 2px 16px rgba(79,70,229,.06);
-  --transition: all .15s ease;
+  --transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -825,7 +825,7 @@ main:not(.jobin-home) :is(button, a, input, select, textarea) { scroll-margin-bl
 
 /* Tab underline slide */
 .job-tabs button.active { color: var(--home-ink); }
-.job-tabs button.active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: #008e60; content: ''; transition: left .2s ease, right .2s ease; }
+.job-tabs button.active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: #008e60; content: ''; }
 
 /* Feature row reveal stagger */
 .feature-row[data-reveal] { transition-delay: var(--stagger, 0ms); }
@@ -1135,4 +1135,171 @@ main:not(.jobin-home) :is(button, a, input, select, textarea) { scroll-margin-bl
     border-bottom: 1px solid var(--border) !important;
     padding: 20px 0 !important;
   }
+}
+
+/* Shared JobIN finish: one palette and a quieter, clearer product canvas. */
+:root {
+  --brand: #007f57;
+  --brand-dark: #005d41;
+  --brand-mid: #00a96f;
+  --brand-light: #edffe5;
+  --surface: #ffffff;
+  --surface-2: #f7faf7;
+  --surface-3: #edf5ef;
+  --text-1: #111512;
+  --text-2: #3d4942;
+  --text-3: #68756d;
+  --border: #dce5de;
+  --shadow-card: none;
+  --shadow-sm: none;
+}
+
+html, body { overflow-x: clip; }
+body { background: var(--surface-2); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+
+main:not(.jobin-home) {
+  min-width: 0;
+  animation: none;
+}
+main:not(.jobin-home) :is(h1, h2, h3) {
+  color: var(--text-1);
+  font-family: var(--font-display), var(--font-sans);
+  letter-spacing: -.025em;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+main:not(.jobin-home) h1 { font-size: clamp(30px, 3vw, 42px); font-weight: 700; line-height: 1.1; }
+main:not(.jobin-home) h2 { font-size: clamp(22px, 2vw, 29px); font-weight: 700; line-height: 1.18; }
+main:not(.jobin-home) h3 { font-size: 18px; font-weight: 650; line-height: 1.3; }
+main:not(.jobin-home) p { line-height: 1.65; }
+main:not(.jobin-home) :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+  border-radius: 10px;
+  background-color: var(--surface);
+  color: var(--text-1);
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+main:not(.jobin-home) :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+main:not(.jobin-home) :is(button, a, input, select, textarea) { scroll-margin-block: 1rem; }
+main:not(.jobin-home) :is(table) { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+main:not(.jobin-home) :is(th) { color: var(--text-2); font-weight: 600; }
+main:not(.jobin-home) :is(td, th) { border-color: var(--border); }
+
+.dashboard-shell, .admin-portal-shell {
+  min-height: 100dvh;
+  background: var(--surface-2) !important;
+}
+.dashboard-main, .admin-portal-main {
+  min-width: 0;
+  background: var(--surface-2) !important;
+  background-image: none !important;
+  animation: none !important;
+}
+.dashboard-main { padding: clamp(var(--space-lg), 3vw, var(--space-xl)) !important; }
+.admin-page-content { max-width: 1440px; margin-inline: auto; }
+.dashboard-sidebar, .admin-sidebar {
+  background: var(--surface) !important;
+  box-shadow: 1px 0 0 var(--border) !important;
+}
+.dashboard-topbar {
+  border-bottom-color: var(--border) !important;
+  background: color-mix(in oklab, var(--surface) 96%, transparent) !important;
+  backdrop-filter: blur(10px) !important;
+}
+.dashboard-sidebar nav a, .admin-portal-shell nav a { color: var(--text-2); }
+.dashboard-sidebar nav a:hover, .admin-portal-shell nav a:hover { color: var(--brand-dark); }
+.dashboard-sidebar nav a > div[aria-current='page'],
+.admin-portal-shell nav a[aria-current='page'] { box-shadow: inset 3px 0 var(--brand); }
+.app-glass-card {
+  border-color: var(--border) !important;
+  border-radius: var(--radius-card) !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.app-glass-card-interactive { transition: border-color var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out); }
+.app-glass-card-interactive:hover {
+  border-color: color-mix(in oklab, var(--brand) 40%, var(--border)) !important;
+  background: color-mix(in oklab, var(--brand-light) 28%, white) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.admin-portal-shell > aside { background: var(--surface) !important; backdrop-filter: none !important; }
+
+/* Keep the homepage lively through its real product preview, not background effects. */
+.home-hero { background: var(--brand-light); }
+.home-hero::before, .home-hero::after, .hero-orbit { display: none; }
+.hero-product { animation: none; }
+.match-preview, .floating-match-badge {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.match-preview::before, .floating-match-badge::before { display: none; }
+.jobs-section { scroll-margin-top: 72px; }
+.job-card { transition: background-color var(--dur-short) var(--ease-out); }
+.job-card:hover { background: var(--surface-2); }
+.job-tabs button:focus-visible, .job-card a:focus-visible { outline-offset: 3px; }
+.price-card:hover, .price-card:focus-within {
+  transform: none;
+  border-color: var(--brand);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .dashboard-main { padding: var(--space-lg) var(--space-md) !important; }
+  .dashboard-topbar { min-height: 60px; }
+  main:not(.jobin-home) h1 { font-size: clamp(28px, 7vw, 36px); }
+  main:not(.jobin-home) h2 { font-size: clamp(21px, 5vw, 27px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; }
+  .hero-product, .job-card, .app-glass-card-interactive { animation: none !important; transition: none !important; }
+}
+
+.public-legal-page { min-height: 100vh; padding: 0 24px; background: var(--surface-2); }
+.legal-document { width: min(100%, 1160px); margin: 0 auto; }
+.legal-header, .legal-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.legal-header { min-height: 76px; border-bottom: 1px solid var(--border); }
+.legal-wordmark { color: var(--text-1) !important; font-size: 22px; font-weight: 800; letter-spacing: -.04em; }
+.legal-back-link { color: var(--brand-dark) !important; font-size: 14px; font-weight: 650; }
+.legal-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; gap: clamp(32px, 7vw, 96px); padding: 60px 0 80px; }
+.legal-index { position: sticky; top: 28px; padding-top: 8px; }
+.legal-index > p { margin: 0 0 12px; color: var(--text-1); font-size: 14px; font-weight: 700; }
+.legal-index nav { display: grid; gap: 5px; }
+.legal-index a { padding: 7px 9px; border-radius: 8px; color: var(--text-2); font-size: 13px; line-height: 1.4; }
+.legal-index a:hover { color: var(--brand-dark); background: var(--surface-3); text-decoration: none; }
+.legal-content { min-width: 0; max-width: 780px; }
+.legal-updated { margin: 0 0 10px; color: var(--text-3); font-size: 13px; }
+.legal-content > h1 { margin: 0 0 18px; font-size: clamp(38px, 6vw, 60px) !important; letter-spacing: -.045em !important; }
+.legal-introduction { margin: 0 0 38px; padding: 20px 22px; border-left: 3px solid var(--brand-mid); background: var(--surface); }
+.legal-introduction p { margin: 0; color: var(--text-2); font-size: 17px; line-height: 1.65; }
+.legal-content > section { padding: 28px 0; border-top: 1px solid var(--border); scroll-margin-top: 24px; }
+.legal-content > section h2 { margin: 0 0 14px; font-size: 24px !important; }
+.legal-content :is(p, li) { color: var(--text-2); font-size: 15px; line-height: 1.75; }
+.legal-content p + p { margin-top: 12px; }
+.legal-content ul { display: grid; gap: 10px; padding-left: 21px; }
+.legal-content a { color: var(--brand-dark); text-decoration: underline; text-underline-offset: 3px; }
+.legal-contact { margin-top: 20px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.legal-footer { min-height: 68px; border-top: 1px solid var(--border); color: var(--text-3); font-size: 12px; }
+.legal-footer nav { display: flex; flex-wrap: wrap; gap: 18px; }
+.legal-footer a { color: var(--text-2); }
+@media (max-width: 760px) {
+  .public-legal-page { padding-inline: 18px; }
+  .legal-header { min-height: 64px; }
+  .legal-layout { grid-template-columns: minmax(0, 1fr); gap: 26px; padding: 28px 0 48px; }
+  .legal-index { position: static; padding: 0; }
+  .legal-index nav { display: flex; overflow-x: auto; padding-bottom: 6px; }
+  .legal-index a { flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface); }
+  .legal-content > h1 { font-size: clamp(36px, 11vw, 48px) !important; }
+  .legal-footer { align-items: flex-start; flex-direction: column; justify-content: center; padding: 16px 0; }
 }
