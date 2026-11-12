@@ -22,6 +22,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
+import { BrandMark } from '@/components/brand-mark';
 import { motion } from 'framer-motion';
 
 const NAV = [
@@ -109,7 +110,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isReady || !isSignedIn || (!adminVerified && !adminError)) {
     return (
-        <div
+      <div
         style={{
           display: 'flex',
           height: '100vh',
@@ -209,23 +210,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             href="/admin"
             style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}
           >
-            <div
-              style={{
-                display: 'flex',
-                height: '32px',
-                width: '32px',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '8px',
-                backgroundColor: 'var(--brand)',
-                color: 'white',
-                fontWeight: 900,
-                fontSize: '18px',
-                boxShadow: 'var(--shadow-sm)',
-              }}
-            >
-              J
-            </div>
+            <BrandMark size={32} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span
                 style={{
@@ -291,7 +276,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     cursor: 'pointer',
                     backgroundColor: active ? 'var(--brand-light)' : 'transparent',
                     color: active ? 'var(--brand)' : 'var(--text-2)',
-                    border: active ? '1px solid color-mix(in oklab, var(--brand) 20%, transparent)' : '1px solid transparent',
+                    border: active
+                      ? '1px solid color-mix(in oklab, var(--brand) 20%, transparent)'
+                      : '1px solid transparent',
                   }}
                 >
                   <Icon
@@ -422,7 +409,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             {adminNavOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <span>JobIN <b>Admin</b></span>
+          <BrandMark size={26} />
+          <span>
+            JobIN <b>Admin</b>
+          </span>
           <Avatar src={avatarUrl} alt={displayName} fallback={getInitials(displayName)} size="sm" />
         </div>
         <motion.div

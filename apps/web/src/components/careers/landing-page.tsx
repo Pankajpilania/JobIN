@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import Link from 'next/link';
+import { BrandLogo, BrandMark } from '@/components/brand-mark';
 import { useRouter } from 'next/navigation';
 import {
   ArrowDown,
@@ -43,7 +44,7 @@ const signupHref = '/sign-up';
 export function Logo() {
   return (
     <Link href="/careers" className={styles.logo} aria-label="JobIN home">
-      JobIN
+      <BrandLogo size={30} textColor="var(--c-text)" />
     </Link>
   );
 }
@@ -261,7 +262,7 @@ export function Hero() {
                 Q
               </span>
               <span className={styles.trustBrand} aria-label="Job search">
-                J
+                <BrandMark size={20} />
               </span>
               <span className={styles.trustBrand} aria-label="Career">
                 ↗

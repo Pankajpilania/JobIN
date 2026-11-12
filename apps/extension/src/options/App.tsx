@@ -26,6 +26,7 @@ import type {
   UserProfile,
   AutofillSettings,
 } from '../shared/types';
+import { BrandMark } from '../shared/brand-mark';
 
 // ─── Section component ────────────────────────────────────────────────────────
 
@@ -351,23 +352,11 @@ export default function OptionsApp() {
       }}
     >
       {/* Page header */}
-      <div className="extension-options-header" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: 'linear-gradient(135deg,#00d991,#008c60)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 20,
-            fontWeight: 800,
-            color: 'white',
-          }}
-        >
-          J
-        </div>
+      <div
+        className="extension-options-header"
+        style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}
+      >
+        <BrandMark size={36} />
         <div>
           <h1 className="font-outfit" style={{ fontSize: 22, fontWeight: 800, marginBottom: 2 }}>
             JobIN <span className="gradient-text">Copilot</span>

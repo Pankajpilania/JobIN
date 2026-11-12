@@ -24,6 +24,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useCurrentUser } from '@/hooks/use-user';
 import { useSessionProfile } from '@/hooks/use-session-profile';
 import { Avatar } from '../ui/avatar';
+import { BrandLogo } from '../brand-mark';
 import { toast } from 'sonner';
 
 const navItems = [
@@ -104,33 +105,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ isMobileOpen, onMobileCl
           href="/dashboard"
           style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}
         >
-          <div
-            style={{
-              display: 'flex',
-              height: '32px',
-              width: '32px',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '8px',
-              backgroundColor: 'var(--brand)',
-              color: 'white',
-              fontWeight: 900,
-              fontSize: '18px',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
-            J
-          </div>
-          <span
-            style={{
-              fontWeight: 800,
-              fontSize: '20px',
-              letterSpacing: '-0.5px',
-              color: 'var(--text-1)',
-            }}
-          >
-            JobIN
-          </span>
+          <BrandLogo size={32} textColor="var(--text-1)" />
         </Link>
         <button
           type="button"
@@ -173,7 +148,9 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ isMobileOpen, onMobileCl
                   cursor: 'pointer',
                   backgroundColor: active ? 'var(--brand-light)' : 'transparent',
                   color: active ? 'var(--brand)' : 'var(--text-2)',
-                  border: active ? '1px solid color-mix(in oklab, var(--brand) 20%, transparent)' : '1px solid transparent',
+                  border: active
+                    ? '1px solid color-mix(in oklab, var(--brand) 20%, transparent)'
+                    : '1px solid transparent',
                 }}
               >
                 <Icon

@@ -75,14 +75,14 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
     .logo {
       width: 28px;
       height: 28px;
-      background: linear-gradient(135deg, #00d991, #008c60);
-      border-radius: 8px;
+      background: transparent;
+      border-radius: 0;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 14px;
       font-weight: 800;
-      color: white;
+      color: #008c60;
       flex-shrink: 0;
       font-family: 'Segoe UI', sans-serif;
     }
@@ -171,7 +171,7 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
   const scoreText = isLoading ? 'Analysing…' : `${score}/100`;
 
   badge.innerHTML = `
-    <div class="logo">J</div>
+    <div class="logo" aria-hidden="true"><svg viewBox="0 0 40 40" width="28" height="28" fill="none"><path d="M13.5 13.5 20 7l6.5 6.5M20 12.5v10.25c0 6.5-3.6 10.25-9 10.25-4 0-6.75-2.1-8-5.2" stroke="#008c60" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     <div class="info">
       <span class="title">JobIN Match</span>
       <div class="score-row">

@@ -1,13 +1,17 @@
 import Link from 'next/link';
 import { ArrowUpRight, Mail } from 'lucide-react';
 import { Web3FormsForm } from '@/components/support/web3forms-form';
+import { BrandLogo } from '@/components/brand-mark';
 
 export default function ContactPage() {
   return (
-    <main className="public-page public-contact-page" style={{ minHeight: '100vh', padding: '24px', background: 'var(--surface-2)' }}>
+    <main
+      className="public-page public-contact-page"
+      style={{ minHeight: '100vh', padding: '24px', background: 'var(--surface-2)' }}
+    >
       <div style={{ maxWidth: 780, margin: '0 auto' }}>
         <Link href="/" style={{ color: 'var(--brand-dark)', fontWeight: 800 }}>
-          JobIN
+          <BrandLogo size={28} textColor="var(--brand-dark)" />
         </Link>
         <section
           style={{

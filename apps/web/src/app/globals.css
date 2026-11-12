@@ -444,11 +444,6 @@ main:not(.jobin-home) :is(button, a, input, select, textarea) { scroll-margin-bl
 .home-nav { height: 76px; max-width: 1280px; margin: 0 auto; padding: 0 42px; display: flex; align-items: center; justify-content: space-between; gap: 28px; background: #fff; }
 .home-menu-toggle, .home-mobile-navigation { display: none; }
 .brand-lockup { display: inline-flex; align-items: center; gap: 10px; color: var(--home-ink); font-size: 22px; font-weight: 800; letter-spacing: -.8px; }
-.brand-lockup > span:last-child > span { font-weight: 500; }
-.jobin-mark { width: 31px; height: 31px; display: inline-flex; flex-direction: column; justify-content: center; gap: 3px; padding: 7px; border-radius: 10px 10px 10px 3px; background: var(--home-green); }
-.jobin-mark span { height: 2px; border-radius: 2px; background: var(--home-dark); }
-.jobin-mark span:nth-child(2) { width: 70%; }
-.jobin-mark span:nth-child(3) { width: 42%; }
 .home-nav-links, .home-nav-actions { display: flex; align-items: center; }
 .home-nav-links { gap: 29px; margin-left: auto; margin-right: auto; }
 .home-nav-links a, .nav-signin { color: var(--home-muted); font-size: 13px; font-weight: 600; }
@@ -648,7 +643,6 @@ main:not(.jobin-home) :is(button, a, input, select, textarea) { scroll-margin-bl
 .footer-top { display: grid; grid-template-columns: 1.5fr repeat(3, 1fr); gap: 35px; padding: 0 0 40px; }
 .footer-brand p { max-width: 200px; margin: 13px 0 0; color: #3d4942 !important; font-size: 13px; }
 .footer-brand .brand-lockup { font-size: 18px; }
-.footer-brand .jobin-mark { width: 27px; height: 27px; padding: 6px; border-radius: 8px 8px 8px 3px; }
 .footer-column { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
 .footer-column b { margin-bottom: 5px; color: #2b382f; font-size: 12px; }
 .footer-column a { color: #46534a; font-size: 12px; }
@@ -670,7 +664,6 @@ main:not(.jobin-home) :is(button, a, input, select, textarea) { scroll-margin-bl
 @media (max-width: 680px) {
   .home-nav { position: relative; z-index: 40; height: 65px; padding: 0 17px; }
   .brand-lockup { gap: 7px; font-size: 19px; }
-  .jobin-mark { width: 28px; height: 28px; padding: 6px; }
   .home-nav-links { display: none; }
   .home-nav-actions { gap: 13px; }
   .nav-signin { font-size: 11px; white-space: nowrap; }
@@ -1066,7 +1059,6 @@ main:not(.jobin-home) :is(button, a, input, select, textarea) { scroll-margin-bl
   .home-nav-actions { gap: 8px; }
   .button-nav { padding: 0 10px; font-size: 10px; }
   .home-nav .brand-lockup { gap: 6px; font-size: 18px; }
-  .home-nav .jobin-mark { width: 27px; height: 27px; }
 }
 
 @media (max-width: 360px) {

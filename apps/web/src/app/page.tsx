@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { BrandLogo, BrandMark } from '@/components/brand-mark';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -174,16 +175,6 @@ const FEATURES = [
     demo: 'interview',
   },
 ];
-
-function BrandMark() {
-  return (
-    <span className="jobin-mark" aria-hidden="true">
-      <span />
-      <span />
-      <span />
-    </span>
-  );
-}
 
 function MatchPreview({ job }: { job: Job }) {
   return (
@@ -385,10 +376,7 @@ export default function LandingPage() {
 
       <nav className="home-nav" aria-label="Main navigation">
         <Link href="/" className="brand-lockup" aria-label="JobIN home">
-          <BrandMark />
-          <span>
-            Job<span>IN</span>
-          </span>
+          <BrandLogo size={31} color="var(--home-green)" textColor="var(--home-ink)" />
         </Link>
         <div className="home-nav-links">
           <a href="#features">Features</a>
@@ -481,7 +469,9 @@ export default function LandingPage() {
         <div className="hero-product">
           <MatchPreview job={ALL_JOBS[5]} />
           <div className="floating-match-badge" aria-hidden="true">
-            <span className="floating-match-icon"><Check size={14} /></span>
+            <span className="floating-match-icon">
+              <Check size={14} />
+            </span>
             <span>
               Skills aligned
               <small>3 profile matches · Example</small>
@@ -679,11 +669,7 @@ export default function LandingPage() {
         </div>
         <div className="pricing-grid">
           {PLANS.map((plan) => (
-            <article
-              className="price-card"
-              data-reveal
-              key={plan.plan}
-            >
+            <article className="price-card" data-reveal key={plan.plan}>
               {plan.popular && <span className="popular-label">Most popular</span>}
               <span className="plan-name">{plan.plan}</span>
               <div className="plan-price">
@@ -734,10 +720,7 @@ export default function LandingPage() {
         <div className="footer-top">
           <div className="footer-brand">
             <Link href="/" className="brand-lockup">
-              <BrandMark />
-              <span>
-                Job<span>IN</span>
-              </span>
+              <BrandLogo size={27} color="var(--home-green)" textColor="var(--home-ink)" />
             </Link>
             <p>A focused workspace for your job search.</p>
           </div>
