@@ -82,7 +82,8 @@ async function download(path: string, token?: string) {
 
   const disposition = res.headers.get('content-disposition') ?? '';
   const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
-  return { blob: await res.blob(), filename };
+  const pdfEngine = res.headers.get('x-pdf-engine');
+  return { blob: await res.blob(), filename, pdfEngine };
 }
 
 export const apiClient = {

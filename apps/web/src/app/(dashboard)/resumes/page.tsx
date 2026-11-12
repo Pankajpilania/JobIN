@@ -105,6 +105,8 @@ function DropZone() {
     accept: {
       'application/pdf': ['.pdf'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'text/plain': ['.tex'],
+      'application/x-tex': ['.tex'],
     },
     maxFiles: 1,
     maxSize: 10 * 1024 * 1024,
@@ -113,7 +115,7 @@ function DropZone() {
       if (err?.code === 'file-too-large') {
         toast.error('File exceeds 10 MB limit');
       } else if (err?.code === 'file-invalid-type') {
-        toast.error('Only PDF and DOCX files are accepted');
+        toast.error('Only PDF, DOCX, and .tex files are accepted');
       } else {
         toast.error('File rejected — please try again');
       }
@@ -178,7 +180,7 @@ function DropZone() {
           </div>
           <div>
             <p style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
-              {isDragActive ? 'Drop to upload CV' : 'Drag & drop your resume CV file'}
+              {isDragActive ? 'Drop to upload CV' : 'Drag & drop your PDF, Word, or LaTeX resume'}
             </p>
             <p
               style={{
@@ -188,7 +190,7 @@ function DropZone() {
                 margin: '4px 0 0 0',
               }}
             >
-              PDF or DOCX · maximum 10 MB
+              PDF, Word, or LaTeX · maximum 10 MB
             </p>
           </div>
           <Button variant="ghost" style={{ fontSize: '12px', padding: '8px 16px' }}>

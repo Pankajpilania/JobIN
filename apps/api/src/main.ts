@@ -41,6 +41,7 @@ async function bootstrap() {
     origin: [...new Set([...corsOrigins, 'http://localhost:3000'])],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['X-PDF-Engine'],
     credentials: true,
   });
 

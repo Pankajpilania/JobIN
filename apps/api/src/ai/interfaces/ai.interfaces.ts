@@ -11,6 +11,58 @@ export interface ATSAnalysisResult {
 }
 
 /** Result of the AI resume tailoring operation (Sprint 3) */
+export type RequirementCategory =
+  | 'mandatory_skill'
+  | 'desirable_skill'
+  | 'responsibility'
+  | 'domain_knowledge'
+  | 'experience_expectation';
+
+export type EvidenceStatus = 'demonstrated' | 'transferable' | 'missing';
+
+export interface ResumeProfile {
+  name: string | null;
+  emails: string[];
+  phones: string[];
+  urls: string[];
+  summary: string | null;
+  skills: { demonstrated: string[]; transferable: string[] };
+  experience: Array<{
+    employer: string;
+    role: string;
+    location: string | null;
+    dates: string | null;
+    evidence: string[];
+  }>;
+  education: string[];
+  certifications: string[];
+  projects: Array<{ name: string; evidence: string[] }>;
+}
+
+export interface TailoringRequirement {
+  requirement: string;
+  category: RequirementCategory;
+  status: EvidenceStatus;
+  sourceEvidence: string | null;
+  tailoredEvidence: string | null;
+  explanation: string;
+}
+
+export interface TailoringReport {
+  jobAnalysis: {
+    mandatorySkills: string[];
+    desirableSkills: string[];
+    responsibilities: string[];
+    domainKnowledge: string[];
+    experienceExpectations: string[];
+    keywords: string[];
+  };
+  requirements: TailoringRequirement[];
+  missingRequirements: Array<{ requirement: string; explanation: string }>;
+  evidenceMap: Array<{ tailoredClaim: string; sourceEvidence: string }>;
+  matchAssessment: { estimatedMatchPercent: number; summary: string; caveats: string[] };
+}
+
 export interface TailorResult {
   /** Full rewritten resume as plain text */
   tailoredText: string;
@@ -24,6 +76,10 @@ export interface TailorResult {
   scoreAfter: number;
   /** Human-readable list of changes applied, ranked by impact */
   changesApplied: string[];
+  /** Validated machine-readable facts extracted from the source resume */
+  resumeProfile: ResumeProfile;
+  /** Evidence-backed job requirements coverage and match assessment */
+  tailoringReport: TailoringReport;
 }
 
 /** Cover letter generation parameters */

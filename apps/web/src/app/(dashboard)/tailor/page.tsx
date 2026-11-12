@@ -15,6 +15,9 @@ import {
   Copy,
   RefreshCw,
   ArrowRight,
+  Pencil,
+  Save,
+  FileText,
 } from 'lucide-react';
 import { useResumes } from '@/hooks/use-resumes';
 import { useTailorResume } from '@/hooks/use-tailor';
@@ -51,8 +54,14 @@ function ScoreDelta({ before, after }: { before: number; after: number }) {
           marginTop: 0,
         }}
       >
-        ATS Score Impact
+        Estimated Role Alignment
       </h3>
+      <p
+        style={{ margin: '-8px 0 14px', color: 'var(--text-3)', fontSize: '11px', lineHeight: 1.5 }}
+      >
+        AI estimate based on the supplied job description and resume evidence. It is not an employer
+        ATS score or hiring prediction.
+      </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         {/* Before */}
         <div style={{ textAlign: 'center' }}>
@@ -230,7 +239,14 @@ export default function TailorPage() {
   const [jobDescription, setJobDescription] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [designTemplate, setDesignTemplate] = useState<
+    'modern' | 'minimal' | 'technical' | 'executive' | 'graduate'
+  >('modern');
+  const [pageSize, setPageSize] = useState<'A4' | 'LETTER'>('A4');
   const [result, setResult] = useState<TailorResult | null>(null);
+  const [editedText, setEditedText] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [savingEdits, setSavingEdits] = useState(false);
   const [exporting, setExporting] = useState<'pdf' | 'docx' | 'latex' | null>(null);
   const [activeTab, setActiveTab] = useState<'tailored' | 'original'>('tailored');
   const [loading, setLoading] = useState(false);
@@ -241,10 +257,12 @@ export default function TailorPage() {
     return Object.keys(result.keywordDensity);
   }, [result]);
 
-  const originalText = useMemo(() => {
-    if (!result || !resumes) return '';
-    return '(Original resume text is stored on your profile. Switch to the Tailored tab to see the AI-rewritten version.)';
-  }, [result, resumes]);
+  const originalText = result?.originalText ?? '';
+  const report = result?.tailoringReport;
+  const requirements = report?.requirements ?? [];
+  const demonstratedCount = requirements.filter((item) => item.status === 'demonstrated').length;
+  const transferableCount = requirements.filter((item) => item.status === 'transferable').length;
+  const missingCount = requirements.filter((item) => item.status === 'missing').length;
 
   const handleTailor = async () => {
     if (!selectedResumeId) {
@@ -262,10 +280,16 @@ export default function TailorPage() {
         jobDescription,
         jobTitle,
         companyName,
+        designTemplate,
+        pageSize,
       });
       setResult(data);
+      setEditedText(data.tailoredText);
+      setIsEditing(false);
       setActiveTab('tailored');
-      toast.success(`Tailoring complete! Score improved ${data.scoreBefore} → ${data.scoreAfter}`);
+      toast.success(
+        'Tailoring complete. Review the changes and missing keywords before exporting.',
+      );
     } catch (err: any) {
       toast.error(err.message ?? 'Tailoring failed. Please try again.');
     } finally {
@@ -276,19 +300,59 @@ export default function TailorPage() {
   const copyToClipboard = () => {
     if (!result) return;
     navigator.clipboard
-      .writeText(result.tailoredText)
+      .writeText(editedText || result.tailoredText)
       .then(() => toast.success('Copied to clipboard!'));
+  };
+
+  const saveEdits = async () => {
+    if (!selectedResumeId || !result || editedText.trim().length < 50) {
+      toast.error('Resume text must contain at least 50 characters');
+      return;
+    }
+    setSavingEdits(true);
+    try {
+      const token = await getToken();
+      const saved = await apiClient.patch<{
+        versionId: string;
+        tailoredText: string;
+        tailoringReport?: TailorResult['tailoringReport'];
+      }>(
+        `/resumes/${selectedResumeId}/versions/${result.versionId}`,
+        { tailoredContent: editedText },
+        token ?? undefined,
+      );
+      setResult({
+        ...result,
+        tailoredText: saved.tailoredText,
+        tailoringReport: saved.tailoringReport,
+      });
+      setEditedText(saved.tailoredText);
+      setIsEditing(false);
+      toast.success('Your edits are saved to this resume version');
+    } catch (err: any) {
+      toast.error(err.message || 'Could not save resume edits');
+    } finally {
+      setSavingEdits(false);
+    }
   };
 
   const downloadExport = async (format: 'pdf' | 'docx' | 'latex') => {
     if (!selectedResumeId || !result) return;
+    if (isEditing) {
+      toast.error('Save or cancel your draft edits before exporting');
+      return;
+    }
     try {
       setExporting(format);
       const labels = { pdf: 'PDF', docx: 'Word document', latex: 'LaTeX source' };
       toast.loading(`Preparing ${labels[format]} download...`, { id: 'resume-export' });
       const token = await getToken();
-      const query = new URLSearchParams({ versionId: result.versionId });
-      const { blob, filename } = await apiClient.download(
+      const query = new URLSearchParams({
+        versionId: result.versionId,
+        template: designTemplate,
+        pageSize,
+      });
+      const { blob, filename, pdfEngine } = await apiClient.download(
         `/resumes/${selectedResumeId}/export/${format}?${query.toString()}`,
         token ?? undefined,
       );
@@ -300,7 +364,13 @@ export default function TailorPage() {
       anchor.click();
       anchor.remove();
       window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-      toast.success(`${labels[format]} downloaded`, { id: 'resume-export' });
+      const engineNote =
+        format === 'pdf' && pdfEngine === 'tectonic'
+          ? ' (compiled from LaTeX)'
+          : format === 'pdf' && pdfEngine === 'pdfkit-fallback'
+            ? ' (native renderer; LaTeX compiler unavailable or failed)'
+            : '';
+      toast.success(`${labels[format]} downloaded${engineNote}`, { id: 'resume-export' });
     } catch (err: any) {
       toast.error(err.message || 'Failed to download resume', { id: 'resume-export' });
     } finally {
@@ -340,8 +410,8 @@ export default function TailorPage() {
             margin: '8px 0 0 0',
           }}
         >
-          Paste a job description and GPT-4o will rewrite your resume using the XYZ achievement
-          formula, embed missing keywords, and show you the ATS score improvement.
+          Paste a job description to focus your resume on relevant experience, keep your claims
+          factual, and review missing keywords before exporting an ATS-friendly copy.
         </p>
       </motion.div>
 
@@ -489,6 +559,77 @@ export default function TailorPage() {
             />
           </div>
 
+          {/* Output design */}
+          <div>
+            <label
+              htmlFor="resume-template"
+              style={{
+                display: 'block',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: 'var(--text-2)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                marginBottom: '6px',
+              }}
+            >
+              Resume design
+            </label>
+            <select
+              id="resume-template"
+              value={designTemplate}
+              onChange={(event) => setDesignTemplate(event.target.value as typeof designTemplate)}
+              style={{
+                width: '100%',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--surface-2)',
+                padding: '12px 16px',
+                fontSize: '14px',
+                color: 'var(--text-1)',
+              }}
+            >
+              <option value="modern">Modern professional</option>
+              <option value="minimal">Minimal</option>
+              <option value="technical">Technical</option>
+              <option value="executive">Executive</option>
+              <option value="graduate">Graduate</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor="resume-paper-size"
+              style={{
+                display: 'block',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: 'var(--text-2)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                marginBottom: '6px',
+              }}
+            >
+              Page size
+            </label>
+            <select
+              id="resume-paper-size"
+              value={pageSize}
+              onChange={(event) => setPageSize(event.target.value as typeof pageSize)}
+              style={{
+                width: '100%',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--surface-2)',
+                padding: '12px 16px',
+                fontSize: '14px',
+                color: 'var(--text-1)',
+              }}
+            >
+              <option value="A4">A4</option>
+              <option value="LETTER">US Letter</option>
+            </select>
+          </div>
+
           {/* Job description */}
           <div style={{ gridColumn: '1 / -1' }}>
             <label
@@ -572,7 +713,10 @@ export default function TailorPage() {
             style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}
           >
             {/* Score delta */}
-            <ScoreDelta before={result.scoreBefore} after={result.scoreAfter} />
+            <ScoreDelta
+              before={result.scoreBefore}
+              after={report?.matchAssessment.estimatedMatchPercent || result.scoreAfter}
+            />
 
             {/* Stats row */}
             <div
@@ -583,9 +727,9 @@ export default function TailorPage() {
               }}
             >
               {[
-                { label: 'Keywords Added', value: jdKeywords.length, color: '#3B82F6' },
+                { label: 'Job Keywords', value: jdKeywords.length, color: '#3B82F6' },
                 {
-                  label: 'Missing Keywords',
+                  label: 'Unmet Requirements',
                   value: result.missingKeywords.length,
                   color: '#EF4444',
                 },
@@ -621,6 +765,250 @@ export default function TailorPage() {
                 </div>
               ))}
             </div>
+
+            {report && (
+              <section
+                aria-labelledby="tailoring-report-title"
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: '14px',
+                  background: 'var(--surface)',
+                  padding: '20px',
+                  display: 'grid',
+                  gap: '18px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <FileText
+                    style={{ width: 19, height: 19, color: 'var(--brand)', marginTop: 2 }}
+                  />
+                  <div>
+                    <h2
+                      id="tailoring-report-title"
+                      style={{ margin: 0, fontSize: '16px', color: 'var(--text-1)' }}
+                    >
+                      Job requirements and evidence
+                    </h2>
+                    <p style={{ margin: '5px 0 0', fontSize: '12px', color: 'var(--text-3)' }}>
+                      {report.matchAssessment.summary ||
+                        'Role alignment estimated from resume evidence.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: '10px',
+                  }}
+                >
+                  {[
+                    { label: 'Direct evidence', value: demonstratedCount, color: '#047857' },
+                    { label: 'Transferable', value: transferableCount, color: '#1D4ED8' },
+                    { label: 'Needs review', value: missingCount, color: '#B45309' },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      style={{
+                        padding: '12px 14px',
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        background: 'var(--surface-2)',
+                      }}
+                    >
+                      <strong style={{ color: item.color, fontSize: '20px' }}>{item.value}</strong>
+                      <span
+                        style={{
+                          display: 'block',
+                          marginTop: 2,
+                          color: 'var(--text-2)',
+                          fontSize: '11px',
+                        }}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gap: '9px' }}>
+                  {requirements.slice(0, 14).map((item, index) => {
+                    const statusColor =
+                      item.status === 'demonstrated'
+                        ? '#047857'
+                        : item.status === 'transferable'
+                          ? '#1D4ED8'
+                          : '#B45309';
+                    return (
+                      <article
+                        key={`${item.requirement}-${index}`}
+                        style={{
+                          padding: '12px 14px',
+                          border: '1px solid var(--border)',
+                          borderRadius: '10px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            gap: '8px',
+                          }}
+                        >
+                          <strong style={{ fontSize: '13px', color: 'var(--text-1)' }}>
+                            {item.requirement}
+                          </strong>
+                          <span
+                            style={{
+                              color: statusColor,
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {item.status}
+                          </span>
+                          <span style={{ color: 'var(--text-3)', fontSize: '10px' }}>
+                            {item.category.replaceAll('_', ' ')}
+                          </span>
+                        </div>
+                        {item.sourceEvidence && (
+                          <p
+                            style={{
+                              margin: '7px 0 0',
+                              color: 'var(--text-2)',
+                              fontSize: '12px',
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            Resume evidence: “{item.sourceEvidence}”
+                          </p>
+                        )}
+                        {item.explanation && (
+                          <p
+                            style={{
+                              margin: '4px 0 0',
+                              color: 'var(--text-3)',
+                              fontSize: '11px',
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            {item.explanation}
+                          </p>
+                        )}
+                      </article>
+                    );
+                  })}
+                  {requirements.length > 14 && (
+                    <p style={{ margin: 0, color: 'var(--text-3)', fontSize: '11px' }}>
+                      Showing 14 of {requirements.length} mapped requirements.
+                    </p>
+                  )}
+                </div>
+
+                {report.evidenceMap.length > 0 && (
+                  <details style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                    <summary
+                      style={{
+                        cursor: 'pointer',
+                        color: 'var(--brand)',
+                        fontWeight: 700,
+                        fontSize: '12px',
+                      }}
+                    >
+                      Trace tailored claims to source evidence ({report.evidenceMap.length})
+                    </summary>
+                    <div style={{ display: 'grid', gap: '10px', marginTop: '12px' }}>
+                      {report.evidenceMap.slice(0, 20).map((entry, index) => (
+                        <div
+                          key={`${entry.tailoredClaim}-${index}`}
+                          style={{ fontSize: '11px', lineHeight: 1.55 }}
+                        >
+                          <strong style={{ color: 'var(--text-1)' }}>Tailored: </strong>
+                          <span style={{ color: 'var(--text-2)' }}>{entry.tailoredClaim}</span>
+                          <br />
+                          <strong style={{ color: 'var(--text-1)' }}>Source: </strong>
+                          <span style={{ color: 'var(--text-3)' }}>{entry.sourceEvidence}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {report.matchAssessment.caveats.length > 0 && (
+                  <p
+                    style={{ margin: 0, color: 'var(--text-3)', fontSize: '11px', lineHeight: 1.5 }}
+                  >
+                    Review: {report.matchAssessment.caveats.join(' ')}
+                  </p>
+                )}
+
+                {result.resumeProfile && (
+                  <details style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                    <summary
+                      style={{
+                        cursor: 'pointer',
+                        color: 'var(--brand)',
+                        fontWeight: 700,
+                        fontSize: '12px',
+                      }}
+                    >
+                      Review extracted resume profile
+                    </summary>
+                    <div
+                      style={{ display: 'grid', gap: '8px', marginTop: '12px', fontSize: '12px' }}
+                    >
+                      {result.resumeProfile.name && (
+                        <p style={{ margin: 0 }}>
+                          <b>Name:</b> {result.resumeProfile.name}
+                        </p>
+                      )}
+                      {result.resumeProfile.emails.length > 0 && (
+                        <p style={{ margin: 0 }}>
+                          <b>Email:</b> {result.resumeProfile.emails.join(', ')}
+                        </p>
+                      )}
+                      {result.resumeProfile.phones.length > 0 && (
+                        <p style={{ margin: 0 }}>
+                          <b>Phone:</b> {result.resumeProfile.phones.join(', ')}
+                        </p>
+                      )}
+                      {result.resumeProfile.urls.length > 0 && (
+                        <p style={{ margin: 0, overflowWrap: 'anywhere' }}>
+                          <b>URLs:</b> {result.resumeProfile.urls.join(' | ')}
+                        </p>
+                      )}
+                      {result.resumeProfile.experience.length > 0 && (
+                        <p style={{ margin: 0 }}>
+                          <b>Experience:</b>{' '}
+                          {result.resumeProfile.experience
+                            .map((entry) =>
+                              [entry.employer, entry.role, entry.dates].filter(Boolean).join(' - '),
+                            )
+                            .join('; ')}
+                        </p>
+                      )}
+                      {result.resumeProfile.education.length > 0 && (
+                        <p style={{ margin: 0 }}>
+                          <b>Education:</b> {result.resumeProfile.education.join('; ')}
+                        </p>
+                      )}
+                      {result.resumeProfile.certifications.length > 0 && (
+                        <p style={{ margin: 0 }}>
+                          <b>Certifications:</b> {result.resumeProfile.certifications.join('; ')}
+                        </p>
+                      )}
+                      <p style={{ margin: 0, color: 'var(--text-3)' }}>
+                        Confirm names, dates, links, and other extracted facts before sending
+                        applications.
+                      </p>
+                    </div>
+                  </details>
+                )}
+              </section>
+            )}
 
             {/* Main result: 2-col layout */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
@@ -665,18 +1053,46 @@ export default function TailorPage() {
 
                 <div style={{ padding: '20px', height: '480px', overflowY: 'auto' }}>
                   {activeTab === 'tailored' ? (
-                    <HighlightedText text={result.tailoredText} keywords={jdKeywords} />
-                  ) : (
-                    <p
+                    isEditing ? (
+                      <textarea
+                        aria-label="Edit tailored resume text"
+                        value={editedText}
+                        onChange={(event) => setEditedText(event.target.value)}
+                        style={{
+                          width: '100%',
+                          minHeight: '440px',
+                          resize: 'vertical',
+                          border: '1px solid var(--border)',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          background: 'var(--surface)',
+                          color: 'var(--text-1)',
+                          font: '13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace',
+                        }}
+                      />
+                    ) : (
+                      <HighlightedText
+                        text={editedText || result.tailoredText}
+                        keywords={jdKeywords}
+                      />
+                    )
+                  ) : originalText ? (
+                    <pre
                       style={{
-                        fontSize: '14px',
-                        color: 'var(--text-3)',
-                        fontStyle: 'italic',
+                        whiteSpace: 'pre-wrap',
+                        fontFamily: 'sans-serif',
+                        fontSize: '13px',
                         lineHeight: 1.6,
+                        color: 'var(--text-2)',
                         margin: 0,
                       }}
                     >
                       {originalText}
+                    </pre>
+                  ) : (
+                    <p style={{ color: 'var(--text-3)', fontSize: '13px' }}>
+                      Original resume text is unavailable for this version. Upload the source again
+                      to compare it.
                     </p>
                   )}
                 </div>
@@ -692,6 +1108,52 @@ export default function TailorPage() {
                     gap: '8px',
                   }}
                 >
+                  {isEditing ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        disabled={savingEdits}
+                        onClick={() => {
+                          setEditedText(result.tailoredText);
+                          setIsEditing(false);
+                        }}
+                        style={{ fontSize: '12px', padding: '6px 10px' }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        disabled={savingEdits}
+                        onClick={saveEdits}
+                        style={{
+                          fontSize: '12px',
+                          padding: '6px 10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <Save style={{ width: 14, height: 14 }} />
+                        {savingEdits ? 'Saving…' : 'Save edits'}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setActiveTab('tailored');
+                        setIsEditing(true);
+                      }}
+                      style={{
+                        fontSize: '12px',
+                        padding: '6px 10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <Pencil style={{ width: 14, height: 14 }} /> Edit
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     onClick={copyToClipboard}
@@ -890,7 +1352,8 @@ export default function TailorPage() {
                         margin: '0 0 8px 0',
                       }}
                     >
-                      Add these manually to your resume:
+                      Only add a gap if you have real experience to support it. Otherwise, use it to
+                      guide your preparation.
                     </p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {result.missingKeywords.map((kw, i) => (
@@ -1032,8 +1495,8 @@ export default function TailorPage() {
               fontWeight: 500,
             }}
           >
-            GPT-4o will rewrite your resume using the XYZ formula and show you the ATS score
-            improvement
+            AI will tailor your resume to this role, show what evidence supports each match, and
+            flag gaps for your review.
           </p>
         </motion.div>
       )}

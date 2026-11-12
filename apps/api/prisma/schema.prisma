@@ -308,6 +308,9 @@ model ResumeVersion {
   tailoredContent String?
   changesApplied  Json?
   keywordDensity  Json?
+  tailoringReport Json?
+  designTemplate  String   @default("modern")
+  pageSize        String   @default("A4")
   scoreBefore     Int      @default(0)
   scoreAfter      Int      @default(0)
   s3Key           String?
