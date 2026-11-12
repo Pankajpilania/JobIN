@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsOptional, MinLength, MaxLength, IsIn } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class TailorResumeDto {
@@ -24,4 +24,14 @@ export class TailorResumeDto {
   @IsString()
   @MaxLength(120)
   companyName?: string;
+
+  @ApiPropertyOptional({ enum: ['modern', 'minimal', 'technical', 'executive', 'graduate'] })
+  @IsOptional()
+  @IsIn(['modern', 'minimal', 'technical', 'executive', 'graduate'])
+  designTemplate?: string;
+
+  @ApiPropertyOptional({ enum: ['A4', 'LETTER'] })
+  @IsOptional()
+  @IsIn(['A4', 'LETTER'])
+  pageSize?: string;
 }

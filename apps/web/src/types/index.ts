@@ -97,12 +97,63 @@ export interface TailorResult {
   versionId: string;
   versionNum: number;
   tailoredText: string;
+  originalText?: string;
   missingKeywords: string[];
   keywordDensity: Record<string, number>;
   scoreBefore: number;
   scoreAfter: number;
   changesApplied: string[];
+  tailoringReport?: TailoringReport;
+  resumeProfile?: ResumeProfile;
   tokenUsage: { total: number; estimatedCostUsd: number };
+}
+
+export interface ResumeProfile {
+  name: string | null;
+  emails: string[];
+  phones: string[];
+  urls: string[];
+  summary: string | null;
+  skills: { demonstrated: string[]; transferable: string[] };
+  experience: Array<{
+    employer: string;
+    role: string;
+    location: string | null;
+    dates: string | null;
+    evidence: string[];
+  }>;
+  education: string[];
+  certifications: string[];
+  projects: Array<{ name: string; evidence: string[] }>;
+}
+
+export interface TailoringRequirement {
+  requirement: string;
+  category:
+    | 'mandatory_skill'
+    | 'desirable_skill'
+    | 'responsibility'
+    | 'domain_knowledge'
+    | 'experience_expectation';
+  status: 'demonstrated' | 'transferable' | 'missing';
+  sourceEvidence: string | null;
+  tailoredEvidence: string | null;
+  explanation: string;
+}
+
+export interface TailoringReport {
+  jobAnalysis: {
+    mandatorySkills: string[];
+    desirableSkills: string[];
+    responsibilities: string[];
+    domainKnowledge: string[];
+    experienceExpectations: string[];
+    keywords: string[];
+  };
+  requirements: TailoringRequirement[];
+  missingRequirements: Array<{ requirement: string; explanation: string }>;
+  evidenceMap: Array<{ tailoredClaim: string; sourceEvidence: string }>;
+  matchAssessment: { estimatedMatchPercent: number; summary: string; caveats: string[] };
 }
 
 export interface ResumeVersion {

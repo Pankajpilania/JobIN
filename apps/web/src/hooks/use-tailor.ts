@@ -10,6 +10,8 @@ interface TailorPayload {
   jobDescription: string;
   jobTitle?: string;
   companyName?: string;
+  designTemplate?: 'modern' | 'minimal' | 'technical' | 'executive' | 'graduate';
+  pageSize?: 'A4' | 'LETTER';
 }
 
 export function useTailorResume() {

@@ -11,6 +11,7 @@ import {
   UploadedFile,
   HttpCode,
   HttpStatus,
+  BadRequestException,
   ParseUUIDPipe,
   Res,
   Query,
@@ -29,6 +30,7 @@ import {
 import { ResumesService } from './resumes.service';
 import { UpdateResumeDto } from './dto/update-resume.dto';
 import { TailorResumeDto } from './dto/tailor-resume.dto';
+import { UpdateResumeVersionDto } from './dto/update-resume-version.dto';
 import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
 import { CurrentUser, type SupabaseUserPayload } from '../common/decorators/current-user.decorator';
 import type { Express } from 'express';
@@ -52,11 +54,14 @@ export class ResumesController {
         const allowed = [
           'application/pdf',
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/x-tex',
+          'text/x-tex',
+          'text/plain',
         ];
-        cb(
-          allowed.includes(file.mimetype) ? null : new Error('Unsupported type'),
-          allowed.includes(file.mimetype),
-        );
+        const isTexFile = /\.tex$/i.test(file.originalname);
+        const acceptedType =
+          allowed.includes(file.mimetype) && (!file.mimetype.includes('text') || isTexFile);
+        cb(null, acceptedType);
       },
     }),
   )
@@ -68,8 +73,9 @@ export class ResumesController {
       properties: { resume: { type: 'string', format: 'binary' } },
     },
   })
-  @ApiOperation({ summary: 'Upload a resume (PDF or DOCX)' })
+  @ApiOperation({ summary: 'Upload a resume (PDF, DOCX, or LaTeX)' })
   upload(@CurrentUser() user: SupabaseUserPayload, @UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Choose a PDF, DOCX, or .tex resume file.');
     return this.resumesService.upload(user.id, file);
   }
 
@@ -142,6 +148,17 @@ export class ResumesController {
     return this.resumesService.getVersions(user.id, id);
   }
 
+  @Patch(':id/versions/:versionId')
+  @ApiOperation({ summary: 'Save edits to a tailored resume version' })
+  updateVersion(
+    @CurrentUser() user: SupabaseUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('versionId', ParseUUIDPipe) versionId: string,
+    @Body() dto: UpdateResumeVersionDto,
+  ) {
+    return this.resumesService.updateVersion(user.id, id, versionId, dto);
+  }
+
   // ─── Export PDF (Sprint 3) ─────────────────────────────────────────────────
 
   @Get(':id/export/pdf')
@@ -151,13 +168,22 @@ export class ResumesController {
     @CurrentUser() user: SupabaseUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Query('versionId') versionId: string | undefined,
+    @Query('template') template: string | undefined,
+    @Query('pageSize') pageSize: string | undefined,
     @Res() res: Response,
   ) {
-    const { buffer, filename } = await this.resumesService.exportPdf(user.id, id, versionId);
+    const { buffer, filename, engine } = await this.resumesService.exportPdf(
+      user.id,
+      id,
+      versionId,
+      template,
+      pageSize,
+    );
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Content-Length': String(buffer.length),
+      'X-PDF-Engine': engine,
     });
     res.send(buffer);
   }
@@ -171,9 +197,17 @@ export class ResumesController {
     @CurrentUser() user: SupabaseUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Query('versionId') versionId: string | undefined,
+    @Query('template') template: string | undefined,
+    @Query('pageSize') pageSize: string | undefined,
     @Res() res: Response,
   ) {
-    const { buffer, filename } = await this.resumesService.exportDocx(user.id, id, versionId);
+    const { buffer, filename } = await this.resumesService.exportDocx(
+      user.id,
+      id,
+      versionId,
+      template,
+      pageSize,
+    );
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'Content-Disposition': `attachment; filename="${filename}"`,
@@ -189,9 +223,17 @@ export class ResumesController {
     @CurrentUser() user: SupabaseUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Query('versionId') versionId: string | undefined,
+    @Query('template') template: string | undefined,
+    @Query('pageSize') pageSize: string | undefined,
     @Res() res: Response,
   ) {
-    const { source, filename } = await this.resumesService.exportLatex(user.id, id, versionId);
+    const { source, filename } = await this.resumesService.exportLatex(
+      user.id,
+      id,
+      versionId,
+      template,
+      pageSize,
+    );
     res.set({
       'Content-Type': 'application/x-tex; charset=utf-8',
       'Content-Disposition': `attachment; filename="${filename}"`,

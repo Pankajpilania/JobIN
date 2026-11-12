@@ -2,6 +2,14 @@
 
 This is the NestJS backend for the JobIN SaaS platform.
 
+## Resume tailoring pipeline
+
+The authenticated resume flow accepts PDF, DOCX, and `.tex` source files. PDF and DOCX text is extracted on the API; PDFs with little embedded text are sent to Poppler/Tesseract OCR (the production API image includes both). LaTeX is treated as source text and parsed without executing uploaded TeX commands. The tailoring model returns a validated profile, job requirement analysis, evidence links from rewritten claims back to original resume excerpts, missing requirement notes, and a role-alignment estimate. Estimates are informational and are not an employer ATS score or hiring prediction.
+
+Tailored versions store the evidence report and chosen design/page settings. The dashboard lets users compare original and tailored text, edit and save a version, choose one of five single-column templates, select A4 or US Letter, and download PDF, DOCX, or editable LaTeX. PDF export tries the configured `LATEX_COMPILER` (Tectonic by default) with untrusted-input mode and validates the generated PDF; if the compiler is unavailable or fails, it falls back to the native ATS PDFKit renderer and reports that engine in the `X-PDF-Engine` response header. The production Docker image includes a checksum-pinned Tectonic compiler and prewarms its TeX bundle; local API hosts can install Tectonic and set `LATEX_COMPILER` to its executable path, or use the PDFKit fallback. Temporary OCR and TeX working files are removed after processing.
+
+The new migration is `20261112_resume_tailoring_report`. Existing databases that have tables but no `_prisma_migrations` history need their baseline reconciled before `prisma migrate deploy`; the API's production start command applies pending migrations on startup.
+
 ## Render Deployment Note
 
 The API production start command runs `prisma migrate deploy` before starting the server. Keep `DATABASE_URL` configured on the Render service so pending schema migrations are applied before requests reach the application. This also covers Render services whose Start Command is configured directly in the dashboard.
