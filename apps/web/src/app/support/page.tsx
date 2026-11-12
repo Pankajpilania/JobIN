@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Mail, MessageCircle, ShieldCheck } from 'lucide-react';
 import { SupportAssistant } from '@/components/support/support-assistant';
 import { Web3FormsForm } from '@/components/support/web3forms-form';
+import { BrandLogo } from '@/components/brand-mark';
 
 const cardStyle = {
   padding: 'clamp(20px, 4vw, 30px)',
@@ -15,7 +16,7 @@ export default function SupportPage() {
     <main style={{ minHeight: '100vh', padding: '24px', background: 'var(--surface-2)' }}>
       <div style={{ maxWidth: 780, margin: '0 auto', display: 'grid', gap: 18 }}>
         <Link href="/" style={{ color: 'var(--brand-dark)', fontWeight: 800 }}>
-          JobIN
+          <BrandLogo size={28} textColor="var(--brand-dark)" />
         </Link>
         <header style={cardStyle}>
           <div style={{ color: 'var(--brand-dark)' }}>

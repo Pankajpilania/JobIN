@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { BrandLogo } from '@/components/brand-mark';
 
 export interface LegalSection {
   id: string;
@@ -21,7 +22,7 @@ export function LegalDocument({
       <div className="legal-document">
         <header className="legal-header">
           <Link className="legal-wordmark" href="/" aria-label="JobIN home">
-            JobIN
+            <BrandLogo size={28} textColor="var(--text-1)" />
           </Link>
           <Link className="legal-back-link" href="/">
             Back to JobIN

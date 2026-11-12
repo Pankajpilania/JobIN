@@ -1,12 +1,16 @@
 import Link from 'next/link';
 import { ArrowRight, Compass, Sparkles } from 'lucide-react';
+import { BrandLogo } from '@/components/brand-mark';
 
 export default function AboutPage() {
   return (
-    <main className="public-page public-about-page" style={{ minHeight: '100vh', padding: '24px', background: 'var(--surface-2)' }}>
+    <main
+      className="public-page public-about-page"
+      style={{ minHeight: '100vh', padding: '24px', background: 'var(--surface-2)' }}
+    >
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
         <Link href="/" style={{ color: 'var(--brand-dark)', fontWeight: 800 }}>
-          JobIN
+          <BrandLogo size={28} textColor="var(--brand-dark)" />
         </Link>
         <section
           style={{
@@ -20,13 +24,21 @@ export default function AboutPage() {
           <div style={{ display: 'flex', gap: 10, color: 'var(--brand-dark)', fontWeight: 800 }}>
             <Compass size={20} /> ABOUT JOBIN
           </div>
-          <h1 style={{ maxWidth: 700, margin: '18px 0', fontSize: 'clamp(36px, 6vw, 54px)', letterSpacing: '-.04em', lineHeight: 1.08 }}>
+          <h1
+            style={{
+              maxWidth: 700,
+              margin: '18px 0',
+              fontSize: 'clamp(36px, 6vw, 54px)',
+              letterSpacing: '-.04em',
+              lineHeight: 1.08,
+            }}
+          >
             A clearer, more focused job search.
           </h1>
           <p style={{ maxWidth: 700, color: 'var(--text-2)', fontSize: 17, lineHeight: 1.75 }}>
             JobIN brings practical tools for the job-search journey into one workspace. Organise
-            opportunities, tailor your resume, prepare application materials, and keep track of
-            what comes next.
+            opportunities, tailor your resume, prepare application materials, and keep track of what
+            comes next.
           </p>
           <div
             style={{

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
+import { BrandMark } from '@/components/brand-mark';
 
 const highlights = [
   'AI resume tailoring in under 10 seconds',
@@ -190,15 +191,10 @@ function SignInPageContent() {
               width: '32px',
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: '8px',
-              backgroundColor: 'var(--brand)',
-              color: 'white',
-              fontWeight: 900,
-              fontSize: '18px',
-              boxShadow: 'var(--shadow-sm)',
+              backgroundColor: 'transparent',
             }}
           >
-            J
+            <BrandMark size={32} />
           </div>
           <span
             style={{
@@ -356,14 +352,10 @@ function SignInPageContent() {
                 width: '32px',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: '8px',
-                backgroundColor: 'var(--brand)',
-                color: 'white',
-                fontWeight: 900,
-                fontSize: '18px',
+                backgroundColor: 'transparent',
               }}
             >
-              J
+              <BrandMark size={32} />
             </div>
             <span
               style={{

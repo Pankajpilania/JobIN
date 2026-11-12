@@ -8,6 +8,7 @@ import type {
   CoverLetterResult,
   CoverLetterVariant,
 } from '../shared/types';
+import { BrandMark } from '../shared/brand-mark';
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
 
@@ -686,8 +687,8 @@ export default function App() {
           Connect your JobIN account
         </h2>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: 280 }}>
-          Sign in with your JobIN account in extension settings to tailor resumes and generate
-          cover letters. OCI sessions renew automatically while they remain valid.
+          Sign in with your JobIN account in extension settings to tailor resumes and generate cover
+          letters. OCI sessions renew automatically while they remain valid.
         </p>
         <button
           className="btn btn-primary"
@@ -706,7 +707,10 @@ export default function App() {
   ];
 
   return (
-    <div className="extension-sidepanel" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div
+      className="extension-sidepanel"
+      style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}
+    >
       {/* Header */}
       <div
         className="extension-header"
@@ -720,22 +724,7 @@ export default function App() {
           flexShrink: 0,
         }}
       >
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 7,
-            background: 'linear-gradient(135deg,#00d991,#008c60)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 13,
-            fontWeight: 800,
-            color: 'white',
-          }}
-        >
-          J
-        </div>
+        <BrandMark size={28} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 700, fontSize: 14 }}>
             JobIN Copilot

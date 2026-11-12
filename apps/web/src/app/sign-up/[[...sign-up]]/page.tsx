@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-auth';
+import { BrandMark } from '@/components/brand-mark';
 
 const HOSTED_AUTH_PROVIDER = process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'auth0';
 const OCI_AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_PROVIDER === 'oci';
@@ -223,15 +224,10 @@ export default function SignUpPage() {
               width: '32px',
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: '8px',
-              backgroundColor: 'var(--brand)',
-              color: 'white',
-              fontWeight: 900,
-              fontSize: '18px',
-              boxShadow: 'var(--shadow-sm)',
+              backgroundColor: 'transparent',
             }}
           >
-            J
+            <BrandMark size={32} />
           </div>
           <span
             style={{
@@ -383,14 +379,10 @@ export default function SignUpPage() {
                 width: '32px',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: '8px',
-                backgroundColor: 'var(--brand)',
-                color: 'white',
-                fontWeight: 900,
-                fontSize: '18px',
+                backgroundColor: 'transparent',
               }}
             >
-              J
+              <BrandMark size={32} />
             </div>
             <span
               style={{

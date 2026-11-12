@@ -4,17 +4,14 @@ import React from 'react';
 import Link from 'next/link';
 import { Button } from './button';
 import { ArrowRight } from 'lucide-react';
+import { BrandLogo } from '../brand-mark';
 
 export const Nav: React.FC = () => {
   return (
     <nav className="sticky top-0 z-50 h-16 border-b border-border bg-surface/80 backdrop-blur-md flex items-center justify-between px-6 md:px-12 select-none">
-      {/* Logo: 32px square brand bg + wordmark weight 800 */}
       <div className="flex items-center gap-2.5">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white font-black text-lg shadow-sm">
-            J
-          </div>
-          <span className="font-extrabold text-xl tracking-tight text-text-1">JobIN</span>
+        <Link href="/" className="flex items-center gap-2" aria-label="JobIN home">
+          <BrandLogo size={32} textColor="var(--text-1)" />
         </Link>
       </div>
 

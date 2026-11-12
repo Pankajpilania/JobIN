@@ -1,11 +1,15 @@
 import Link from 'next/link';
 import { ArrowUpRight, Check, Chrome, Sparkles } from 'lucide-react';
+import { BrandLogo } from '@/components/brand-mark';
 
 const extensionUrl = process.env.NEXT_PUBLIC_CHROME_EXTENSION_URL?.trim();
 
 export default function ExtensionPage() {
   return (
-    <main className="public-page public-extension-page" style={{ minHeight: '100vh', background: 'var(--surface-2)', color: 'var(--text-1)' }}>
+    <main
+      className="public-page public-extension-page"
+      style={{ minHeight: '100vh', background: 'var(--surface-2)', color: 'var(--text-1)' }}
+    >
       <header
         style={{
           display: 'flex',
@@ -18,7 +22,7 @@ export default function ExtensionPage() {
         }}
       >
         <Link href="/" style={{ color: 'var(--text-1)', fontSize: 20, fontWeight: 800 }}>
-          JobIN
+          <BrandLogo size={30} textColor="var(--text-1)" />
         </Link>
         <Link href="/dashboard" style={{ color: 'var(--brand-dark)', fontWeight: 700 }}>
           Open dashboard
