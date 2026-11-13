@@ -74,7 +74,10 @@ if (board === 'greenhouse' || board === 'lever') {
     alignItems: 'center',
     gap: '8px',
   });
-  tip.innerHTML = `<span style="font-size:16px">⚡</span> JobIN Autofill ready`;
+  const icon = document.createElement('span');
+  icon.style.fontSize = '16px';
+  icon.textContent = '⚡';
+  tip.append(icon, document.createTextNode(' JobIN Autofill ready'));
   tip.title = 'Click to open JobIN and autofill this form';
   tip.addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: MSG.OPEN_SIDE_PANEL });

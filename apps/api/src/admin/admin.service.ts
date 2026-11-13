@@ -25,11 +25,16 @@ import type {
   UpdateAIPlatformSettingsDto,
   CreateDiscountCodeDto,
   ListDiscountCodesDto,
+  CreateRefundDto,
+  CreateSiteBannerDto,
+  UpdateSiteBannerDto,
+  UpdateRolePermissionsDto,
 } from './dto/admin.dto';
 
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
+  private readonly stripe?: Stripe;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -37,7 +42,72 @@ export class AdminService {
     private readonly config: ConfigService,
     private readonly aiSettingsCrypto: AISettingsCrypto,
     private readonly s3: S3Service,
-  ) {}
+  ) {
+    const stripeSecret = this.config.get<string>('STRIPE_SECRET_KEY');
+    if (stripeSecret) {
+      this.stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' as any });
+    }
+  }
+
+  async listAdminRoles() {
+    const [roles, permissions] = await Promise.all([
+      this.prisma.role.findMany({
+        where: { name: { in: ['OPERATIONS_ADMIN', 'SUPPORT_ADMIN', 'FINANCE_ADMIN'] } },
+        include: { permissions: { include: { permission: true } } },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.permission.findMany({ orderBy: { action: 'asc' } }),
+    ]);
+    return {
+      permissions,
+      roles: roles.map(({ permissions: assigned, ...role }) => ({
+        ...role,
+        permissions: assigned.map(({ permission }) => permission.action),
+      })),
+    };
+  }
+
+  async updateAdminRolePermissions(
+    adminId: string,
+    roleId: string,
+    dto: UpdateRolePermissionsDto,
+    ipAddress?: string,
+  ) {
+    const role = await this.prisma.role.findUnique({
+      where: { id: roleId },
+      include: { permissions: { include: { permission: true } } },
+    });
+    if (!role || !['OPERATIONS_ADMIN', 'SUPPORT_ADMIN', 'FINANCE_ADMIN'].includes(role.name)) {
+      throw new NotFoundException('Editable admin role not found.');
+    }
+    if (!dto.permissions.includes('admin:access')) {
+      throw new BadRequestException('Admin portal access must remain assigned to this role.');
+    }
+    const requested = await this.prisma.permission.findMany({
+      where: { action: { in: dto.permissions } },
+    });
+    if (requested.length !== dto.permissions.length) {
+      throw new BadRequestException('One or more permissions are unknown.');
+    }
+    const before = role.permissions.map(({ permission }) => permission.action).sort();
+    await this.prisma.$transaction([
+      this.prisma.rolePermission.deleteMany({ where: { roleId } }),
+      this.prisma.rolePermission.createMany({
+        data: requested.map(({ id }) => ({ roleId, permissionId: id })),
+      }),
+    ]);
+    await this.audit(
+      adminId,
+      'ADMIN_UPDATE_ROLE_PERMISSIONS',
+      'Role',
+      roleId,
+      { permissions: before },
+      { permissions: [...dto.permissions].sort() },
+      undefined,
+      ipAddress,
+    );
+    return { roleId, permissions: [...dto.permissions].sort() };
+  }
 
   // ─── Audit logging ────────────────────────────────────────────────────────
 
@@ -569,13 +639,34 @@ export class AdminService {
   }
 
   async updateUser(adminId: string, userId: string, dto: AdminUpdateUserDto, ipAddress?: string) {
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      include: {
+        roles: {
+          include: { role: { include: { permissions: { include: { permission: true } } } } },
+        },
+      },
+    });
+    const adminRoles = new Set(admin?.roles.map(({ role }) => role.name) ?? []);
+    const adminPermissions = new Set(
+      admin?.roles.flatMap(({ role }) =>
+        (role.permissions ?? []).map(({ permission }) => permission.action),
+      ) ?? [],
+    );
+    const isSuperAdmin = adminRoles.has('SUPER_ADMIN');
+
+    if (!admin) throw new ForbiddenException('Administrator account not found.');
+    if (
+      (dto.planId || dto.grantCredits !== undefined) &&
+      !isSuperAdmin &&
+      !adminPermissions.has('users:manage_billing')
+    ) {
+      throw new ForbiddenException('Finance admin access is required to change plans or credits.');
+    }
+
     let roleId: string | undefined;
     if (dto.role) {
-      const admin = await this.prisma.user.findUnique({
-        where: { id: adminId },
-        include: { roles: { include: { role: true } } },
-      });
-      if (!admin?.roles.some(({ role }) => role.name === 'SUPER_ADMIN')) {
+      if (!isSuperAdmin) {
         throw new ForbiddenException('Only super admins can assign user roles.');
       }
 
@@ -589,6 +680,17 @@ export class AdminService {
       include: { roles: { include: { role: true } } },
     });
     if (!user) throw new NotFoundException('User not found');
+
+    if (
+      dto.status &&
+      dto.status !== user.status &&
+      !isSuperAdmin &&
+      !adminPermissions.has('users:manage_status')
+    ) {
+      throw new ForbiddenException(
+        'Support or operations admin access is required to change account status.',
+      );
+    }
 
     const beforeState = {
       status: user.status,
@@ -789,23 +891,22 @@ export class AdminService {
       return {
         data: page.data.map((promotionCode) => this.discountCodeSummary(promotionCode)),
         hasMore: page.has_more,
-        nextCursor: page.has_more ? page.data.at(-1)?.id ?? null : null,
+        nextCursor: page.has_more ? (page.data.at(-1)?.id ?? null) : null,
       };
     } catch (error) {
       this.throwDiscountStripeError(error, 'list discount codes');
     }
   }
 
-  async createDiscountCode(
-    adminId: string,
-    dto: CreateDiscountCodeDto,
-    ipAddress?: string,
-  ) {
+  async createDiscountCode(adminId: string, dto: CreateDiscountCodeDto, ipAddress?: string) {
     const code = dto.code.trim().toUpperCase();
     if (!/^[A-Z0-9-]{3,40}$/.test(code)) {
       throw new BadRequestException('Use 3–40 letters, numbers, or hyphens for the discount code.');
     }
-    if (dto.duration === 'REPEATING' && (!Number.isInteger(dto.durationInMonths) || (dto.durationInMonths ?? 0) < 1)) {
+    if (
+      dto.duration === 'REPEATING' &&
+      (!Number.isInteger(dto.durationInMonths) || (dto.durationInMonths ?? 0) < 1)
+    ) {
       throw new BadRequestException('Enter a positive number of months for a repeating discount.');
     }
     if (dto.duration !== 'REPEATING' && dto.durationInMonths !== undefined) {
@@ -867,10 +968,10 @@ export class AdminService {
       const current = await stripe.promotionCodes.retrieve(promotionCodeId, { expand: ['coupon'] });
       if (!current.active) return this.discountCodeSummary(current);
 
-      const updated = await stripe.promotionCodes.update(
-        promotionCodeId,
-        { active: false, expand: ['coupon'] },
-      );
+      const updated = await stripe.promotionCodes.update(promotionCodeId, {
+        active: false,
+        expand: ['coupon'],
+      });
       const beforeState = this.discountCodeSummary(current);
       const afterState = this.discountCodeSummary(updated);
       await this.audit(
@@ -885,10 +986,7 @@ export class AdminService {
       );
       return afterState;
     } catch (error) {
-      if (
-        error instanceof Stripe.errors.StripeInvalidRequestError &&
-        error.statusCode === 404
-      ) {
+      if (error instanceof Stripe.errors.StripeInvalidRequestError && error.statusCode === 404) {
         throw new NotFoundException('Discount code not found.');
       }
       this.throwDiscountStripeError(error, 'deactivate discount code');
@@ -908,10 +1006,11 @@ export class AdminService {
   private discountCodeSummary(promotionCode: Stripe.PromotionCode) {
     const coupon = promotionCode.coupon;
     const now = Math.floor(Date.now() / 1000);
-    const expired = Boolean(promotionCode.expires_at && promotionCode.expires_at <= now) || !coupon.valid;
+    const expired =
+      Boolean(promotionCode.expires_at && promotionCode.expires_at <= now) || !coupon.valid;
     const exhausted = Boolean(
       promotionCode.max_redemptions &&
-        promotionCode.times_redeemed >= promotionCode.max_redemptions,
+      promotionCode.times_redeemed >= promotionCode.max_redemptions,
     );
     const status = expired
       ? 'expired'
@@ -930,7 +1029,9 @@ export class AdminService {
       durationInMonths: coupon.duration_in_months,
       active: promotionCode.active,
       status,
-      expiresAt: promotionCode.expires_at ? new Date(promotionCode.expires_at * 1000).toISOString() : null,
+      expiresAt: promotionCode.expires_at
+        ? new Date(promotionCode.expires_at * 1000).toISOString()
+        : null,
       maxRedemptions: promotionCode.max_redemptions,
       timesRedeemed: promotionCode.times_redeemed,
       createdAt: new Date(promotionCode.created * 1000).toISOString(),
@@ -940,7 +1041,9 @@ export class AdminService {
   private throwDiscountStripeError(error: unknown, operation: string): never {
     if (error instanceof Stripe.errors.StripeInvalidRequestError) {
       if (error.code === 'promotion_code_exists') {
-        throw new ConflictException('That discount code is already active. Choose a different code.');
+        throw new ConflictException(
+          'That discount code is already active. Choose a different code.',
+        );
       }
       throw new BadRequestException(
         'Stripe rejected the discount-code details. Check the code, expiry, and discount duration.',
@@ -1147,8 +1250,8 @@ export class AdminService {
       }),
       this.prisma.payment.groupBy({
         by: ['currency'],
-        where: { status: 'succeeded' },
-        _sum: { amount: true },
+        where: { status: { in: ['succeeded', 'partially_refunded', 'refunded'] } },
+        _sum: { amount: true, amountRefunded: true },
         _count: { id: true },
       }),
       this.prisma.subscription.groupBy({
@@ -1167,10 +1270,10 @@ export class AdminService {
     >`
       SELECT TO_CHAR(DATE_TRUNC('month', "createdAt"), 'Mon YYYY') AS month,
              currency,
-             SUM(amount)::float AS revenue,
+             SUM(amount - "amountRefunded")::float AS revenue,
              COUNT(*)::int AS count
       FROM "Payment"
-      WHERE status = 'succeeded' AND "createdAt" >= ${ago6m}
+      WHERE status IN ('succeeded', 'partially_refunded', 'refunded') AND "createdAt" >= ${ago6m}
       GROUP BY DATE_TRUNC('month', "createdAt"), currency
       ORDER BY DATE_TRUNC('month', "createdAt") ASC
     `;
@@ -1179,7 +1282,8 @@ export class AdminService {
       recentPayments,
       revenueByCurrency: revenueByCurrency.map((entry) => ({
         currency: entry.currency,
-        amount: Math.round((entry._sum.amount ?? 0) * 100) / 100,
+        amount:
+          Math.round(((entry._sum.amount ?? 0) - (entry._sum.amountRefunded ?? 0)) * 100) / 100,
         payments: entry._count.id,
       })),
       totalPayments: revenueByCurrency.reduce((count, entry) => count + entry._count.id, 0),
@@ -1187,6 +1291,307 @@ export class AdminService {
       topPlans,
       revenueByMonth,
     };
+  }
+
+  async refundPayment(
+    adminId: string,
+    paymentId: string,
+    dto: CreateRefundDto,
+    ipAddress?: string,
+  ) {
+    if (!this.stripe) {
+      throw new ServiceUnavailableException('Stripe is not configured for refunds.');
+    }
+    const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment) throw new NotFoundException('Payment not found.');
+    if (!payment.stripeIntentId.startsWith('pi_')) {
+      throw new ConflictException('Stripe has no payment intent for this payment.');
+    }
+    if (!['succeeded', 'partially_refunded'].includes(payment.status)) {
+      throw new ConflictException('Only successful, not fully refunded payments can be refunded.');
+    }
+
+    const totalMinor = Math.round(payment.amount * 100);
+    const refundedMinor = Math.round((payment.amountRefunded ?? 0) * 100);
+    const remainingMinor = totalMinor - refundedMinor;
+    const amount = dto.amount ?? remainingMinor;
+    if (amount > remainingMinor) {
+      throw new BadRequestException('Refund amount cannot exceed the remaining payment balance.');
+    }
+
+    let refund: Stripe.Refund;
+    try {
+      refund = await this.stripe.refunds.create(
+        {
+          payment_intent: payment.stripeIntentId,
+          amount,
+          reason: dto.reason,
+          metadata: { jobinPaymentId: payment.id, adminUserId: adminId },
+        },
+        { idempotencyKey: `admin-refund:${payment.id}:${refundedMinor}:${amount}` },
+      );
+    } catch (error) {
+      const errorType = error instanceof Error ? error.name : 'unknown error';
+      this.logger.error(`Stripe refund request failed (${errorType}).`);
+      throw new ServiceUnavailableException('Stripe could not process the refund request.');
+    }
+
+    await this.audit(
+      adminId,
+      'ADMIN_CREATE_PAYMENT_REFUND',
+      'Payment',
+      payment.id,
+      { status: payment.status, amountRefunded: payment.amountRefunded ?? 0 },
+      {
+        refundId: refund.id,
+        refundStatus: refund.status,
+        amount: refund.amount,
+        currency: refund.currency,
+      },
+      undefined,
+      ipAddress,
+    );
+    return {
+      id: refund.id,
+      status: refund.status,
+      amount: refund.amount,
+      currency: refund.currency.toUpperCase(),
+    };
+  }
+
+  async listSiteBanners() {
+    return this.prisma.siteBanner.findMany({ orderBy: { updatedAt: 'desc' } });
+  }
+
+  async getPublicSiteBanners() {
+    const now = new Date();
+    return this.prisma.siteBanner.findMany({
+      where: {
+        isActive: true,
+        AND: [
+          { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+          { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        message: true,
+        linkText: true,
+        linkUrl: true,
+        variant: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createSiteBanner(adminId: string, dto: CreateSiteBannerDto, ipAddress?: string) {
+    const startsAt = dto.startsAt ? new Date(dto.startsAt) : null;
+    const endsAt = dto.endsAt ? new Date(dto.endsAt) : null;
+    this.validateBannerSchedule(startsAt, endsAt);
+    this.validateBannerLink(dto.linkText, dto.linkUrl);
+    const banner = await this.prisma.siteBanner.create({
+      data: {
+        title: dto.title.trim(),
+        message: dto.message.trim(),
+        linkText: dto.linkText?.trim() || null,
+        linkUrl: dto.linkUrl?.trim() || null,
+        variant: dto.variant ?? 'INFO',
+        isActive: dto.isActive ?? true,
+        startsAt,
+        endsAt,
+        createdBy: adminId,
+      },
+    });
+    await this.audit(
+      adminId,
+      'ADMIN_CREATE_SITE_BANNER',
+      'SiteBanner',
+      banner.id,
+      undefined,
+      banner,
+      undefined,
+      ipAddress,
+    );
+    return banner;
+  }
+
+  async updateSiteBanner(
+    adminId: string,
+    bannerId: string,
+    dto: UpdateSiteBannerDto,
+    ipAddress?: string,
+  ) {
+    if (Object.keys(dto).length === 0) {
+      throw new BadRequestException('Provide at least one field to update.');
+    }
+    const current = await this.prisma.siteBanner.findUnique({ where: { id: bannerId } });
+    if (!current) throw new NotFoundException('Banner not found.');
+    const startsAt = dto.startsAt !== undefined ? new Date(dto.startsAt) : current.startsAt;
+    const endsAt = dto.endsAt !== undefined ? new Date(dto.endsAt) : current.endsAt;
+    this.validateBannerSchedule(startsAt, endsAt);
+    this.validateBannerLink(dto.linkText ?? current.linkText, dto.linkUrl ?? current.linkUrl);
+    const updated = await this.prisma.siteBanner.update({
+      where: { id: bannerId },
+      data: {
+        ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+        ...(dto.message !== undefined ? { message: dto.message.trim() } : {}),
+        ...(dto.linkText !== undefined ? { linkText: dto.linkText.trim() || null } : {}),
+        ...(dto.linkUrl !== undefined ? { linkUrl: dto.linkUrl.trim() || null } : {}),
+        ...(dto.variant !== undefined ? { variant: dto.variant } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.startsAt !== undefined ? { startsAt } : {}),
+        ...(dto.endsAt !== undefined ? { endsAt } : {}),
+      },
+    });
+    await this.audit(
+      adminId,
+      'ADMIN_UPDATE_SITE_BANNER',
+      'SiteBanner',
+      bannerId,
+      current,
+      updated,
+      undefined,
+      ipAddress,
+    );
+    return updated;
+  }
+
+  async deactivateSiteBanner(adminId: string, bannerId: string, ipAddress?: string) {
+    const current = await this.prisma.siteBanner.findUnique({ where: { id: bannerId } });
+    if (!current) throw new NotFoundException('Banner not found.');
+    const updated = await this.prisma.siteBanner.update({
+      where: { id: bannerId },
+      data: { isActive: false },
+    });
+    await this.audit(
+      adminId,
+      'ADMIN_DEACTIVATE_SITE_BANNER',
+      'SiteBanner',
+      bannerId,
+      current,
+      updated,
+      undefined,
+      ipAddress,
+    );
+    return updated;
+  }
+
+  private validateBannerSchedule(startsAt: Date | null, endsAt: Date | null) {
+    if (startsAt && endsAt && endsAt <= startsAt) {
+      throw new BadRequestException('Banner end time must be later than its start time.');
+    }
+  }
+
+  private validateBannerLink(linkText?: string | null, linkUrl?: string | null) {
+    if (Boolean(linkText) !== Boolean(linkUrl)) {
+      throw new BadRequestException(
+        'Provide both a link label and a link URL, or leave both empty.',
+      );
+    }
+  }
+
+  async *iterateReportRows(
+    report: 'users' | 'billing' | 'subscriptions' | 'ai-usage',
+  ): AsyncGenerator<Array<string | number | boolean | Date | null | undefined>> {
+    const batchSize = 500;
+    let cursor: string | undefined;
+    while (true) {
+      const pagination: any = cursor ? { cursor: { id: cursor }, skip: 1 } : {};
+      let rows: any[];
+      switch (report) {
+        case 'users':
+          rows = await this.prisma.user.findMany({
+            ...pagination,
+            take: batchSize,
+            orderBy: { id: 'asc' },
+            include: { roles: { include: { role: true } } },
+          });
+          break;
+        case 'billing':
+          rows = await this.prisma.payment.findMany({
+            ...pagination,
+            take: batchSize,
+            orderBy: { id: 'asc' },
+            include: { subscription: { include: { user: true, plan: true } } },
+          });
+          break;
+        case 'subscriptions':
+          rows = await this.prisma.subscription.findMany({
+            ...pagination,
+            take: batchSize,
+            orderBy: { id: 'asc' },
+            include: { user: true, plan: true },
+          });
+          break;
+        case 'ai-usage':
+          rows = await this.prisma.aIUsage.findMany({
+            ...pagination,
+            take: batchSize,
+            orderBy: { id: 'asc' },
+            include: { user: true },
+          });
+          break;
+      }
+      if (!rows.length) return;
+
+      for (const row of rows) {
+        if (report === 'users') {
+          yield [
+            row.id,
+            row.email,
+            row.fullName,
+            row.status,
+            row.roles.map(({ role }: any) => role.name).join('|'),
+            row.createdAt,
+            row.lastLoginAt,
+          ];
+        } else if (report === 'billing') {
+          yield [
+            row.id,
+            row.subscription?.user?.email,
+            row.subscription?.user?.fullName,
+            row.subscription?.plan?.name,
+            row.stripeInvoiceId,
+            row.stripeIntentId,
+            row.amount,
+            row.amountRefunded,
+            row.currency,
+            row.status,
+            row.failureMessage,
+            row.createdAt,
+          ];
+        } else if (report === 'subscriptions') {
+          yield [
+            row.id,
+            row.user?.email,
+            row.user?.fullName,
+            row.plan?.name,
+            row.status,
+            row.isComplimentary,
+            row.currentPeriodStart,
+            row.currentPeriodEnd,
+            row.cancelAtPeriodEnd,
+            row.createdAt,
+          ];
+        } else {
+          yield [
+            row.id,
+            row.user?.email,
+            row.user?.fullName,
+            row.feature,
+            row.modelName,
+            row.promptTokens,
+            row.completionTokens,
+            row.totalTokens,
+            row.estimatedCostUsd,
+            row.createdAt,
+          ];
+        }
+      }
+      if (rows.length < batchSize) return;
+      cursor = rows[rows.length - 1].id;
+    }
   }
 
   // ─── AI usage ─────────────────────────────────────────────────────────────
@@ -1343,11 +1748,11 @@ export class AdminService {
       userIds = [dto.userId];
     } else {
       // Resolve audience to user IDs
-      const where: any = {};
-      if (dto.audience === 'ACTIVE') where.status = 'ACTIVE';
-      if (dto.audience === 'SUSPENDED') where.status = 'SUSPENDED';
+      const where: any = { status: 'ACTIVE' };
       if (dto.audience === 'PREMIUM') {
-        where.subscriptions = { some: { status: 'ACTIVE' } };
+        where.subscriptions = {
+          some: { status: 'ACTIVE', plan: { name: { not: 'FREE' } } },
+        };
       }
       if (dto.audience === 'CHURNED') {
         where.subscriptions = { some: { status: 'CANCELLED' } };

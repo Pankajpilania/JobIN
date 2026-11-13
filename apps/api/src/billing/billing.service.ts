@@ -328,6 +328,9 @@ export class BillingService {
       case 'invoice.payment_failed':
         await this.onInvoiceFailed(event.data.object as Stripe.Invoice);
         break;
+      case 'charge.refunded':
+        await this.onChargeRefunded(event.data.object as Stripe.Charge);
+        break;
       default:
         this.logger.log(`Unhandled webhook event type: ${event.type}`);
     }
@@ -373,24 +376,7 @@ export class BillingService {
     });
     if (!sub) return;
 
-    // Record payment
-    if (invoice.payment_intent) {
-      await this.prisma.payment.upsert({
-        where: { stripeIntentId: invoice.payment_intent as string },
-        create: {
-          subscriptionId: sub.id,
-          stripeIntentId: invoice.payment_intent as string,
-          amount: invoice.amount_paid / 100,
-          currency: invoice.currency.toUpperCase(),
-          status: 'succeeded',
-        },
-        update: {
-          amount: invoice.amount_paid / 100,
-          currency: invoice.currency.toUpperCase(),
-          status: 'succeeded',
-        },
-      });
-    }
+    await this.recordInvoicePayment(invoice, sub.id, 'succeeded');
 
     // Record invoice
     if (invoice.hosted_invoice_url) {
@@ -418,11 +404,65 @@ export class BillingService {
     const subscriptionId = invoice.subscription as string;
     if (!subscriptionId) return;
 
+    const sub = await this.prisma.subscription.findUnique({
+      where: { stripeSubscriptionId: subscriptionId },
+    });
+    if (sub) await this.recordInvoicePayment(invoice, sub.id, 'failed');
+
     await this.prisma.subscription.updateMany({
       where: { stripeSubscriptionId: subscriptionId },
       data: { status: 'PAST_DUE' },
     });
     this.logger.warn(`Invoice payment failed for subscription ${subscriptionId}`);
+  }
+
+  private async recordInvoicePayment(
+    invoice: Stripe.Invoice,
+    subscriptionId: string,
+    status: 'succeeded' | 'failed',
+  ) {
+    const intent = invoice.payment_intent;
+    const stripeIntentId = typeof intent === 'string' ? intent : intent?.id;
+    const stripeInvoiceId = invoice.id;
+    const byInvoice = await this.prisma.payment.findUnique({ where: { stripeInvoiceId } });
+    const byIntent = stripeIntentId
+      ? await this.prisma.payment.findUnique({ where: { stripeIntentId } })
+      : null;
+    const existing = byInvoice ?? byIntent;
+    const amount = (status === 'succeeded' ? invoice.amount_paid : invoice.amount_due) / 100;
+    const failureMessage =
+      status === 'failed'
+        ? (invoice.last_finalization_error?.message ?? 'Invoice payment failed.').slice(0, 500)
+        : null;
+    const data = {
+      subscriptionId,
+      stripeIntentId: stripeIntentId ?? stripeInvoiceId,
+      stripeInvoiceId,
+      amount,
+      currency: invoice.currency.toUpperCase(),
+      status,
+      failureMessage,
+    };
+
+    if (existing) {
+      await this.prisma.payment.update({ where: { id: existing.id }, data });
+    } else {
+      await this.prisma.payment.create({ data });
+    }
+  }
+
+  private async onChargeRefunded(charge: Stripe.Charge) {
+    const paymentIntent = charge.payment_intent;
+    const stripeIntentId = typeof paymentIntent === 'string' ? paymentIntent : paymentIntent?.id;
+    if (!stripeIntentId) return;
+
+    await this.prisma.payment.updateMany({
+      where: { stripeIntentId },
+      data: {
+        amountRefunded: charge.amount_refunded / 100,
+        status: charge.refunded ? 'refunded' : 'partially_refunded',
+      },
+    });
   }
 
   // ─── Upsert subscription in DB ────────────────────────────────────────────

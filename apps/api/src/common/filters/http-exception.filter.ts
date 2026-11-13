@@ -24,25 +24,27 @@ export class HttpExceptionFilter implements ExceptionFilter {
       status = exception.getStatus();
       const res = exception.getResponse();
       message = typeof res === 'string' ? res : ((res as any).message ?? exception.message);
-    } else if (exception instanceof Error) {
-      message = exception.message;
     }
+
+    // Unexpected errors can contain SQL, provider, or infrastructure details.
+    if (status >= 500) message = 'Internal server error';
+    const path = request.path || '/';
 
     // Log 5xx errors as errors, 4xx as warnings
     if (status >= 500) {
       this.logger.error(
-        `[${request.method}] ${request.url} → ${status}`,
+        `[${request.method}] ${path} → ${status}`,
         exception instanceof Error ? exception.stack : String(exception),
       );
     } else {
-      this.logger.warn(`[${request.method}] ${request.url} → ${status}: ${message}`);
+      this.logger.warn(`[${request.method}] ${path} → ${status}: ${message}`);
     }
 
     response.status(status).json({
       statusCode: status,
       message,
       timestamp: new Date().toISOString(),
-      path: request.url,
+      path,
     });
   }
 }

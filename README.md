@@ -207,9 +207,9 @@ The API deploys to Render using [render.yaml](./render.yaml); the web app deploy
 
 ### Stripe billing
 
-Stripe Checkout is the only customer payment method. Configure `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` in the private API environment. Create active recurring Stripe Prices for each plan, currency (INR and GBP), and billing interval (monthly and yearly); enter the Price IDs at `/admin/payment-settings`. The API validates each Price against the configured Stripe account before saving. The webhook endpoint is `/api/billing/webhook`; configure it in Stripe to send checkout completion, subscription created/updated/deleted, and invoice payment succeeded/failed events.
+Stripe Checkout is the only customer payment method. Configure `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` in the private API environment. Create active recurring Stripe Prices for each plan, currency (INR and GBP), and billing interval (monthly and yearly); enter the Price IDs at `/admin/payment-settings`. The API validates each Price against the configured Stripe account before saving. The webhook endpoint is `/api/billing/webhook`; configure it in Stripe to send checkout completion, subscription created/updated/deleted, invoice payment succeeded/failed, and `charge.refunded` events so payment state stays synchronized.
 
-Customers manage active Stripe subscriptions through the billing portal in their account settings. JobIN admins manage Stripe Price IDs and view billing analytics in the admin portal; manage refunds and disputes in the Stripe Dashboard. Never store Stripe secret keys in the web app, database, or source repository.
+Customers manage active Stripe subscriptions through the billing portal in their account settings. Finance admins can view recent payment failures and issue full or partial refunds from the admin billing page; refund disputes remain managed in the Stripe Dashboard. Apply the `20261113_admin_payment_management` migration before deploying this feature. Never store Stripe secret keys in the web app, database, or source repository.
 
 The `20261030_stripe_only_billing` Prisma migration deletes historical manual-payment requests, manually generated payment rows, and manual subscription records, then removes the manual-payment tables. This intentionally ends any active manual-payment access at migration time. Take a database backup and review affected users before applying it. Complimentary/admin-managed plans and Stripe subscriptions are preserved.
 
@@ -223,7 +223,7 @@ The admin portal uses Supabase email/password and a cookie-managed Supabase sess
 npx ts-node prisma/seed-admin.ts --email=admin@example.com
 ```
 
-Then open `/admin`. The API verifies the database role; a normal signed-in account does not have admin access. Admins can inspect users and their plans at `/admin/users`, grant or change a user's complimentary plan from that user's details panel, and finance admins can manage Stripe Price IDs at `/admin/payment-settings`.
+Then open `/admin`. The API verifies the database role and permission grants; a normal signed-in account does not have admin access. The portal includes user status and plan management, Stripe payment failure/refund tracking, banner content, user notifications, CSV reports, and a super-admin-only role permission editor. Apply the `20261113_admin_role_permissions`, `20261113_admin_payment_management`, and `20261113_admin_site_banners` migrations before using these features. Role permission changes are audited; super-admin access and role assignment remain restricted.
 
 Back up the database before applying the Stripe-only migration because it deletes manual-payment history and ends manually granted subscriptions. Apply pending schema migrations and regenerate Prisma Client before running or deploying the API:
 

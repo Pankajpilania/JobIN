@@ -37,6 +37,18 @@ async function main() {
     { action: 'admin:access', description: 'Access the admin portal' },
     { action: 'support:read_tickets', description: 'Read support tickets' },
     { action: 'support:write_tickets', description: 'Respond to support tickets' },
+    { action: 'reports:dashboard', description: 'View admin dashboard metrics' },
+    { action: 'users:manage_status', description: 'Verify or suspend user accounts' },
+    { action: 'users:manage_billing', description: 'Manage user plans and credits' },
+    { action: 'discounts:manage', description: 'Manage discount codes' },
+    { action: 'payments:refund', description: 'Issue payment refunds' },
+    { action: 'ai:read', description: 'View AI usage and cost reports' },
+    { action: 'notifications:send', description: 'Send user notifications' },
+    { action: 'content:manage', description: 'Manage public site banners' },
+    { action: 'reports:users', description: 'Export user report' },
+    { action: 'reports:billing', description: 'Export billing report' },
+    { action: 'reports:subscriptions', description: 'Export subscription report' },
+    { action: 'reports:ai', description: 'Export AI usage report' },
   ];
 
   for (const perm of permissions) {
@@ -47,6 +59,32 @@ async function main() {
     });
   }
   console.log(`  ✅ ${permissions.length} permissions seeded`);
+
+  // Seed least-privilege role grants. SUPER_ADMIN remains an implicit full-access role.
+  const grants: Record<string, string[]> = {
+    OPERATIONS_ADMIN: [
+      'admin:access', 'reports:dashboard', 'users:read', 'users:manage_status', 'ai:read',
+      'support:read_tickets', 'support:write_tickets', 'notifications:send', 'content:manage', 'reports:ai',
+    ],
+    SUPPORT_ADMIN: [
+      'admin:access', 'users:read', 'users:manage_status', 'support:read_tickets', 'support:write_tickets',
+    ],
+    FINANCE_ADMIN: [
+      'admin:access', 'reports:dashboard', 'users:read', 'users:manage_billing', 'billing:read',
+      'billing:write', 'discounts:manage', 'payments:refund', 'ai:read', 'reports:billing',
+      'reports:subscriptions', 'reports:ai',
+    ],
+  };
+  for (const [roleName, actions] of Object.entries(grants)) {
+    const role = await prisma.role.findUnique({ where: { name: roleName } });
+    const assigned = await prisma.permission.findMany({ where: { action: { in: actions } } });
+    if (role && assigned.length) {
+      await prisma.rolePermission.createMany({
+        data: assigned.map(({ id }) => ({ roleId: role.id, permissionId: id })),
+        skipDuplicates: true,
+      });
+    }
+  }
 
   // ─── Plans ──────────────────────────────────────────────────────────────────
   const plans = [

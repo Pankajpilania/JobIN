@@ -2,6 +2,17 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
+function escapeHtml(value: string): string {
+  const entities: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return value.replace(/[&<>"']/g, (character) => entities[character]);
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -206,12 +217,12 @@ export class EmailService {
   ): Promise<void> {
     const html = this.wrap(
       `
-      <h1>Hi ${firstName},</h1>
-      <div style="white-space:pre-line;font-size:15px;line-height:1.8;color:#94a3b8;">${content}</div>
+      <h1>Hi ${escapeHtml(firstName)},</h1>
+      <div style="white-space:pre-line;font-size:15px;line-height:1.8;color:#94a3b8;">${escapeHtml(content)}</div>
       <div class="divider"></div>
       <a href="${this.appUrl}/dashboard" class="btn">Open JobIN →</a>
     `,
-      subject,
+      escapeHtml(subject),
     );
 
     await this.send(to, subject, html);
@@ -228,13 +239,13 @@ export class EmailService {
     const html = this.wrap(
       `
       <h1>New Reply on Your Support Ticket</h1>
-      <p>Hi ${firstName}, our team has replied to your ticket: <strong style="color:#f1f5f9;">${ticketSubject}</strong></p>
+      <p>Hi ${escapeHtml(firstName)}, our team has replied to your ticket: <strong style="color:#f1f5f9;">${escapeHtml(ticketSubject)}</strong></p>
       <div style="background:rgba(255,255,255,0.04);border-left:3px solid #6366f1;padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0;">
-        <p style="margin:0;white-space:pre-line;">${reply}</p>
+        <p style="margin:0;white-space:pre-line;">${escapeHtml(reply)}</p>
       </div>
       <a href="${this.appUrl}/support" class="btn">View Full Ticket →</a>
     `,
-      `Reply on: ${ticketSubject}`,
+      `Reply on: ${escapeHtml(ticketSubject)}`,
     );
 
     await this.send(to, `Re: ${ticketSubject} — JobIN Support`, html);

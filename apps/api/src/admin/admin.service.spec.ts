@@ -195,7 +195,7 @@ describe('AdminService updateUser role assignment', () => {
     service = new AdminService(
       prisma as unknown as PrismaService,
       {} as EmailService,
-      {} as ConfigService,
+      { get: jest.fn() } as unknown as ConfigService,
       {} as AISettingsCrypto,
       {} as S3Service,
     );
@@ -214,6 +214,30 @@ describe('AdminService updateUser role assignment', () => {
     expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
     expect(prisma.role.findFirst).not.toHaveBeenCalled();
     expect(prisma.userRole.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects account suspension by finance admins', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      roles: [{ role: { name: 'FINANCE_ADMIN' } }],
+    });
+
+    await expect(
+      service.updateUser('finance-admin-id', 'target-user-id', { status: 'SUSPENDED' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects plan or credit changes by support admins', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      roles: [{ role: { name: 'SUPPORT_ADMIN' } }],
+    });
+
+    await expect(
+      service.updateUser('support-admin-id', 'target-user-id', { grantCredits: 25 }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
   });
 
   it('allows a super admin to assign a valid role', async () => {

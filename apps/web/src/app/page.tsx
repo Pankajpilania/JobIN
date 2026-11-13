@@ -28,6 +28,17 @@ type Job = {
   time: string;
 };
 
+type SiteBanner = {
+  id: string;
+  title: string;
+  message: string;
+  linkText: string | null;
+  linkUrl: string | null;
+  variant: 'INFO' | 'PROMO' | 'WARNING';
+};
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.jobin.today/api';
+
 const ALL_JOBS: Job[] = [
   {
     logo: 'G',
@@ -337,6 +348,18 @@ export default function LandingPage() {
   const [workType, setWorkType] = useState('All');
   const [location, setLocation] = useState('All');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [siteBanner, setSiteBanner] = useState<SiteBanner | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${API_URL}/content/banners`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((banners: SiteBanner[]) =>
+        setSiteBanner(Array.isArray(banners) ? (banners[0] ?? null) : null),
+      )
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
 
   const filteredJobs = useMemo(
     () =>
@@ -373,6 +396,41 @@ export default function LandingPage() {
   return (
     <main className="jobin-home">
       <MotionEffects />
+
+      {siteBanner && (
+        <aside
+          aria-label="Site announcement"
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px 14px',
+            padding: '10px 20px',
+            color: '#123326',
+            background:
+              siteBanner.variant === 'WARNING'
+                ? '#fff3d5'
+                : siteBanner.variant === 'PROMO'
+                  ? '#e7f8ef'
+                  : '#eef6f1',
+            fontSize: 14,
+            textAlign: 'center',
+          }}
+        >
+          <strong>{siteBanner.title}</strong>
+          <span>{siteBanner.message}</span>
+          {siteBanner.linkText &&
+            siteBanner.linkUrl &&
+            (siteBanner.linkUrl.startsWith('https://') ? (
+              <a href={siteBanner.linkUrl} target="_blank" rel="noopener noreferrer">
+                {siteBanner.linkText} ↗
+              </a>
+            ) : (
+              <Link href={siteBanner.linkUrl}>{siteBanner.linkText} →</Link>
+            ))}
+        </aside>
+      )}
 
       <nav className="home-nav" aria-label="Main navigation">
         <Link href="/" className="brand-lockup" aria-label="JobIN home">

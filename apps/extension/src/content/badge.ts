@@ -170,17 +170,31 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
   const scoreClass = isLoading ? 'loading' : `grade-${grade.toLowerCase()}`;
   const scoreText = isLoading ? 'Analysing…' : `${score}/100`;
 
-  badge.innerHTML = `
-    <div class="logo" aria-hidden="true"><svg viewBox="0 0 40 40" width="28" height="28" fill="none"><path d="M13.5 13.5 20 7l6.5 6.5M20 12.5v10.25c0 6.5-3.6 10.25-9 10.25-4 0-6.75-2.1-8-5.2" stroke="#008c60" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-    <div class="info">
-      <span class="title">JobIN Match</span>
-      <div class="score-row">
-        ${isLoading ? '<div class="pulse"></div>' : ''}
-        <span class="score ${scoreClass}">${scoreText}</span>
-      </div>
-      <span class="cta">Click to tailor → open panel</span>
-    </div>
-  `;
+  const logo = document.createElement('div');
+  logo.className = 'logo';
+  logo.setAttribute('aria-hidden', 'true');
+  logo.textContent = 'J';
+  const info = document.createElement('div');
+  info.className = 'info';
+  const title = document.createElement('span');
+  title.className = 'title';
+  title.textContent = 'JobIN Match';
+  const scoreRow = document.createElement('div');
+  scoreRow.className = 'score-row';
+  if (isLoading) {
+    const pulse = document.createElement('div');
+    pulse.className = 'pulse';
+    scoreRow.appendChild(pulse);
+  }
+  const scoreElement = document.createElement('span');
+  scoreElement.className = `score ${scoreClass}`;
+  scoreElement.textContent = scoreText;
+  scoreRow.appendChild(scoreElement);
+  const cta = document.createElement('span');
+  cta.className = 'cta';
+  cta.textContent = 'Click to tailor → open panel';
+  info.append(title, scoreRow, cta);
+  badge.append(logo, info);
 
   // Dismiss button
   const dismiss = document.createElement('span');
