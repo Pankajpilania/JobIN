@@ -1,6 +1,6 @@
 # JobIN Current Project Guide
 
-**Reviewed:** 13 November 2026  
+**Reviewed:** 13 November 2026<br>
 **Purpose:** Current, implementation-led guide to the JobIN repository. This describes code and configuration currently in this branch; it does not claim that third-party production integrations have been exercised. For code-level truth, use the source files and Prisma migrations linked below.
 
 ## What JobIN does
