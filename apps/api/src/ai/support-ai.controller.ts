@@ -1,12 +1,11 @@
-import { BadRequestException, Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { AIService } from './ai.service';
 import { SupportChatDto } from './dto/support-chat.dto';
 
 @ApiTags('Support')
 @Controller('support')
-@UseGuards(ThrottlerGuard)
 export class SupportAIController {
   constructor(private readonly aiService: AIService) {}
 

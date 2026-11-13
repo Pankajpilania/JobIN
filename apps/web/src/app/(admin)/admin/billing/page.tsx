@@ -14,10 +14,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { getBilling } from '@/lib/admin-api';
+import { getBilling, refundPayment } from '@/lib/admin-api';
 import { Card } from '@/components/ui/card';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
 interface BillingAnalytics {
   recentPayments: Array<{
@@ -25,6 +26,9 @@ interface BillingAnalytics {
     amount: number;
     currency: string;
     createdAt: string;
+    status: string;
+    amountRefunded: number;
+    failureMessage?: string | null;
     subscription?: {
       user?: { email?: string; fullName?: string };
       plan?: { name?: string };
@@ -75,8 +79,8 @@ function ChartTooltip({ active, payload, label }: any) {
           {typeof p.value === 'number'
             ? p.name === 'INR' || p.name === 'GBP'
               ? new Intl.NumberFormat(undefined, {
-                style: 'currency',
-                currency: p.name === 'INR' ? 'INR' : 'GBP',
+                  style: 'currency',
+                  currency: p.name === 'INR' ? 'INR' : 'GBP',
                 }).format(p.value)
               : p.value
             : p.value}
@@ -90,6 +94,29 @@ export default function AdminBillingPage() {
   const { getToken } = useAuth();
   const [data, setData] = useState<BillingAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState('');
+
+  const loadBilling = async (authToken: string) => {
+    const result = await getBilling(authToken);
+    setData(result);
+  };
+
+  const handleRefund = async (payment: BillingAnalytics['recentPayments'][number]) => {
+    const refundable = payment.status === 'succeeded' || payment.status === 'partially_refunded';
+    if (!token || !refundable) return;
+    const remaining = Math.max(0, payment.amount - (payment.amountRefunded ?? 0));
+    if (!window.confirm(`Refund the remaining ${payment.currency} ${remaining.toFixed(2)}?`))
+      return;
+    try {
+      const result = await refundPayment(token, payment.id);
+      toast.success(
+        `Refund ${result.id} ${result.status ?? 'submitted'}; Stripe will sync the payment status.`,
+      );
+      await loadBilling(token);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not create the refund.');
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -97,13 +124,12 @@ export default function AdminBillingPage() {
       try {
         const token = await getToken();
         if (!token) throw new Error('Please sign in again to view billing analytics.');
+        if (active) setToken(token);
         const result = await getBilling(token);
         if (active) setData(result);
       } catch (error) {
         if (active) {
-          toast.error(
-            error instanceof Error ? error.message : 'Failed to load billing analytics.',
-          );
+          toast.error(error instanceof Error ? error.message : 'Failed to load billing analytics.');
         }
       } finally {
         if (active) setLoading(false);
@@ -129,14 +155,14 @@ export default function AdminBillingPage() {
   }, [data?.revenueByMonth]);
 
   const revenueCards = (data?.revenueByCurrency ?? []).map((entry) => ({
-      label: `Revenue (${entry.currency})`,
-      value: new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: entry.currency,
-      }).format(entry.amount),
-      colorClass: 'text-emerald-600 dark:text-emerald-400',
-      icon: '💰',
-    }));
+    label: `Revenue (${entry.currency})`,
+    value: new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: entry.currency,
+    }).format(entry.amount),
+    colorClass: 'text-emerald-600 dark:text-emerald-400',
+    icon: '💰',
+  }));
 
   if (loading)
     return (
@@ -330,8 +356,22 @@ export default function AdminBillingPage() {
                       content={<ChartTooltip />}
                       cursor={{ stroke: 'var(--border)', strokeWidth: 1 }}
                     />
-                    <Area type="monotone" dataKey="INR" name="INR" stroke="var(--brand)" fill="url(#revInr)" strokeWidth={2} />
-                    <Area type="monotone" dataKey="GBP" name="GBP" stroke="#10B981" fill="url(#revGbp)" strokeWidth={2} />
+                    <Area
+                      type="monotone"
+                      dataKey="INR"
+                      name="INR"
+                      stroke="var(--brand)"
+                      fill="url(#revInr)"
+                      strokeWidth={2}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="GBP"
+                      name="GBP"
+                      stroke="#10B981"
+                      fill="url(#revGbp)"
+                      strokeWidth={2}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -465,13 +505,19 @@ export default function AdminBillingPage() {
                 Customer
               </th>
               <th style={{ padding: '14px 16px', textAlign: 'left', userSelect: 'none' }}>
-                Amount Paid
+                Amount
               </th>
               <th style={{ padding: '14px 16px', textAlign: 'left', userSelect: 'none' }}>
                 Plan Package
               </th>
               <th style={{ padding: '14px 16px', textAlign: 'right', userSelect: 'none' }}>
                 Invoice Date
+              </th>
+              <th style={{ padding: '14px 16px', textAlign: 'left', userSelect: 'none' }}>
+                Status
+              </th>
+              <th style={{ padding: '14px 16px', textAlign: 'right', userSelect: 'none' }}>
+                Action
               </th>
             </tr>
           </thead>
@@ -501,11 +547,26 @@ export default function AdminBillingPage() {
                     </p>
                   </div>
                 </td>
-                <td style={{ padding: '14px 16px', fontWeight: 800, color: '#10B981' }}>
+                <td
+                  style={{
+                    padding: '14px 16px',
+                    fontWeight: 800,
+                    color: p.status === 'failed' ? '#b91c1c' : '#10B981',
+                  }}
+                >
                   {new Intl.NumberFormat(undefined, {
                     style: 'currency',
                     currency: p.currency ?? 'GBP',
                   }).format(p.amount ?? 0)}
+                  {(p.amountRefunded ?? 0) > 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>
+                      Refunded{' '}
+                      {new Intl.NumberFormat(undefined, {
+                        style: 'currency',
+                        currency: p.currency,
+                      }).format(p.amountRefunded)}
+                    </div>
+                  )}
                 </td>
                 <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--brand)' }}>
                   {p.subscription?.plan?.name}
@@ -521,12 +582,41 @@ export default function AdminBillingPage() {
                 >
                   {new Date(p.createdAt).toLocaleDateString('en-GB')}
                 </td>
+                <td style={{ padding: '14px 16px', textAlign: 'left' }}>
+                  <span
+                    style={{
+                      color:
+                        p.status === 'failed'
+                          ? '#b91c1c'
+                          : p.status.includes('refund')
+                            ? '#b45309'
+                            : '#047857',
+                      fontWeight: 700,
+                      textTransform: 'capitalize',
+                    }}
+                    title={p.failureMessage ?? undefined}
+                  >
+                    {p.status.replaceAll('_', ' ')}
+                  </span>
+                  {p.failureMessage && (
+                    <div style={{ maxWidth: 220, fontSize: 11, color: '#b91c1c' }}>
+                      {p.failureMessage}
+                    </div>
+                  )}
+                </td>
+                <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                  {(p.status === 'succeeded' || p.status === 'partially_refunded') && (
+                    <Button variant="ghost" onClick={() => handleRefund(p)}>
+                      Refund
+                    </Button>
+                  )}
+                </td>
               </tr>
             ))}
             {(!data.recentPayments || data.recentPayments.length === 0) && (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={6}
                   style={{
                     padding: '48px 16px',
                     textAlign: 'center',

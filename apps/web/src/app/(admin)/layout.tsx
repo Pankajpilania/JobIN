@@ -20,21 +20,95 @@ import {
   ChevronRight,
   Settings2,
   Tag,
+  Bell,
+  PanelsTopLeft,
+  FileDown,
+  ShieldCheck,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { BrandMark } from '@/components/brand-mark';
 import { motion } from 'framer-motion';
 
 const NAV = [
-  { href: '/admin', label: 'Dashboard', icon: BarChart2 },
-  { href: '/admin/users', label: 'Users', icon: Users },
-  { href: '/admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
-  { href: '/admin/billing', label: 'Billing', icon: DollarSign },
-  { href: '/admin/payment-settings', label: 'Payment settings', icon: Settings2 },
-  { href: '/admin/discount-codes', label: 'Discount codes', icon: Tag },
-  { href: '/admin/ai-settings', label: 'AI settings', icon: Bot },
-  { href: '/admin/ai-usage', label: 'AI Usage', icon: Bot },
-  { href: '/admin/tickets', label: 'Support', icon: AlertCircle },
+  {
+    href: '/admin',
+    label: 'Dashboard',
+    icon: BarChart2,
+    roles: ['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN', 'FINANCE_ADMIN'],
+    permission: 'reports:dashboard',
+  },
+  {
+    href: '/admin/users',
+    label: 'Users',
+    icon: Users,
+    roles: ['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN', 'FINANCE_ADMIN'],
+    permission: 'users:read',
+  },
+  {
+    href: '/admin/subscriptions',
+    label: 'Subscriptions',
+    icon: CreditCard,
+    roles: ['FINANCE_ADMIN'],
+    permission: 'billing:read',
+  },
+  {
+    href: '/admin/billing',
+    label: 'Billing',
+    icon: DollarSign,
+    roles: ['FINANCE_ADMIN'],
+    permission: 'billing:read',
+  },
+  {
+    href: '/admin/payment-settings',
+    label: 'Payment settings',
+    icon: Settings2,
+    roles: ['FINANCE_ADMIN'],
+    permission: 'billing:read',
+  },
+  {
+    href: '/admin/discount-codes',
+    label: 'Discount codes',
+    icon: Tag,
+    roles: ['FINANCE_ADMIN'],
+    permission: 'discounts:manage',
+  },
+  { href: '/admin/ai-settings', label: 'AI settings', icon: Bot, roles: ['SUPER_ADMIN'] },
+  { href: '/admin/roles', label: 'Roles & permissions', icon: ShieldCheck, roles: ['SUPER_ADMIN'] },
+  {
+    href: '/admin/ai-usage',
+    label: 'AI Usage',
+    icon: Bot,
+    roles: ['FINANCE_ADMIN', 'OPERATIONS_ADMIN'],
+    permission: 'ai:read',
+  },
+  {
+    href: '/admin/tickets',
+    label: 'Support',
+    icon: AlertCircle,
+    roles: ['SUPPORT_ADMIN', 'OPERATIONS_ADMIN'],
+    permission: 'support:read_tickets',
+  },
+  {
+    href: '/admin/notifications',
+    label: 'Notifications',
+    icon: Bell,
+    roles: ['OPERATIONS_ADMIN'],
+    permission: 'notifications:send',
+  },
+  {
+    href: '/admin/content',
+    label: 'Site content',
+    icon: PanelsTopLeft,
+    roles: ['OPERATIONS_ADMIN'],
+    permission: 'content:manage',
+  },
+  {
+    href: '/admin/reports',
+    label: 'Reports',
+    icon: FileDown,
+    roles: ['SUPER_ADMIN', 'FINANCE_ADMIN', 'OPERATIONS_ADMIN'],
+    permission: 'reports:ai',
+  },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -42,6 +116,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const { isReady, isSignedIn, getToken, signOut, profile } = useAuth();
   const [adminVerified, setAdminVerified] = useState(false);
+  const [adminRoles, setAdminRoles] = useState<string[]>([]);
+  const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
   const [adminError, setAdminError] = useState('');
   const [adminNavOpen, setAdminNavOpen] = useState(false);
 
@@ -57,8 +133,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     getToken()
       .then(async (token) => {
         if (!token) throw new Error('Your session has expired. Please sign in again.');
-        await apiClient.get<{ allowed: boolean }>('/admin/access', token);
-        if (active) setAdminVerified(true);
+        const access = await apiClient.get<{
+          allowed: boolean;
+          roles?: string[];
+          permissions?: string[];
+        }>('/admin/access', token);
+        if (active) {
+          setAdminRoles(access.roles ?? []);
+          setAdminPermissions(access.permissions ?? []);
+          setAdminVerified(true);
+        }
       })
       .catch((error: unknown) => {
         if (active) {
@@ -252,7 +336,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             gap: '4px',
           }}
         >
-          {NAV.map(({ href, label, icon: Icon }) => {
+          {NAV.filter(
+            (item) =>
+              adminRoles.includes('SUPER_ADMIN') ||
+              (item.permission
+                ? adminPermissions.includes(item.permission)
+                : item.roles.some((role) => adminRoles.includes(role))),
+          ).map(({ href, label, icon: Icon }) => {
             const active = pathname === href || (href !== '/admin' && pathname.startsWith(href));
             return (
               <Link

@@ -3,7 +3,13 @@
 import React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useState, useCallback } from 'react';
-import { listUsers, updateUser, deleteUser, getUserActivity } from '@/lib/admin-api';
+import {
+  getAdminAccess,
+  listUsers,
+  updateUser,
+  deleteUser,
+  getUserActivity,
+} from '@/lib/admin-api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,10 +21,12 @@ import { motion } from 'framer-motion';
 function UserModal({
   userId,
   token,
+  adminRoles,
   onClose,
 }: {
   userId: string;
   token: string;
+  adminRoles: string[];
   onClose: () => void;
 }) {
   const [data, setData] = useState<any>(null);
@@ -30,6 +38,12 @@ function UserModal({
   const [noPlanExpiry, setNoPlanExpiry] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const canManageStatus =
+    adminRoles.includes('SUPER_ADMIN') ||
+    adminRoles.includes('SUPPORT_ADMIN') ||
+    adminRoles.includes('OPERATIONS_ADMIN');
+  const canManageBilling =
+    adminRoles.includes('SUPER_ADMIN') || adminRoles.includes('FINANCE_ADMIN');
 
   useEffect(() => {
     getUserActivity(token, userId)
@@ -58,12 +72,25 @@ function UserModal({
     }
     setSaving(true);
     try {
-      await updateUser(token, userId, {
-        status: status,
-        grantCredits: credits ? parseInt(credits) : undefined,
-        planId: planId || undefined,
-        planDurationDays: planId ? (noPlanExpiry ? null : Number(planDurationDays)) : undefined,
-      });
+      const changes = {
+        ...(canManageStatus && status !== data.user.status ? { status } : {}),
+        ...(canManageBilling
+          ? {
+              grantCredits: credits ? parseInt(credits) : undefined,
+              planId: planId || undefined,
+              planDurationDays: planId
+                ? noPlanExpiry
+                  ? null
+                  : Number(planDurationDays)
+                : undefined,
+            }
+          : {}),
+      };
+      if (!Object.values(changes).some((value) => value !== undefined)) {
+        toast.info('There are no changes to save.');
+        return;
+      }
+      await updateUser(token, userId, changes);
       setSaved(true);
       toast.success('User details updated successfully!');
       setTimeout(() => setSaved(false), 2000);
@@ -269,112 +296,166 @@ function UserModal({
                       gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
                     }}
                   >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label
-                        style={{
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          color: 'var(--text-2)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                        }}
-                      >
-                        Assign plan
-                      </label>
-                      <select
-                        value={planId}
-                        onChange={(event) => setPlanId(event.target.value)}
-                        style={{
-                          width: '100%',
-                          borderRadius: '8px',
-                          border: '1px solid var(--border)',
-                          backgroundColor: 'var(--surface)',
-                          padding: '10px 12px',
-                          fontSize: '14px',
-                          color: 'var(--text-1)',
-                        }}
-                      >
-                        <option value="">Keep current plan</option>
-                        {data.plans.map(
-                          (plan: {
-                            id: string;
-                            name: string;
-                            priceMonthly: number;
-                            currency: string;
-                          }) => (
-                            <option key={plan.id} value={plan.id}>
-                              {plan.name}{' '}
-                              {plan.priceMonthly > 0
-                                ? `· ${plan.currency} ${plan.priceMonthly}/month`
-                                : '· Free'}
-                            </option>
-                          ),
-                        )}
-                      </select>
-                      {planId && (
-                        <>
-                          <label
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              color: 'var(--text-2)',
-                              fontSize: 12,
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={noPlanExpiry}
-                              onChange={(event) => setNoPlanExpiry(event.target.checked)}
-                            />
-                            No expiry (until cancelled)
-                          </label>
-                          {!noPlanExpiry && (
-                            <input
-                              type="number"
-                              required
-                              min={1}
-                              max={3650}
-                              value={planDurationDays}
-                              onChange={(event) => setPlanDurationDays(event.target.value)}
-                              aria-label="Complimentary subscription duration in days"
-                              style={{
-                                width: '100%',
-                                borderRadius: '8px',
-                                border: '1px solid var(--border)',
-                                backgroundColor: 'var(--surface)',
-                                padding: '10px 12px',
-                                fontSize: '14px',
-                                color: 'var(--text-1)',
-                              }}
-                            />
-                          )}
-                          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
-                            This grants a complimentary subscription and replaces the current active
-                            plan.
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label
-                        style={{
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          color: 'var(--text-2)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                        }}
-                      >
-                        Account Status
-                      </label>
-                      <div style={{ position: 'relative' }}>
+                    {canManageBilling && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: 'var(--text-2)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                          }}
+                        >
+                          Assign plan
+                        </label>
                         <select
-                          value={status}
-                          onChange={(e) => setStatus(e.target.value)}
+                          value={planId}
+                          onChange={(event) => setPlanId(event.target.value)}
                           style={{
                             width: '100%',
-                            appearance: 'none',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)',
+                            backgroundColor: 'var(--surface)',
+                            padding: '10px 12px',
+                            fontSize: '14px',
+                            color: 'var(--text-1)',
+                          }}
+                        >
+                          <option value="">Keep current plan</option>
+                          {data.plans.map(
+                            (plan: {
+                              id: string;
+                              name: string;
+                              priceMonthly: number;
+                              currency: string;
+                            }) => (
+                              <option key={plan.id} value={plan.id}>
+                                {plan.name}{' '}
+                                {plan.priceMonthly > 0
+                                  ? `· ${plan.currency} ${plan.priceMonthly}/month`
+                                  : '· Free'}
+                              </option>
+                            ),
+                          )}
+                        </select>
+                        {planId && (
+                          <>
+                            <label
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                color: 'var(--text-2)',
+                                fontSize: 12,
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={noPlanExpiry}
+                                onChange={(event) => setNoPlanExpiry(event.target.checked)}
+                              />
+                              No expiry (until cancelled)
+                            </label>
+                            {!noPlanExpiry && (
+                              <input
+                                type="number"
+                                required
+                                min={1}
+                                max={3650}
+                                value={planDurationDays}
+                                onChange={(event) => setPlanDurationDays(event.target.value)}
+                                aria-label="Complimentary subscription duration in days"
+                                style={{
+                                  width: '100%',
+                                  borderRadius: '8px',
+                                  border: '1px solid var(--border)',
+                                  backgroundColor: 'var(--surface)',
+                                  padding: '10px 12px',
+                                  fontSize: '14px',
+                                  color: 'var(--text-1)',
+                                }}
+                              />
+                            )}
+                            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                              This grants a complimentary subscription and replaces the current
+                              active plan.
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {canManageStatus && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: 'var(--text-2)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                          }}
+                        >
+                          Account Status
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <select
+                            value={status}
+                            onChange={(e) => setStatus(e.target.value)}
+                            style={{
+                              width: '100%',
+                              appearance: 'none',
+                              borderRadius: '8px',
+                              border: '1px solid var(--border)',
+                              backgroundColor: 'var(--surface)',
+                              padding: '10px 12px',
+                              fontSize: '14px',
+                              color: 'var(--text-1)',
+                              outline: 'none',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value="ACTIVE">Active</option>
+                            <option value="SUSPENDED">Suspended</option>
+                            <option value="DELETED">Deleted</option>
+                          </select>
+                          <ChevronDown
+                            style={{
+                              pointerEvents: 'none',
+                              position: 'absolute',
+                              right: '12px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              height: '14px',
+                              width: '14px',
+                              color: 'var(--text-3)',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {canManageBilling && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: 'var(--text-2)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                          }}
+                        >
+                          Grant AI Credits
+                        </label>
+                        <input
+                          type="number"
+                          value={credits}
+                          onChange={(e) => setCredits(e.target.value)}
+                          placeholder="e.g. 100"
+                          style={{
+                            width: '100%',
                             borderRadius: '8px',
                             border: '1px solid var(--border)',
                             backgroundColor: 'var(--surface)',
@@ -383,58 +464,10 @@ function UserModal({
                             color: 'var(--text-1)',
                             outline: 'none',
                             fontWeight: 500,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <option value="ACTIVE">Active</option>
-                          <option value="SUSPENDED">Suspended</option>
-                          <option value="DELETED">Deleted</option>
-                        </select>
-                        <ChevronDown
-                          style={{
-                            pointerEvents: 'none',
-                            position: 'absolute',
-                            right: '12px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            height: '14px',
-                            width: '14px',
-                            color: 'var(--text-3)',
                           }}
                         />
                       </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label
-                        style={{
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          color: 'var(--text-2)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                        }}
-                      >
-                        Grant AI Credits
-                      </label>
-                      <input
-                        type="number"
-                        value={credits}
-                        onChange={(e) => setCredits(e.target.value)}
-                        placeholder="e.g. 100"
-                        style={{
-                          width: '100%',
-                          borderRadius: '8px',
-                          border: '1px solid var(--border)',
-                          backgroundColor: 'var(--surface)',
-                          padding: '10px 12px',
-                          fontSize: '14px',
-                          color: 'var(--text-1)',
-                          outline: 'none',
-                          fontWeight: 500,
-                        }}
-                      />
-                    </div>
+                    )}
                   </div>
 
                   <Button
@@ -517,6 +550,7 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
   const [token, setToken] = useState('');
+  const [adminRoles, setAdminRoles] = useState<string[]>([]);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const load = useCallback(
@@ -540,6 +574,7 @@ export default function AdminUsersPage() {
     getToken().then((t) => {
       if (t) {
         setToken(t);
+        getAdminAccess(t).then((access) => setAdminRoles(access.roles ?? []));
         load(t);
       }
     });
@@ -593,6 +628,7 @@ export default function AdminUsersPage() {
         <UserModal
           userId={selected}
           token={token}
+          adminRoles={adminRoles}
           onClose={() => {
             setSelected(null);
             load();
@@ -811,7 +847,10 @@ export default function AdminUsersPage() {
                     role.name,
                   ),
                 );
-                const cannotDelete = user.supabaseId === userId || isProtectedAdmin;
+                const cannotDelete =
+                  user.supabaseId === userId ||
+                  isProtectedAdmin ||
+                  !adminRoles.includes('SUPER_ADMIN');
                 return (
                   <motion.tr
                     key={user.id}
@@ -877,7 +916,9 @@ export default function AdminUsersPage() {
                           title={
                             cannotDelete
                               ? 'Your account and admin accounts are protected'
-                              : 'Permanently delete user'
+                              : !adminRoles.includes('SUPER_ADMIN')
+                                ? 'Only super admins can delete accounts'
+                                : 'Permanently delete user'
                           }
                           style={{
                             fontSize: '12px',

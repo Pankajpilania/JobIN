@@ -50,6 +50,18 @@ async function request<T>(path: string, token: string, options: RequestInit = {}
 
 // ─── Metrics ──────────────────────────────────────────────────────────────────
 export const getMetrics = (token: string) => request<any>('/metrics', token);
+export const getAdminAccess = (token: string) =>
+  request<{ allowed: boolean; roles: string[]; permissions?: string[] }>('/access', token);
+export type AdminRolePermissionData = {
+  permissions: Array<{ id: string; action: string; description: string | null }>;
+  roles: Array<{ id: string; name: string; description: string | null; permissions: string[] }>;
+};
+export const listAdminRoles = (token: string) => request<AdminRolePermissionData>('/roles', token);
+export const updateAdminRolePermissions = (token: string, id: string, permissions: string[]) =>
+  request<{ roleId: string; permissions: string[] }>(`/roles/${id}/permissions`, token, {
+    method: 'PATCH',
+    body: JSON.stringify({ permissions }),
+  });
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const listUsers = (token: string, params?: QueryParams) =>
@@ -67,6 +79,56 @@ export const listSubscriptions = (token: string, params?: QueryParams) =>
 
 // ─── Billing ──────────────────────────────────────────────────────────────────
 export const getBilling = (token: string) => request<any>('/billing', token);
+export const refundPayment = (token: string, id: string) =>
+  request<{ id: string; status: string; amount: number; currency: string }>(
+    `/payments/${id}/refund`,
+    token,
+    { method: 'POST', body: JSON.stringify({}) },
+  );
+
+export type SiteBanner = {
+  id: string;
+  title: string;
+  message: string;
+  linkText: string | null;
+  linkUrl: string | null;
+  variant: 'INFO' | 'PROMO' | 'WARNING';
+  isActive: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+export type SiteBannerInput = Omit<SiteBanner, 'id' | 'createdAt' | 'updatedAt'>;
+export const listSiteBanners = (token: string) => request<SiteBanner[]>('/content/banners', token);
+export const createSiteBanner = (token: string, data: SiteBannerInput) =>
+  request<SiteBanner>('/content/banners', token, { method: 'POST', body: JSON.stringify(data) });
+export const updateSiteBanner = (token: string, id: string, data: Partial<SiteBannerInput>) =>
+  request<SiteBanner>(`/content/banners/${id}`, token, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+export const deactivateSiteBanner = (token: string, id: string) =>
+  request<SiteBanner>(`/content/banners/${id}`, token, { method: 'DELETE' });
+
+export type AdminReport = 'users' | 'billing' | 'subscriptions' | 'ai-usage';
+export async function downloadAdminReport(token: string, report: AdminReport) {
+  const response = await fetch(`${API}/admin/reports/${report}.csv`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: response.statusText }));
+    throw new Error(error.message ?? 'Could not export this report.');
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `jobin-${report}-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 // ─── AI usage ─────────────────────────────────────────────────────────────────
 export const getAIUsage = (token: string) => request<any>('/ai-usage', token);

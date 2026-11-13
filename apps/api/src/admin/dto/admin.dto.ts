@@ -12,9 +12,19 @@ import {
   IsArray,
   IsISO8601,
   MinLength,
+  IsBoolean,
+  ArrayUnique,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+
+export class UpdateRolePermissionsDto {
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  permissions!: string[];
+}
 
 // ─── List users ───────────────────────────────────────────────────────────────
 export class ListUsersDto {
@@ -200,8 +210,17 @@ export class SendNotificationDto {
   @IsEnum(['ALL', 'ACTIVE', 'PREMIUM', 'CHURNED'])
   audience?: string;
 
-  @IsString() subject!: string;
-  @IsString() content!: string;
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(1)
+  @MaxLength(160)
+  subject!: string;
+
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(1)
+  @MaxLength(5000)
+  content!: string;
 
   @ApiPropertyOptional({ enum: ['EMAIL', 'IN_APP'] })
   @IsOptional()
@@ -231,3 +250,73 @@ export class ListSubscriptionsDto {
   @Max(100)
   limit?: number = 25;
 }
+
+export class CreateRefundDto {
+  @ApiPropertyOptional({
+    description: 'Optional partial refund in the currency’s smallest unit (for example, pence).',
+    minimum: 1,
+    maximum: 100_000_000,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100_000_000)
+  amount?: number;
+
+  @ApiPropertyOptional({ enum: ['duplicate', 'fraudulent', 'requested_by_customer'] })
+  @IsOptional()
+  @IsEnum(['duplicate', 'fraudulent', 'requested_by_customer'])
+  reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer';
+}
+
+export class CreateSiteBannerDto {
+  @ApiProperty({ maxLength: 80 })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  title!: string;
+
+  @ApiProperty({ maxLength: 500 })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  message!: string;
+
+  @ApiPropertyOptional({ maxLength: 40 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  linkText?: string;
+
+  @ApiPropertyOptional({ description: 'HTTPS URL or a same-site path beginning with /.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  @Matches(/^(\/(?!\/)[^\s<>"']*|https:\/\/[^\s<>"']+)$/)
+  linkUrl?: string;
+
+  @ApiPropertyOptional({ enum: ['INFO', 'PROMO', 'WARNING'] })
+  @IsOptional()
+  @IsEnum(['INFO', 'PROMO', 'WARNING'])
+  variant?: 'INFO' | 'PROMO' | 'WARNING';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'ISO 8601 timestamp when the banner becomes visible.' })
+  @IsOptional()
+  @IsISO8601({ strict: true, strictSeparator: true })
+  startsAt?: string;
+
+  @ApiPropertyOptional({ description: 'ISO 8601 timestamp when the banner stops being visible.' })
+  @IsOptional()
+  @IsISO8601({ strict: true, strictSeparator: true })
+  endsAt?: string;
+}
+
+export class UpdateSiteBannerDto extends PartialType(CreateSiteBannerDto) {}

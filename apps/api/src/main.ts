@@ -16,12 +16,41 @@ async function bootstrap() {
   });
 
   const config = app.get(ConfigService);
+  const isProduction = config.get<string>('NODE_ENV') === 'production';
   const port = config.get<number>('PORT', 4000);
   const corsOrigins = config
-    .get<string>('CORS_ORIGIN', 'http://localhost:3000')
+    .get<string>('CORS_ORIGIN', isProduction ? '' : 'http://localhost:3000')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+  for (const origin of corsOrigins) {
+    let parsed: URL;
+    try {
+      parsed = new URL(origin);
+    } catch {
+      throw new Error(`Invalid CORS origin configured: ${origin}`);
+    }
+    if (
+      origin === '*' ||
+      parsed.origin !== origin ||
+      (isProduction &&
+        (parsed.protocol !== 'https:' || ['localhost', '127.0.0.1'].includes(parsed.hostname)))
+    ) {
+      throw new Error('Production CORS_ORIGIN entries must be exact HTTPS origins.');
+    }
+  }
+
+  // Honor only an explicitly configured, bounded proxy chain. Never trust all
+  // forwarded headers, which would let clients spoof their address for limits.
+  const trustProxyHops = Number(config.get<string>('TRUST_PROXY_HOPS', '0'));
+  if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0 || trustProxyHops > 10) {
+    throw new Error('TRUST_PROXY_HOPS must be an integer between 0 and 10.');
+  }
+  if (trustProxyHops > 0) {
+    app.getHttpAdapter().getInstance().set('trust proxy', trustProxyHops);
+  }
+
+  app.useSecurityHeaders({ contentSecurityPolicy: false });
 
   // ─── Sentry Initialization ───────────────────────────────────────────────
   const sentryDsn = config.get<string>('SENTRY_DSN') || process.env.SENTRY_DSN;
@@ -38,7 +67,7 @@ async function bootstrap() {
 
   // ─── CORS ────────────────────────────────────────────────────────────────────
   app.enableCors({
-    origin: [...new Set([...corsOrigins, 'http://localhost:3000'])],
+    origin: [...new Set(corsOrigins)],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['X-PDF-Engine'],
@@ -50,7 +79,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: false,
+      forbidNonWhitelisted: true,
       transformOptions: { enableImplicitConversion: true },
     }),
   );
@@ -76,14 +105,19 @@ async function bootstrap() {
     .addTag('Users', 'User profile management')
     .build();
 
-  const document = SwaggerModule.createDocument(app, swagger);
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: { persistAuthorization: true },
-  });
+  const swaggerEnabled = config.get<string>('ENABLE_SWAGGER') === 'true';
+  if (swaggerEnabled && !isProduction) {
+    const document = SwaggerModule.createDocument(app, swagger);
+    SwaggerModule.setup('api/docs', app, document, {
+      swaggerOptions: { persistAuthorization: false },
+    });
+  }
 
   await app.listen(port);
   logger.log(`🚀 API running at http://localhost:${port}/api`);
-  logger.log(`📚 Swagger at   http://localhost:${port}/api/docs`);
+  if (swaggerEnabled && !isProduction) {
+    logger.log(`📚 Swagger at   http://localhost:${port}/api/docs`);
+  }
 }
 
 bootstrap();

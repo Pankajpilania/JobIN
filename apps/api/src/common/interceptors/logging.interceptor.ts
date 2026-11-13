@@ -8,7 +8,8 @@ export class LoggingInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const req = context.switchToHttp().getRequest();
-    const { method, url, ip } = req;
+    const { method, ip } = req;
+    const path = req.path || '/';
     const start = Date.now();
 
     return next.handle().pipe(
@@ -16,11 +17,11 @@ export class LoggingInterceptor implements NestInterceptor {
         next: () => {
           const res = context.switchToHttp().getResponse();
           const ms = Date.now() - start;
-          this.logger.log(`${method} ${url} ${res.statusCode} — ${ms}ms [${ip}]`);
+          this.logger.log(`${method} ${path} ${res.statusCode} — ${ms}ms [${ip}]`);
         },
         error: () => {
           const ms = Date.now() - start;
-          this.logger.warn(`${method} ${url} ERROR — ${ms}ms [${ip}]`);
+          this.logger.warn(`${method} ${path} ERROR — ${ms}ms [${ip}]`);
         },
       }),
     );
