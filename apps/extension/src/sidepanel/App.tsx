@@ -8,7 +8,7 @@ import type {
   CoverLetterResult,
   CoverLetterVariant,
 } from '../shared/types';
-import { BrandMark } from '../shared/brand-mark';
+import { BrandLogo } from '../shared/brand-mark';
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
 
@@ -615,6 +615,13 @@ export default function App() {
   const [job, setJob] = useState<DetectedJob | null>(null);
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [defaultResumeId, setDefaultResumeId] = useState('');
+  const [matchResult, setMatchResult] = useState<{
+    score: number;
+    matchedKeywords: string[];
+    missingKeywords: string[];
+    caveat: string;
+  } | null>(null);
+  const [matchStatus, setMatchStatus] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -639,6 +646,44 @@ export default function App() {
         setAuthError(error instanceof Error ? error.message : 'Could not load your JobIN session.');
       })
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMatchResult(null);
+    if (!job || !defaultResumeId) {
+      setMatchStatus('');
+      return;
+    }
+    setMatchStatus('Calculating resume match…');
+    sendMsg<{ match?: typeof matchResult; error?: string }>(MSG.REQUEST_MATCH_SCORE, {
+      job,
+      resumeId: defaultResumeId,
+    })
+      .then((response) => {
+        if (cancelled) return;
+        setMatchResult(response?.match ?? null);
+        setMatchStatus(response?.error ?? '');
+      })
+      .catch(() => {
+        if (!cancelled) setMatchStatus('Could not calculate the resume match.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [job, defaultResumeId]);
+
+  useEffect(() => {
+    const syncAuth = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+      if (area !== 'local' || !Object.prototype.hasOwnProperty.call(changes, 'jobin_auth')) return;
+      const nextAuth = changes.jobin_auth.newValue as AuthState | undefined;
+      setAuth(nextAuth ?? null);
+      setAuthError(
+        nextAuth ? '' : 'You are signed out. Sign in again in JobIN extension settings.',
+      );
+    };
+    chrome.storage.onChanged.addListener(syncAuth);
+    return () => chrome.storage.onChanged.removeListener(syncAuth);
   }, []);
 
   async function sendMsg<T>(type: string, payload?: unknown): Promise<T> {
@@ -688,7 +733,8 @@ export default function App() {
         </h2>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: 280 }}>
           Sign in with your JobIN account in extension settings to tailor resumes and generate cover
-          letters. OCI sessions renew automatically while they remain valid.
+          letters. Your sign-in is saved on this browser and renews while your identity provider
+          keeps the session valid. If it expires or is revoked, sign in again in settings.
         </p>
         <button
           className="btn btn-primary"
@@ -724,11 +770,8 @@ export default function App() {
           flexShrink: 0,
         }}
       >
-        <BrandMark size={28} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 700, fontSize: 14 }}>
-            JobIN Copilot
-          </div>
+          <BrandLogo size={28} textColor="var(--text)" />
           {job && (
             <div
               style={{
@@ -763,6 +806,90 @@ export default function App() {
           <span>⚠️</span>
           No job detected. Paste a job description in the form below.
         </div>
+      )}
+
+      {job && (
+        <section
+          aria-label="Resume match"
+          style={{
+            margin: '12px 16px 0',
+            padding: 14,
+            border: '1px solid var(--border)',
+            borderRadius: 14,
+            background: 'linear-gradient(135deg,rgba(0,217,145,0.12),rgba(255,255,255,0.04))',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                Resume match
+              </div>
+              <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+                {matchStatus || 'Keyword overlap estimate'}
+              </div>
+            </div>
+            {matchResult && (
+              <strong style={{ fontSize: 26, color: 'var(--primary)' }}>
+                {matchResult.score}%
+              </strong>
+            )}
+          </div>
+          {matchResult && (
+            <>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  marginTop: 10,
+                  fontSize: 11,
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <span>✓ {matchResult.matchedKeywords.length} matching terms</span>
+                <span>＋ {matchResult.missingKeywords.length} to review</span>
+              </div>
+              {matchResult.matchedKeywords.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 9 }}>
+                  {matchResult.matchedKeywords.slice(0, 6).map((keyword) => (
+                    <span key={`matched-${keyword}`} className="badge badge-primary">
+                      {keyword}
+                    </span>
+                  ))}
+                  {matchResult.missingKeywords.slice(0, 4).map((keyword) => (
+                    <span key={`missing-${keyword}`} className="badge">
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p
+                style={{
+                  margin: '8px 0 0',
+                  fontSize: 10,
+                  lineHeight: 1.4,
+                  color: 'var(--text-dim)',
+                }}
+              >
+                {matchResult.caveat}
+              </p>
+            </>
+          )}
+        </section>
       )}
 
       {/* Tabs */}

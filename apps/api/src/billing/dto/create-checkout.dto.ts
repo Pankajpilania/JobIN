@@ -1,4 +1,4 @@
-import { IsEnum } from 'class-validator';
+import { IsEnum, IsString, Matches, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export enum BillingInterval {
@@ -15,9 +15,11 @@ export class CreateCheckoutDto {
   @IsEnum(BillingInterval)
   interval: BillingInterval;
 
-  @ApiProperty({ enum: ['PREMIUM', 'PRO'], default: 'PREMIUM' })
-  @IsEnum(['PREMIUM', 'PRO'])
-  plan: 'PREMIUM' | 'PRO' = 'PREMIUM';
+  @ApiProperty({ description: 'Plan code managed by administrators', default: 'PREMIUM' })
+  @IsString()
+  @MaxLength(40)
+  @Matches(/^[A-Z][A-Z0-9_]*$/)
+  plan: string = 'PREMIUM';
 
   @ApiProperty({ enum: ['GBP', 'INR'], default: 'GBP' })
   @IsEnum(['GBP', 'INR'])

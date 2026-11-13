@@ -1,5 +1,7 @@
 # Development Roadmap — JobIN
 
+> **Historical roadmap proposal:** Timelines and architecture below are planning assumptions, not a report of delivered work. Use the [current project guide](./17_current_project_guide.md) for implemented capabilities.
+
 This document defines the 12-month chronological roadmap for the JobIN SaaS platform, outlining core milestones, resource allocations, and architectural evolutions.
 
 ---

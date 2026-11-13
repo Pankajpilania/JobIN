@@ -1,5 +1,7 @@
 # Sprint Planning (MVP Phase) — JobIN
 
+> **Historical sprint plan:** Tasks and technology choices below are not the current implementation record. See the [current project guide](./17_current_project_guide.md) and source-based docs.
+
 This document defines the detailed sprint plans for Phase 1 (MVP) of the JobIN project, allocating tasks, defining story points (SP), and establishing the Definition of Done (DoD).
 
 ---

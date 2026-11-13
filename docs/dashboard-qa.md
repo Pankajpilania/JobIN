@@ -1,5 +1,7 @@
 # Dashboard QA findings
 
+> **Historical QA log:** Findings and environment notes below describe the original local dashboard session; they are not a current database/runtime guide. The Redis service mentioned in those notes was part of that local compose setup, not an active API dependency. See the [current project guide](./17_current_project_guide.md) for the present architecture and setup.
+
 This log records issues found during local source review and browser testing with a user-provided
 test session. The local Prisma database was initialized for API testing. The dashboard's
 authenticated profile sync created one local user row; no application or resume records exist.

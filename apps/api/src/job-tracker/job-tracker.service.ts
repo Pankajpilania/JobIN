@@ -39,6 +39,25 @@ export class JobTrackerService {
   async create(supabaseId: string, dto: CreateApplicationDto) {
     const userId = await this.resolveUserId(supabaseId);
 
+    // Confirmed applications should promote an existing saved job instead of creating a duplicate.
+    if (dto.status === ApplicationStatusDto.APPLIED && dto.jobUrl) {
+      const existing = await this.prisma.jobApplication.findFirst({
+        where: { userId, jobUrl: dto.jobUrl },
+      });
+      if (existing) {
+        if (existing.status !== 'SAVED') return existing;
+        const application = await this.prisma.jobApplication.update({
+          where: { id: existing.id },
+          data: {
+            status: ApplicationStatusDto.APPLIED,
+            appliedDate: existing.appliedDate ?? (dto.appliedDate ? new Date(dto.appliedDate) : new Date()),
+          },
+        });
+        this.logger.log(`Marked existing application ${application.id} as applied for user ${userId}`);
+        return application;
+      }
+    }
+
     // Auto-create company record if it doesn't exist
     let company: { id: string } | null = null;
     if (dto.companyName) {

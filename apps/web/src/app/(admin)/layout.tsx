@@ -66,6 +66,13 @@ const NAV = [
     permission: 'billing:read',
   },
   {
+    href: '/admin/plans',
+    label: 'Plans & AI credits',
+    icon: CreditCard,
+    roles: ['FINANCE_ADMIN'],
+    permission: 'billing:read',
+  },
+  {
     href: '/admin/discount-codes',
     label: 'Discount codes',
     icon: Tag,

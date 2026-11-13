@@ -1,139 +1,79 @@
-# Chrome Extension Architecture — JobIN Copilot
+# JobIN Chrome Extension Architecture
 
-This document specifies the structural architecture, DOM parsing engine, and security boundaries for the **JobIN Copilot** Manifest V3 Chrome Extension.
+**Reviewed:** 13 November 2026. The active implementation is `apps/extension`; the current manifest is generated from `apps/extension/manifest.config.ts`. This replaces the former proposal, which described selectors, hosts, Clerk encryption, and capabilities that were not aligned with the source.
 
----
+## Product surfaces
 
-## 1. Manifest V3 Configuration
+The extension is a Chrome Manifest V3 app with:
 
-The extension configuration guarantees access to DOM scraping utilities, side panel routing, and session state synchronization.
+- **Popup:** compact launcher/current-tab actions.
+- **Side panel:** detected job details and JobIN actions.
+- **Options page:** auth and extension preferences.
+- **Background service worker:** authenticated API boundary, extension storage and message router.
+- **Content scripts:** read supported job pages and fill supported application forms.
 
-```json
-{
-  "manifest_version": 3,
-  "name": "JobIN Copilot",
-  "version": "1.0.0",
-  "description": "Autofill job applications, tailor resumes in 10 seconds, and track matches automatically.",
-  "permissions": [
-    "activeTab",
-    "storage",
-    "sidePanel",
-    "scripting",
-    "declarativeNetRequest"
-  ],
-  "host_permissions": [
-    "https://*.linkedin.com/*",
-    "https://*.indeed.com/*",
-    "https://*.glassdoor.com/*",
-    "https://*.reed.co.uk/*",
-    "https://*.totaljobs.com/*",
-    "https://*.cv-library.co.uk/*",
-    "https://*.monster.co.uk/*",
-    "https://*.greenhouse.io/*",
-    "https://*.lever.co/*",
-    "https://*.workday.com/*",
-    "https://api.jobin.ai/*"
-  ],
-  "background": {
-    "service_worker": "background.js",
-    "type": "module"
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://*.linkedin.com/*",
-        "https://*.indeed.com/*",
-        "https://*.reed.co.uk/*",
-        "https://*.greenhouse.io/*",
-        "https://*.lever.co/*"
-      ],
-      "js": ["content.js"],
-      "run_at": "document_end"
-    }
-  ],
-  "side_panel": {
-    "default_path": "sidepanel.html"
-  },
-  "action": {
-    "default_title": "Open JobIN Sidebar"
-  },
-  "options_page": "options.html"
-}
-```
+Source roots are `src/popup`, `src/sidepanel`, `src/options`, `src/background`, `src/content`, and `src/shared`.
 
----
-
-## 2. Process Architecture & Message Routing
-
-The system coordinates page interaction using three isolated scripts communicating via JSON message buffers:
+## Process and message flow
 
 ```mermaid
 sequenceDiagram
-    participant DOM as Injected Page DOM
-    participant CS as Content Script (content.js)
-    participant BG as Background Service Worker (background.js)
-    participant SP as Side Panel UI (sidepanel.js)
-
-    DOM->>CS: Scrapes Job metadata (Title, Company, Description)
-    CS->>BG: chrome.runtime.sendMessage({type: "JOB_DETECTED", payload})
-    BG->>SP: Forwards details to Side Panel
-    Note over SP: Calculates ATS Score & renders UI
-    
-    SP->>BG: User clicks Autofill: {type: "START_AUTOFILL", profileData}
-    BG->>CS: chrome.tabs.sendMessage({type: "AUTOFILL_FORM", profileData})
-    CS->>DOM: Map profile keys to input elements
-    CS-->>SP: Returns completion stats: {type: "AUTOFILL_SUCCESS"}
+  participant Page as Job-board page
+  participant Content as Content script
+  participant Worker as MV3 service worker
+  participant UI as Popup / side panel
+  participant API as JobIN API
+  Page->>Content: DOM for current listing/application
+  Content->>Worker: runtime message with detected job or autofill result
+  Worker->>UI: per-tab state and response
+  UI->>Worker: authenticated action request
+  Worker->>API: Bearer access token + API request
+  API-->>Worker: profile, resume, tailoring, letter, tracker data
+  Worker-->>UI: normalized result
+  Worker->>Content: autofill message for active tab
+  Content->>Page: Populate supported form inputs
 ```
 
----
+The service worker imports API helpers from `src/shared/api.ts`; shared message names and storage helpers are under `src/shared`. The content script does not make API calls directly. The worker requests only the data needed for the user action and routes the payload to the appropriate tab.
 
-## 3. DOM Parser & Job Description Scraper
+## Supported pages
 
-The content script executes custom DOM query maps matching the host page patterns:
+Manifest match patterns are the authoritative list. Current page detection patterns include LinkedIn jobs, Indeed, Reed jobs, Totaljobs, and Glassdoor. Host permissions also include Greenhouse boards, Lever jobs, Workday, and the API/auth origins. The current DOM extractor has selector maps for LinkedIn, Indeed, Reed, Totaljobs, Glassdoor, Greenhouse and Lever. A site can be host-permitted without having every feature implemented there.
 
-*   **LinkedIn Parser:**
-    *   Job Title Selector: `h1.job-details-jobs-unified-top-card__job-title`
-    *   Company Selector: `.job-details-jobs-unified-top-card__company-name a`
-    *   Job Description Selector: `#job-details`
-*   **Greenhouse Parser:**
-    *   Job Title Selector: `h1.app-title`
-    *   Company Selector: `span.company-name`
-    *   Job Description Selector: `#content`
+The autofill scripts are specifically registered for Greenhouse and Lever. They use platform selectors and fallback label/placeholder scans. Autofill may require user review: field labels and provider forms change, and the extension does not guarantee that every field is recognized or that form submission is accepted.
 
----
+Supported extension actions include listing the user's resumes, tailoring for a detected job, generating a cover letter, and saving the job/application through the API, subject to the signed-in account and service support.
 
-## 4. Autofill Execution & ATS Mapping Engine
+## Authentication and storage
 
-The autofill engine uses a two-phased mapping mechanism: **Hardcoded CSS Selectors** (fallback) and **Heuristic Name Match Scans** (primary).
+- Auth provider is selected at build time by `VITE_AUTH_PROVIDER`; the code supports configured Supabase, OCI, and Auth0 flows.
+- Provider settings in `VITE_*` are public client configuration. Do not add provider secrets, database credentials, AI keys, or Stripe secrets to extension variables or bundle files.
+- Auth state/settings use Chrome extension storage helpers. The worker attempts to restrict `chrome.storage.local` to `TRUSTED_CONTEXTS`. Do not describe this storage as encrypted; the extension code does not provide local cryptographic encryption of its token store.
+- API access tokens are sent by the background worker to the configured API host. The API independently validates tokens and applies account/permission checks.
+- Page content scripts use runtime messages to the worker. Treat page text, job descriptions, and form values as untrusted input.
 
-### 4.1 Heuristic Label Scanner
-If an input element doesn't match predefined ATS selectors, the engine scrapes nearby label elements or placeholder text:
-```javascript
-function findInputByLabel(labelTextPattern) {
-  const labels = Array.from(document.querySelectorAll("label"));
-  const targetLabel = labels.find(label => 
-    labelTextPattern.test(label.textContent.toLowerCase())
-  );
-  if (targetLabel) {
-    const inputId = targetLabel.getAttribute("for");
-    if (inputId) return document.getElementById(inputId);
-    return targetLabel.querySelector("input, select, textarea");
-  }
-  return null;
-}
+## Permissions and privacy boundary
+
+The manifest requests `activeTab`, `storage`, `sidePanel`, `scripting`, `declarativeNetRequest`, and `tabs`. Host permissions are explicit in `manifest.config.ts` and include targeted job sites plus configured API/auth origins. Content scripts should only read fields needed for job detection or autofill; the extension does not access site account passwords or submit a job application without the user's action.
+
+The API may return resume metadata and performs resume tailoring server-side. Resume binaries remain in the API's private object storage; the extension should not copy resume contents into an unrelated page or third-party service. Review requested manifest permissions whenever an integration is added.
+
+## Build and release
+
+From the repository root:
+
+```bash
+npm ci
+npm run build:extension
 ```
 
-### 4.2 ATS Element Selectors Matrix
+For development, copy `apps/extension/.env.example` to `.env.local`, set the local API URL and selected auth provider's public settings, and use the documented development OAuth client. Load the built extension output as an unpacked extension in Chrome. Before Web Store distribution, configure the exact `chrome.identity.getRedirectURL()` callback with the selected provider and set the public store URL in the web app.
 
-| Platform | First Name Field | Resume File Input | Salary Expectation | Work Authorization |
-| :--- | :--- | :--- | :--- | :--- |
-| **Greenhouse** | `input[name="first_name"]` | `input[type="file"][name*="resume"]` | `input[name*="salary"]` | `select[name*="visa"], select[name*="sponsor"]` |
-| **Lever** | `input[name="name"]` | `input[type="file"]` | `input[name*="salary"]` | `input[name*="visa"], input[name*="sponsor"]` |
-| **Workday** | `input[data-automation-id="legalNameSection_firstName"]` | `input[type="file"][data-automation-id*="file-upload"]` | `input[data-automation-id*="salary"]` | `select[data-automation-id*="visa"]` |
+The web application's extension page depends on `NEXT_PUBLIC_CHROME_EXTENSION_URL`; without it, the store button remains a coming-soon state.
 
----
+## Known constraints
 
-## 5. Security & Isolation Constraints
-
-1.  **PII Isolation:** The extension does not cache resume binary contents locally. Stored access tokens and user configurations are held in `chrome.storage.local` encrypted using a user-session key generated by Clerk.
-2.  **Cross-Origin Isolation:** Cross-origin API routing requests are restricted exclusively to `https://api.jobin.ai` using a secure token payload header. Direct external API scripting is blocked via Content Security Policies (CSP) defined in the background service worker context.
+- This is a Chrome extension, not a Safari/Firefox extension or native mobile application.
+- Page structure changes can break selectors; recheck supported hosts and selectors against current sites before claiming new coverage.
+- Host permission means the extension may request the origin, not that API authorization is granted.
+- There is no claim that the extension has passed Chrome Web Store review unless a publication status is separately confirmed.

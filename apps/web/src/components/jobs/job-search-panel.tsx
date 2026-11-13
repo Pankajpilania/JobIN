@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { useCreateApplication } from '@/hooks/use-applications';
+import { PENDING_APPLY_KEY, type PendingApply } from '@/components/jobs/apply-return-confirmation';
 import { apiClient } from '@/lib/api-client';
 import { Card } from '@/components/ui/card';
 import styles from './job-search-panel.module.css';
@@ -234,6 +235,20 @@ export default function JobSearchPage() {
     } catch (saveError) {
       toast.error(saveError instanceof Error ? saveError.message : 'Could not save this job.');
     }
+  };
+
+  const startApply = (job: SearchJob) => {
+    const pending: PendingApply = {
+      title: job.title,
+      company: job.company,
+      location: job.location,
+      url: job.url,
+      description: job.description,
+      salary: job.salary,
+      source: job.source,
+      createdAt: Date.now(),
+    };
+    window.sessionStorage.setItem(PENDING_APPLY_KEY, JSON.stringify(pending));
   };
 
   const pagination = response?.pagination;
@@ -489,8 +504,8 @@ export default function JobSearchPage() {
                         {saved ? <Check size={15} /> : <BookmarkPlus size={15} />}
                         {saved ? 'In tracker' : 'Save'}
                       </button>
-                      <a className={styles.originalLink} href={job.url} target="_blank" rel="noopener noreferrer">
-                        View job <ArrowUpRight size={15} />
+                      <a className={styles.originalLink} href={job.url} target="_blank" rel="noopener noreferrer" onClick={() => startApply(job)}>
+                        Apply <ArrowUpRight size={15} />
                       </a>
                     </div>
                   </Card>

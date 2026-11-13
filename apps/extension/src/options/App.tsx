@@ -26,7 +26,7 @@ import type {
   UserProfile,
   AutofillSettings,
 } from '../shared/types';
-import { BrandMark } from '../shared/brand-mark';
+import { BrandLogo } from '../shared/brand-mark';
 
 // ─── Section component ────────────────────────────────────────────────────────
 
@@ -169,6 +169,19 @@ export default function OptionsApp() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const syncAuth = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+      if (area !== 'local' || !Object.prototype.hasOwnProperty.call(changes, 'jobin_auth')) return;
+      const nextAuth = changes.jobin_auth.newValue as AuthState | undefined;
+      setAuthState(nextAuth ?? null);
+      setAuthError(
+        nextAuth ? '' : 'You are signed out. Sign in again in JobIN extension settings.',
+      );
+    };
+    chrome.storage.onChanged.addListener(syncAuth);
+    return () => chrome.storage.onChanged.removeListener(syncAuth);
+  }, []);
+
   // ── Direct Login / Sign Up Auth Handler ───────────────────────────────────
 
   const handleNativeAuth = async (e?: React.FormEvent) => {
@@ -183,6 +196,9 @@ export default function OptionsApp() {
         const data = await signInWithAuth0(authMode === 'signup', email.trim());
         authState = {
           token: data.access_token,
+          provider: 'auth0',
+          refreshToken: data.refresh_token,
+          tokenEndpoint: data.token_endpoint,
           userId: data.user.sub,
           email: data.user.email ?? email.trim(),
           fullName: data.user.name ?? data.user.email?.split('@')[0] ?? '',
@@ -193,6 +209,7 @@ export default function OptionsApp() {
         const data = await signInWithOci(authMode === 'signup', email.trim() || undefined);
         authState = {
           token: data.access_token,
+          provider: 'oci',
           refreshToken: data.refresh_token,
           tokenEndpoint: data.token_endpoint,
           userId: data.user.sub,
@@ -221,9 +238,21 @@ export default function OptionsApp() {
           return;
         }
 
+        if (!data.refresh_token) {
+          throw new Error(
+            'Supabase did not issue a refresh token. Please sign in again or contact support.',
+          );
+        }
+
         const user = data.user;
         authState = {
           token: data.access_token,
+          provider: 'supabase',
+          refreshToken: data.refresh_token,
+          tokenEndpoint: new URL(
+            '/auth/v1/token',
+            import.meta.env.VITE_SUPABASE_URL ?? 'https://duccxvuwdoqqgaowplrs.supabase.co',
+          ).toString(),
           userId: user.id,
           email: user.email,
           fullName: user.user_metadata?.full_name || user.email.split('@')[0],
@@ -356,12 +385,9 @@ export default function OptionsApp() {
         className="extension-options-header"
         style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}
       >
-        <BrandMark size={36} />
+        <BrandLogo size={32} textColor="var(--text)" />
         <div>
-          <h1 className="font-outfit" style={{ fontSize: 22, fontWeight: 800, marginBottom: 2 }}>
-            JobIN <span className="gradient-text">Copilot</span>
-          </h1>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Extension Settings</p>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Extension settings</p>
         </div>
         {saved && (
           <span className="badge badge-emerald" style={{ marginLeft: 'auto' }}>

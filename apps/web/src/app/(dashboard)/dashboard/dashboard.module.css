@@ -111,6 +111,55 @@
 
 .heroCopy > p strong { color: #fff; font-weight: 700; }
 
+.heroMetrics {
+  display: grid;
+  width: min(100%, 530px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.heroMetric {
+  display: flex;
+  min-width: 0;
+  min-height: 82px;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 13px;
+  border: 1px solid rgba(212, 255, 231, .2);
+  border-radius: 14px;
+  background: rgba(236, 255, 244, .08);
+  color: #f5fff8;
+  text-decoration: none;
+  transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.heroMetric:hover,
+.heroMetric:focus-visible {
+  border-color: rgba(181, 255, 213, .52);
+  background: rgba(236, 255, 244, .14);
+  transform: translateY(-1px);
+}
+
+.heroMetric:focus-visible { outline: 2px solid #c5ffdc; outline-offset: 3px; }
+
+.heroMetricIcon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 11px;
+  background: rgba(135, 242, 184, .14);
+  color: #a6f5c4;
+}
+
+.heroMetricCopy { display: flex; min-width: 0; flex-direction: column; }
+.heroMetricLabel { overflow: hidden; color: rgba(235, 255, 242, .76); font-size: 9px; font-weight: 750; letter-spacing: .09em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.heroMetricCopy strong { margin-top: 1px; color: #fff; font-size: 22px; font-weight: 750; letter-spacing: -.04em; line-height: 1.15; }
+.heroMetricSuffix { color: rgba(235, 255, 242, .68); font-size: 12px; font-weight: 600; letter-spacing: 0; }
+.heroMetricCopy small { overflow: hidden; margin-top: 2px; color: rgba(235, 255, 242, .72); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.heroMetricArrow { flex: 0 0 auto; margin-left: auto; color: rgba(235, 255, 242, .6); }
+
 .heroActions {
   display: flex;
   flex: 0 0 auto;
@@ -327,12 +376,21 @@
   .profileCard { left: -12px; }
   .nextStepCard { right: -15px; }
   .heroSecondary { min-height: 34px; }
+  .heroMetrics { gap: 8px; }
+  .heroMetric { gap: 8px; padding: 10px; }
+  .heroMetricIcon { width: 30px; height: 30px; }
 }
 
 @media (max-width: 560px) {
   .dashboardPage { gap: 18px !important; }
   .hero { min-height: 0; flex-direction: column; align-items: stretch; gap: 6px; padding: 25px 22px 12px; border-radius: 20px; }
   .heroContent { gap: 18px; flex-basis: auto; }
+  .heroMetrics { width: 100%; }
+  .heroMetric { min-height: 76px; gap: 8px; padding: 10px 9px; }
+  .heroMetricCopy strong { font-size: 20px; }
+  .heroMetricLabel { font-size: 8px; letter-spacing: .06em; }
+  .heroMetricCopy small { font-size: 9px; }
+  .heroMetricArrow { width: 13px; }
   .heroActions { flex-wrap: wrap; gap: 8px 14px; }
   .hero h1 { font-size: 32px !important; }
   .hero::before { right: -145px; }

@@ -121,19 +121,27 @@ export interface AutofillResult {
 
 export async function autofillGreenhouse(
   profile: UserProfile,
-  options: { fillWorkHistory?: boolean; fillEducation?: boolean; workAuthorisation?: string } = {},
+  options: {
+    fillName?: boolean;
+    fillEmail?: boolean;
+    fillPhone?: boolean;
+    fillWorkHistory?: boolean;
+    fillEducation?: boolean;
+    fillVisaSponsorship?: boolean;
+    workAuthorisation?: string;
+  } = {},
 ): Promise<AutofillResult> {
   let filled = 0;
   const failed: string[] = [];
 
   // ── Personal info ─────────────────────────────────────────────────────────
-  filled += fillNameFields(profile);
-  filled += fillEmailField(profile);
-  filled += fillPhoneField(profile);
+  if (options.fillName !== false) filled += fillNameFields(profile);
+  if (options.fillEmail !== false) filled += fillEmailField(profile);
+  if (options.fillPhone !== false) filled += fillPhoneField(profile);
   filled += fillLinkedInField(profile);
   filled += fillWebsiteField(profile);
 
-  if (options.workAuthorisation) {
+  if (options.fillVisaSponsorship && options.workAuthorisation) {
     const n = fillWorkAuthorization(options.workAuthorisation);
     if (n === 0) failed.push('Work authorisation');
     else filled += n;

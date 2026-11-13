@@ -1,5 +1,7 @@
 # Monetization & Billing Strategy — JobIN
 
+> **Planning strategy:** Prices, limits, and forecasts here are proposals. Current Stripe behavior and plan fields are defined by the API, Prisma schema, and [current project guide](./17_current_project_guide.md).
+
 This document defines the pricing matrices, feature flags, AI credit schedules, and technical Stripe configurations for JobIN.
 
 ---

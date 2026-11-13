@@ -30,57 +30,135 @@ async function remove(key: string): Promise<void> {
 
 let refreshInProgress: Promise<AuthState | null> | null = null;
 
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL ?? 'https://duccxvuwdoqqgaowplrs.supabase.co';
+const SUPABASE_ANON_KEY =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ??
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1Y2N4dnV3ZG9xcWdhb3dwbHJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODMzMDMsImV4cCI6MjA5Njk1OTMwM30.x651PDjYrsYkxMZRMWmsq5Pq7YAN8_YjOEwyl1Dx8Xk';
+const TOKEN_REFRESH_SAFETY_MS = 60_000;
+
+function isFresh(auth: AuthState) {
+  return Number.isFinite(auth.expiresAt) && Date.now() < auth.expiresAt - TOKEN_REFRESH_SAFETY_MS;
+}
+
 export async function getAuth(): Promise<AuthState | null> {
   const auth = await get<AuthState>(KEYS.AUTH);
   if (!auth) return null;
-  if (!auth.expiresAt || Date.now() <= auth.expiresAt - 60_000) return auth;
-  if (
-    import.meta.env.VITE_AUTH_PROVIDER !== 'oci' ||
-    !auth.refreshToken ||
-    !auth.tokenEndpoint
-  ) {
-    await clearAuth();
-    return null;
-  }
+  if (isFresh(auth)) return auth;
+  return refreshAuth();
+}
 
-  if (!refreshInProgress) {
-    refreshInProgress = refreshOciAuth(auth).finally(() => {
-      refreshInProgress = null;
-    });
-  }
+/** Refresh under a cross-context lock so extension surfaces don't race rotating tokens. */
+export async function refreshAuth(rejectedToken?: string): Promise<AuthState | null> {
+  if (refreshInProgress) return refreshInProgress;
+  const performRefresh = async () => {
+    const latest = await get<AuthState>(KEYS.AUTH);
+    if (!latest) return null;
+    if (rejectedToken && latest.token !== rejectedToken && isFresh(latest)) return latest;
+    if (!rejectedToken && isFresh(latest)) return latest;
+    return refreshProviderToken(latest);
+  };
+  const locks = globalThis.navigator?.locks;
+  const pending: Promise<AuthState | null> = locks
+    ? locks.request('jobin-extension-auth-refresh', performRefresh).then((result) => result)
+    : performRefresh();
+  refreshInProgress = pending.finally(() => {
+    refreshInProgress = null;
+  });
   return refreshInProgress;
 }
 
-async function refreshOciAuth(auth: AuthState): Promise<AuthState | null> {
-  const clientId = import.meta.env.VITE_OCI_CLIENT_ID?.trim();
-  if (!clientId) throw new Error('OCI extension client is not configured.');
+async function clearAuthIfCurrent(auth: AuthState) {
+  const latest = await get<AuthState>(KEYS.AUTH);
+  if (
+    latest?.userId === auth.userId &&
+    latest.token === auth.token &&
+    latest.refreshToken === auth.refreshToken
+  ) {
+    await clearAuth();
+  }
+}
+
+export async function clearAuthForToken(token: string) {
+  const latest = await get<AuthState>(KEYS.AUTH);
+  if (latest?.token === token) await clearAuth();
+}
+
+async function refreshProviderToken(auth: AuthState): Promise<AuthState> {
+  const provider = auth.provider ?? (
+    import.meta.env.VITE_AUTH_PROVIDER === 'oci'
+      ? 'oci'
+      : import.meta.env.VITE_AUTH_PROVIDER === 'auth0'
+        ? 'auth0'
+        : 'supabase'
+  );
+  const clientId = provider === 'oci'
+    ? import.meta.env.VITE_OCI_CLIENT_ID?.trim()
+    : provider === 'auth0'
+      ? import.meta.env.VITE_AUTH0_CLIENT_ID?.trim()
+      : undefined;
+  const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN?.trim();
+  const endpoint = provider === 'supabase'
+    ? new URL('/auth/v1/token', SUPABASE_URL).toString()
+    : provider === 'auth0'
+      ? auth0Domain
+        ? new URL('/oauth/token', `https://${auth0Domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '')}`).toString()
+        : ''
+      : auth.tokenEndpoint ?? '';
+
+  if (!auth.refreshToken || !endpoint || (provider !== 'supabase' && !clientId)) {
+    await clearAuthIfCurrent(auth);
+    throw new Error('Your extension session expired or was revoked. Sign in again in JobIN extension settings.');
+  }
+  let endpointUrl: URL;
+  try {
+    endpointUrl = new URL(endpoint);
+  } catch {
+    await clearAuthIfCurrent(auth);
+    throw new Error('Your extension session settings are invalid. Sign in again in JobIN extension settings.');
+  }
+  if (
+    (endpointUrl.protocol !== 'https:' && endpointUrl.hostname !== 'localhost') ||
+    endpointUrl.username || endpointUrl.password
+  ) {
+    await clearAuthIfCurrent(auth);
+    throw new Error('Your extension session settings are invalid. Sign in again in JobIN extension settings.');
+  }
 
   let response: Response;
   try {
-    response = await fetch(auth.tokenEndpoint!, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: clientId,
-        refresh_token: auth.refreshToken!,
-      }),
-    });
+    if (provider === 'supabase') {
+      endpointUrl.searchParams.set('grant_type', 'refresh_token');
+      response = await fetch(endpointUrl.toString(), {
+        method: 'POST',
+        headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: auth.refreshToken }),
+      });
+    } else {
+      response = await fetch(endpointUrl.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          client_id: clientId!,
+          refresh_token: auth.refreshToken,
+        }),
+      });
+    }
   } catch {
-    throw new Error('Could not refresh your JobIN session. Check your connection and try again.');
+    throw new Error('Could not refresh your JobIN session. Check your connection and try again. Your saved sign-in is still available.');
   }
 
   if (response.status === 400 || response.status === 401) {
-    await clearAuth();
-    return null;
+    await clearAuthIfCurrent(auth);
+    throw new Error('Your extension session expired or was revoked. Sign in again in JobIN extension settings.');
   }
   if (!response.ok) {
-    throw new Error(`Could not refresh your JobIN session (${response.status}).`);
+    throw new Error(`Could not refresh your JobIN session (${response.status}). Your saved sign-in is still available; try again shortly.`);
   }
-
   const payload: unknown = await response.json();
   if (!payload || typeof payload !== 'object') {
-    throw new Error('OCI returned an invalid session refresh response.');
+    throw new Error(`${provider.toUpperCase()} returned an invalid session refresh response. Your saved sign-in is still available.`);
   }
   const values = payload as Record<string, unknown>;
   if (
@@ -90,11 +168,12 @@ async function refreshOciAuth(auth: AuthState): Promise<AuthState | null> {
     !Number.isFinite(values.expires_in) ||
     values.expires_in <= 0
   ) {
-    throw new Error('OCI returned an invalid session refresh response.');
+    throw new Error(`${provider.toUpperCase()} returned an invalid access token response. Your saved sign-in is still available.`);
   }
 
   const refreshedAuth: AuthState = {
     ...auth,
+    provider,
     token: values.access_token,
     refreshToken:
       typeof values.refresh_token === 'string' && values.refresh_token

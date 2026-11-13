@@ -1,4 +1,4 @@
-import { getToken, getSettings } from './storage';
+import { getToken, getSettings, refreshAuth, clearAuthForToken } from './storage';
 import type { Resume, TailorResult, CoverLetterResult, CoverLetterVariant } from './types';
 
 // ─── Supabase Configuration ──────────────────────────────────────────────────
@@ -69,6 +69,12 @@ class ApiError extends Error {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const base = await getBaseUrl();
   const token = await getToken();
+  if (!token) {
+    throw new ApiError(
+      401,
+      'Your JobIN session expired or was revoked. Sign in again in extension settings.',
+    );
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -79,7 +85,26 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${base}${path}`, { ...options, headers });
+  let res = await fetch(`${base}${path}`, { ...options, headers });
+
+  if (res.status === 401) {
+    const refreshed = await refreshAuth(token);
+    if (!refreshed) {
+      throw new ApiError(
+        401,
+        'Your JobIN session expired or was revoked. Sign in again in extension settings.',
+      );
+    }
+    headers.Authorization = `Bearer ${refreshed.token}`;
+    res = await fetch(`${base}${path}`, { ...options, headers });
+    if (res.status === 401) {
+      await clearAuthForToken(refreshed.token);
+      throw new ApiError(
+        401,
+        'Your JobIN session expired or was revoked. Sign in again in extension settings.',
+      );
+    }
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: res.statusText }));
@@ -97,6 +122,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export async function listResumes(): Promise<Resume[]> {
   return request<Resume[]>('/resumes');
+}
+
+export async function matchResumeToJob(resumeId: string, jobDescription: string) {
+  return request<{
+    resumeId: string;
+    score: number;
+    matchedKeywords: string[];
+    missingKeywords: string[];
+    method: 'keyword-overlap';
+    caveat: string;
+  }>(`/resumes/${resumeId}/match`, {
+    method: 'POST',
+    body: JSON.stringify({ jobDescription }),
+  });
 }
 
 // ─── Resume tailor ────────────────────────────────────────────────────────────

@@ -16,58 +16,41 @@ import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 
-type PlanCode = 'PREMIUM' | 'PRO';
+type PlanCode = string;
 type CurrencyCode = 'GBP' | 'INR';
 type BillingInterval = 'MONTHLY' | 'YEARLY';
-type PriceAvailability = Record<PlanCode, Record<BillingInterval, boolean>>;
+type PriceAvailability = Record<PlanCode, Partial<Record<BillingInterval, boolean>>>;
+
+interface CheckoutPlan {
+  name: string;
+  priceMonthly: number;
+  priceYearly: number;
+  currency: CurrencyCode;
+  features: Record<string, string>;
+}
 
 interface CheckoutOptions {
   currencies: CurrencyCode[];
-  stripeCheckout: Partial<Record<CurrencyCode, PriceAvailability>>;
+  stripeCheckout: Record<string, PriceAvailability>;
+  plans: CheckoutPlan[];
   prices?: Array<{
-    plan: PlanCode;
+    plan: string;
     currency: CurrencyCode;
     interval: BillingInterval;
     unitAmount: number;
   }>;
 }
 
-const PLANS: Array<{
-  code: PlanCode;
-  name: string;
-  tagline: string;
-  credits: string;
-  resumes: string;
-  applications: string;
-  accent: string;
-}> = [
-  {
-    code: 'PREMIUM',
-    name: 'Pro',
-    tagline: 'More room to make your next move.',
-    credits: '100 / month',
-    resumes: '10',
-    applications: '200',
-    accent: '#008c60',
-  },
-  {
-    code: 'PRO',
-    name: 'Pro Max',
-    tagline: 'More capacity for a focused job search.',
-    credits: '500 / month',
-    resumes: '50',
-    applications: 'Unlimited',
-    accent: '#007f57',
-  },
-];
-
 const CURRENCIES: CurrencyCode[] = ['GBP', 'INR'];
 const INTERVALS: BillingInterval[] = ['MONTHLY', 'YEARLY'];
-const FEATURE_ROWS = [
-  { label: 'AI credits', free: '20 / month', premium: '100 / month', pro: '500 / month' },
-  { label: 'Resume uploads', free: '2', premium: '10', pro: '50' },
-  { label: 'Tracked applications', free: '25', premium: '200', pro: 'Unlimited' },
-];
+const ACCENTS = ['#008c60', '#007f57', '#44775b', '#367c70'];
+
+function planFeature(plan: CheckoutPlan, key: string, fallback = '—') {
+  const value = plan.features[key];
+  if (value === undefined) return fallback;
+  if (value === '-1') return 'Unlimited';
+  return key === 'ai_credits_monthly' ? `${value} / month` : value;
+}
 
 function currencyName(currency: CurrencyCode) {
   return currency === 'GBP' ? 'British pounds (GBP)' : 'Indian rupees (INR)';
@@ -98,6 +81,14 @@ export default function UpgradePage() {
       .then((options) => {
         if (!active) return;
         setCheckoutOptions(options);
+        const availablePlans = options.plans.filter((item) => item.name !== 'FREE');
+        setPlan((current) =>
+          availablePlans.some((item) => item.name === current)
+            ? current
+            : availablePlans.some((item) => item.name === searchParams.get('plan'))
+              ? searchParams.get('plan')!
+              : availablePlans[0]?.name ?? '',
+        );
         setOptionsError('');
         setCurrency((current) => {
           if (options.currencies.includes(current)) return current;
@@ -118,13 +109,15 @@ export default function UpgradePage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [searchParams]);
 
   const stripeCheckout = checkoutOptions?.stripeCheckout[currency]?.[plan];
   const stripeCheckoutAvailable = stripeCheckout?.[billingInterval] ?? false;
   const currencyAvailable = checkoutOptions?.currencies.includes(currency) ?? false;
   const checkoutStatus = searchParams.get('checkout');
-  const selectedPlan = PLANS.find((item) => item.code === plan) ?? PLANS[0];
+  const selectedPlan = checkoutOptions?.plans.find((item) => item.name === plan) ?? {
+    name: 'Choose a plan', priceMonthly: 0, priceYearly: 0, currency: 'GBP' as CurrencyCode, features: {},
+  };
   const selectedPrice = checkoutOptions?.prices?.find(
     (price) =>
       price.plan === plan && price.currency === currency && price.interval === billingInterval,
@@ -282,21 +275,22 @@ export default function UpgradePage() {
             gap: 16,
           }}
         >
-          {PLANS.map((item) => {
-            const selected = plan === item.code;
+          {(checkoutOptions?.plans.filter((item) => item.name !== 'FREE') ?? []).map((item, index) => {
+            const selected = plan === item.name;
+            const accent = ACCENTS[index % ACCENTS.length];
             const price = checkoutOptions?.prices?.find(
               (option) =>
-                option.plan === item.code &&
+                option.plan === item.name &&
                 option.currency === currency &&
                 option.interval === billingInterval,
             );
             return (
               <button
-                key={item.code}
+                key={item.name}
                 type="button"
-                onClick={() => setPlan(item.code)}
+                onClick={() => setPlan(item.name)}
                 aria-pressed={selected}
-                style={cardStyle(selected, item.accent)}
+                style={cardStyle(selected, accent)}
               >
                 <span
                   style={{
@@ -307,8 +301,8 @@ export default function UpgradePage() {
                   }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <Crown size={19} color={item.accent} />
-                    <strong style={{ fontSize: 21 }}>{item.name}</strong>
+                    <Crown size={19} color={accent} />
+                    <strong style={{ fontSize: 21 }}>{item.name === 'PREMIUM' ? 'Pro' : item.name === 'PRO' ? 'Pro Max' : item.name}</strong>
                   </span>
                   <span
                     aria-hidden="true"
@@ -318,15 +312,15 @@ export default function UpgradePage() {
                       display: 'grid',
                       placeItems: 'center',
                       borderRadius: '50%',
-                      border: `1px solid ${selected ? item.accent : 'var(--border)'}`,
-                      background: selected ? item.accent : 'transparent',
+                      border: `1px solid ${selected ? accent : 'var(--border)'}`,
+                      background: selected ? accent : 'transparent',
                       color: '#fff',
                     }}
                   >
                     {selected && <Check size={13} strokeWidth={3} />}
                   </span>
                 </span>
-                <span style={{ color: 'var(--text-2)', fontSize: 13 }}>{item.tagline}</span>
+                <span style={{ color: 'var(--text-2)', fontSize: 13 }}>A plan for your next career move.</span>
                 <span style={{ display: 'grid', gap: 2 }}>
                   <strong style={{ color: 'var(--text-1)', fontSize: 20 }}>
                     {settingsLoading
@@ -351,9 +345,9 @@ export default function UpgradePage() {
                   }}
                 >
                   {[
-                    ['AI credits', item.credits],
-                    ['Resumes', item.resumes],
-                    ['Applications', item.applications],
+                    ['AI credits', planFeature(item, 'ai_credits_monthly')],
+                    ['Resumes', planFeature(item, 'resume_uploads')],
+                    ['Applications', planFeature(item, 'tracker_entries')],
                   ].map(([label, value]) => (
                     <span
                       key={label}
@@ -655,15 +649,17 @@ export default function UpgradePage() {
           >
             Your selection
           </span>
-          <h3 style={{ margin: 0, color: 'var(--text-1)', fontSize: 22 }}>{selectedPlan.name}</h3>
+          <h3 style={{ margin: 0, color: 'var(--text-1)', fontSize: 22 }}>
+            {selectedPlan.name === 'PREMIUM' ? 'Pro' : selectedPlan.name === 'PRO' ? 'Pro Max' : selectedPlan.name}
+          </h3>
           <p style={{ margin: 0, color: 'var(--text-2)', fontSize: 13, lineHeight: 1.6 }}>
-            {selectedPlan.tagline}
+            Plan access and limits for your job search.
           </p>
           <div style={{ height: 1, margin: '3px 0', background: 'var(--border)' }} />
           {[
-            `${selectedPlan.credits} AI credits`,
-            `${selectedPlan.resumes} resume uploads`,
-            `${selectedPlan.applications} tracked applications`,
+            `${planFeature(selectedPlan, 'ai_credits_monthly')} AI credits`,
+            `${planFeature(selectedPlan, 'resume_uploads')} resume uploads`,
+            `${planFeature(selectedPlan, 'tracker_entries')} tracked applications`,
           ].map((item) => (
             <span
               key={item}
@@ -713,7 +709,7 @@ export default function UpgradePage() {
           >
             <thead>
               <tr style={{ background: 'var(--surface-2)', color: 'var(--text-1)' }}>
-                {['Included', 'Free', 'Pro', 'Pro Max'].map((heading) => (
+                {['Included', ...(checkoutOptions?.plans ?? []).map((item) => item.name)].map((heading) => (
                   <th
                     key={heading}
                     scope="col"
@@ -729,20 +725,24 @@ export default function UpgradePage() {
               </tr>
             </thead>
             <tbody>
-              {FEATURE_ROWS.map((row) => (
-                <tr key={row.label} style={{ borderTop: '1px solid var(--border)' }}>
+              {[
+                { label: 'AI credits / month', key: 'ai_credits_monthly' },
+                { label: 'Resume uploads', key: 'resume_uploads' },
+                { label: 'Tracked applications', key: 'tracker_entries' },
+              ].map((row) => (
+                <tr key={row.key} style={{ borderTop: '1px solid var(--border)' }}>
                   <th
                     scope="row"
                     style={{ padding: '13px 18px', textAlign: 'left', fontWeight: 600 }}
                   >
                     {row.label}
                   </th>
-                  {[row.free, row.premium, row.pro].map((value, index) => (
+                  {(checkoutOptions?.plans ?? []).map((item) => (
                     <td
-                      key={`${row.label}-${index}`}
+                      key={`${row.key}-${item.name}`}
                       style={{ padding: '13px 18px', textAlign: 'center' }}
                     >
-                      {value}
+                      {planFeature(item, row.key)}
                     </td>
                   ))}
                 </tr>

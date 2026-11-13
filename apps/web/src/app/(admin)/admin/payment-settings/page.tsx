@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
 type Currency = 'INR' | 'GBP';
-type PlanCode = 'PREMIUM' | 'PRO';
+type PlanCode = string;
 type Interval = 'MONTHLY' | 'YEARLY';
 
 interface StripePrice {
@@ -19,7 +19,6 @@ interface StripePrice {
 }
 
 const CURRENCIES: Currency[] = ['INR', 'GBP'];
-const PLANS: PlanCode[] = ['PREMIUM', 'PRO'];
 const INTERVALS: Interval[] = ['MONTHLY', 'YEARLY'];
 const inputStyle = {
   width: '100%',
@@ -32,8 +31,8 @@ const inputStyle = {
   fontSize: 14,
 };
 
-function emptyStripePrices(): StripePrice[] {
-  return PLANS.flatMap((plan) =>
+function emptyStripePrices(plans: PlanCode[]): StripePrice[] {
+  return plans.filter((plan) => plan !== 'FREE').flatMap((plan) =>
     CURRENCIES.flatMap((currency) =>
       INTERVALS.map((interval) => ({ plan, currency, interval, stripePriceId: '' })),
     ),
@@ -42,7 +41,7 @@ function emptyStripePrices(): StripePrice[] {
 
 export default function AdminPaymentSettingsPage() {
   const { getToken } = useAuth();
-  const [stripePrices, setStripePrices] = useState<StripePrice[]>(emptyStripePrices);
+  const [stripePrices, setStripePrices] = useState<StripePrice[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -52,10 +51,11 @@ export default function AdminPaymentSettingsPage() {
     try {
       const token = await getToken();
       if (!token) throw new Error('Please sign in again to load Stripe price settings.');
-      const configuredPrices = await apiClient.get<Array<StripePrice & { id: string }>>(
-        '/admin/stripe-prices',
-        token,
-      );
+      const [configuredPrices, plans] = await Promise.all([
+        apiClient.get<Array<StripePrice & { id: string }>>('/admin/stripe-prices', token),
+        apiClient.get<Array<{ name: string }>>('/admin/plans', token),
+      ]);
+      const activePlans = plans.map(({ name }) => name);
       const configuredByKey = new Map(
         configuredPrices.map((price) => [
           `${price.plan}:${price.currency}:${price.interval}`,
@@ -63,7 +63,7 @@ export default function AdminPaymentSettingsPage() {
         ]),
       );
       setStripePrices(
-        emptyStripePrices().map((price) => ({
+        emptyStripePrices(activePlans).map((price) => ({
           ...price,
           stripePriceId:
             configuredByKey.get(`${price.plan}:${price.currency}:${price.interval}`) ?? '',
@@ -134,7 +134,7 @@ export default function AdminPaymentSettingsPage() {
               fontSize: 13,
             }}
           >
-            <span>{price.plan === 'PREMIUM' ? 'Pro' : 'Pro Max'}</span>
+                <span>{price.plan}</span>
             <span>{price.currency}</span>
             <span>{price.interval.toLowerCase()}</span>
             <input

@@ -13,6 +13,7 @@ import {
   IsISO8601,
   MinLength,
   IsBoolean,
+  IsNumber,
   ArrayUnique,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
@@ -103,8 +104,10 @@ export class AdminUpdateUserDto {
 }
 
 class StripePriceInputDto {
-  @IsEnum(['PREMIUM', 'PRO'])
-  plan!: 'PREMIUM' | 'PRO';
+  @IsString()
+  @MaxLength(40)
+  @Matches(/^[A-Z][A-Z0-9_]*$/)
+  plan!: string;
 
   @IsEnum(['INR', 'GBP'])
   currency!: 'INR' | 'GBP';
@@ -123,6 +126,65 @@ export class UpdateStripePricesDto {
   @ValidateNested({ each: true })
   @Type(() => StripePriceInputDto)
   prices!: StripePriceInputDto[];
+}
+
+export class CreatePlanDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @IsString()
+  @MinLength(2)
+  @MaxLength(40)
+  @Matches(/^[A-Z][A-Z0-9_]*$/)
+  name!: string;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  priceMonthly!: number;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  priceYearly!: number;
+
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @IsEnum(['GBP', 'INR'])
+  currency!: 'GBP' | 'INR';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(-1)
+  @Max(1000000)
+  aiCreditsMonthly!: number;
+}
+
+export class UpdatePlanDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  priceMonthly?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  priceYearly?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @IsEnum(['GBP', 'INR'])
+  currency?: 'GBP' | 'INR';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(-1)
+  @Max(1000000)
+  aiCreditsMonthly?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 export class CreateDiscountCodeDto {

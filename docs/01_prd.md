@@ -1,5 +1,7 @@
 # Product Requirements Document (PRD) — JobIN
 
+> **Planning baseline:** Product intent, not a contract for current behavior. For the implementation currently in this repository, see the [current project guide](./17_current_project_guide.md).
+
 **Document Version:** 1.0.0  
 **Author:** Senior Product Architect  
 **Status:** Approved  

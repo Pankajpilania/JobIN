@@ -99,10 +99,17 @@ export class BillingService {
   }
 
   async getCheckoutOptions() {
-    const configuredPrices = await this.prisma.stripePriceConfig.findMany({
-      where: { plan: { isActive: true } },
-      include: { plan: { select: { name: true } } },
-    });
+    const [configuredPrices, plans] = await Promise.all([
+      this.prisma.stripePriceConfig.findMany({
+        where: { plan: { isActive: true } },
+        include: { plan: { select: { name: true } } },
+      }),
+      this.prisma.plan.findMany({
+        where: { isActive: true },
+        include: { features: true },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
     const stripeSecretKey = this.config.get<string>('STRIPE_SECRET_KEY')?.trim();
     if (configuredPrices.length && !stripeSecretKey) {
       throw new ServiceUnavailableException(
@@ -158,19 +165,20 @@ export class BillingService {
     const currencies = ['INR', 'GBP'].filter((currency) =>
       verifiedPrices.some((price) => price.currency === currency),
     );
+    const purchasablePlans = plans.filter((plan) => plan.name !== 'FREE');
     const stripeCheckout = Object.fromEntries(
       currencies.map((currency) => [
         currency,
         Object.fromEntries(
-          (['PREMIUM', 'PRO'] as const).map((plan) => [
-            plan,
+          purchasablePlans.map((plan) => [
+            plan.name,
             Object.fromEntries(
               (['MONTHLY', 'YEARLY'] as const).map((interval) => [
                 interval,
                 verifiedPrices.some(
                   (price) =>
                     price.currency === currency &&
-                    price.plan === plan &&
+                    price.plan === plan.name &&
                     price.interval === interval,
                 ),
               ]),
@@ -179,7 +187,20 @@ export class BillingService {
         ),
       ]),
     );
-    return { currencies, stripeCheckout, prices: verifiedPrices };
+    return {
+      currencies,
+      stripeCheckout,
+      prices: verifiedPrices,
+      plans: plans.map((plan) => ({
+        name: plan.name,
+        priceMonthly: plan.priceMonthly,
+        priceYearly: plan.priceYearly,
+        currency: plan.currency,
+        features: Object.fromEntries(
+          plan.features.map((feature) => [feature.featureKey, feature.value]),
+        ),
+      })),
+    };
   }
 
   // ─── Checkout session ─────────────────────────────────────────────────────

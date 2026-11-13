@@ -3,6 +3,8 @@
 **Audit date:** 2026-11-01
 **Scope:** Source-level coverage for the web app, mobile website, and Chrome extension. This is an implementation inventory, not a cross-browser/performance certification.
 
+> **Snapshot note (13 Nov 2026):** The matrix below was captured on 1 Nov and is not a current design QA run. The admin routes added since then are listed in the [current project guide](../17_current_project_guide.md); this document does not claim their motion or mobile behavior was checked.
+
 ## Cell status
 
 - **PASS:** consistent implementation is evident for the surface/route.

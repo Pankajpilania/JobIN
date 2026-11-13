@@ -18,12 +18,14 @@ import {
   setCachedResumes,
   getDetectedJob,
   setDetectedJob,
+  getUserProfile,
 } from '../shared/storage';
 import {
   listResumes,
   tailorResume,
   generateCoverLetter,
   saveApplication,
+  matchResumeToJob,
   ApiError,
 } from '../shared/api';
 
@@ -118,6 +120,31 @@ async function handleMessage(
         break;
       }
 
+      case MSG.REQUEST_MATCH_SCORE: {
+        const settings = await getSettings();
+        const { job, resumeId } = message.payload ?? {};
+        const description = typeof job?.jobDescription === 'string' ? job.jobDescription : '';
+        if (description.trim().length < 20) {
+          sendResponse({
+            error: 'This listing does not include enough description text to estimate a match.',
+          });
+          break;
+        }
+        const resumes = await listResumes();
+        const selectedResumeId =
+          resumeId ||
+          settings.defaultResumeId ||
+          resumes.find((resume) => resume.isDefault)?.id ||
+          resumes[0]?.id;
+        if (!selectedResumeId || !resumes.some((resume) => resume.id === selectedResumeId)) {
+          sendResponse({ error: 'Upload a resume in JobIN to see its match with this role.' });
+          break;
+        }
+        const match = await matchResumeToJob(selectedResumeId, description.slice(0, 12000));
+        sendResponse({ match });
+        break;
+      }
+
       // ── Get resume list (cached or fresh) ──────────────────────────────────
       case MSG.GET_RESUMES: {
         try {
@@ -183,18 +210,38 @@ async function handleMessage(
 
       // ── Trigger autofill on current tab ───────────────────────────────────
       case MSG.START_AUTOFILL: {
-        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!activeTab?.id) {
+        let tabId = sender.tab?.id;
+        if (!tabId) {
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          tabId = activeTab?.id;
+        }
+        if (!tabId) {
           sendResponse({ error: 'No active tab' });
           break;
         }
+        const profile = await getUserProfile();
+        if (!profile) {
+          sendResponse({ error: 'Add your profile in JobIN extension settings before using autofill.' });
+          break;
+        }
+        const settings = await getSettings();
+        if (!settings.autofill.enabled) {
+          sendResponse({ error: 'Autofill is turned off in JobIN extension settings.' });
+          break;
+        }
         chrome.tabs.sendMessage(
-          activeTab.id,
+          tabId,
           {
             type: MSG.AUTOFILL_FORM,
-            payload: message.payload,
+            payload: { profile, settings: settings.autofill },
           },
-          (res) => sendResponse(res),
+          (res) => {
+            if (chrome.runtime.lastError) {
+              sendResponse({ error: 'JobIN could not reach this application form. Reload the page and try again.' });
+              return;
+            }
+            sendResponse(res);
+          },
         );
         break;
       }

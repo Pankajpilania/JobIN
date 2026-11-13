@@ -31,6 +31,7 @@ import { ResumesService } from './resumes.service';
 import { UpdateResumeDto } from './dto/update-resume.dto';
 import { TailorResumeDto } from './dto/tailor-resume.dto';
 import { UpdateResumeVersionDto } from './dto/update-resume-version.dto';
+import { MatchResumeDto } from './dto/match-resume.dto';
 import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
 import { CurrentUser, type SupabaseUserPayload } from '../common/decorators/current-user.decorator';
 import type { Express } from 'express';
@@ -120,6 +121,17 @@ export class ResumesController {
   @ApiOperation({ summary: 'Run Gemini ATS analysis' })
   analyse(@CurrentUser() user: SupabaseUserPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.resumesService.analyse(user.id, id);
+  }
+
+  @Post(':id/match')
+  @ApiParam({ name: 'id', description: 'Resume UUID' })
+  @ApiOperation({ summary: 'Compare an owned resume with a job description using keyword overlap' })
+  match(
+    @CurrentUser() user: SupabaseUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: MatchResumeDto,
+  ) {
+    return this.resumesService.match(user.id, id, dto.jobDescription);
   }
 
   // ─── Tailor (Sprint 3) ────────────────────────────────────────────────────

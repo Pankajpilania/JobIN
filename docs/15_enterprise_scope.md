@@ -1,5 +1,7 @@
 # Enterprise Scope Architecture — JobIN
 
+> **Future-scope proposal:** This enterprise design is not an implementation commitment. Current tenancy and identity limits are documented in the [current project guide](./17_current_project_guide.md).
+
 This document defines the technical design, security rules, and integration workflows for JobIN's Enterprise Tier, enabling support for white-labeling, SSO, and custom AI models.
 
 ---
