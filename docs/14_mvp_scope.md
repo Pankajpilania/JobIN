@@ -1,5 +1,7 @@
 # MVP Scope Definition — JobIN
 
+> **Historical MVP plan:** Scope, targets, and architecture below are planning material. The [current project guide](./17_current_project_guide.md) documents the active application.
+
 This document defines the strict functional boundaries, database parameters, and performance targets for the JobIN MVP launch, ensuring a high-quality initial release.
 
 ---

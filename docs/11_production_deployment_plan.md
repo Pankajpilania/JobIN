@@ -1,5 +1,7 @@
 # Production Deployment Plan — JobIN
 
+> **Historical deployment proposal:** The AWS/Kubernetes examples below are not live deployment instructions. Current deployment configuration and runbooks are in [README](../README.md), [`render.yaml`](../render.yaml), and [`deploy/oci/`](../deploy/oci/); architecture truth is in the [current system architecture](./02_system_architecture.md).
+
 This document defines the deployment pipelines, containerization schemas, and operational monitoring configurations for the JobIN production environment.
 
 ---

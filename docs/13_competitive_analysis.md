@@ -1,5 +1,7 @@
 # Competitive Analysis Matrix — JobIN
 
+> **Research snapshot:** Competitive claims and market positioning may be stale; they are not current product capability evidence. Check the [current project guide](./17_current_project_guide.md) before describing implemented features.
+
 This document analyzes JobIN's competitive positioning relative to industry alternatives (Jobright, Simplify Copilot, Teal, Resume Worded), demonstrating our feature advantages, architectural highlights, and market entry strategies.
 
 ---

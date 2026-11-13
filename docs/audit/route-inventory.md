@@ -1,16 +1,18 @@
 # JobIN Route Inventory
 
 **Audit date:** 2026-11-01
-**Scope:** Read-only source review of the web app, API route declarations, and available local browser smoke tests. No application code was changed for this audit.
+**Scope:** Read-only source review of the web app, API route declarations, and available local browser smoke tests performed on 1 Nov 2026. This dated audit is not a fresh runtime check of the current branch.
+
+> **Source delta (13 Nov 2026):** Admin `/admin/content`, `/admin/notifications`, `/admin/reports`, and `/admin/roles` pages and the corresponding API endpoints were added after this snapshot. Payment failure/refund features and per-role admin permissions were also added. The [current project guide](../17_current_project_guide.md) is the up-to-date route overview. No logged-in browser/runtime validation of these additions is claimed here.
 
 ## Stack and routing
 
 - **Web:** Next.js 16 App Router, React 19, TypeScript. Source is under `apps/web/src/app`; route groups `(dashboard)` and `(admin)` do not appear in URLs.
 - **Styling:** global CSS variables and CSS, Tailwind configuration, inline styles, and CSS modules on the new `/careers` page. Framer Motion is installed and used by selected routes, not globally.
 - **State/data:** local React state, TanStack Query hooks, `apiClient`, auth hooks, Supabase/OCI/Auth0 adapters, and Sonner toasts.
-- **API:** NestJS under `apps/api/src`, global `/api` prefix, Supabase auth guards on most user/admin endpoints.
+- **API:** NestJS under `apps/api/src`, global `/api` prefix; the historically named `SupabaseAuthGuard` validates the configured auth provider. Admin operations have an additional role/permission guard.
 - **Mobile:** no separate mobile app folder was found. The website uses responsive CSS. No web manifest/PWA declaration or viewport metadata was found in the inspected web app source.
-- **Tests:** API Jest specs exist. No web Playwright config, web E2E suite, axe suite, or audit/validate scripts were found. `.github/workflows` currently contains an OCI deployment workflow, not a validation workflow.
+- **Tests:** API tests use Vitest. No web Playwright config, web E2E suite, or axe suite was found in this audit snapshot. `.github/workflows` currently contains an OCI deployment workflow, not a validation workflow.
 
 ## Web pages and route files
 
@@ -50,6 +52,10 @@
 | `/admin/subscriptions` | `apps/web/src/app/(admin)/admin/subscriptions/page.tsx` | Inspect/manage user subscriptions and grant/update plan access. |
 | `/admin/tickets` | `apps/web/src/app/(admin)/admin/tickets/page.tsx` | Admin ticket list/detail, reply/status updates, notifications. |
 | `/admin/users` | `apps/web/src/app/(admin)/admin/users/page.tsx` | Admin user search/pagination, activity, plan/credit updates, removal. |
+| `/admin/content` | `apps/web/src/app/(admin)/admin/content/page.tsx` | Admin create, schedule, edit and deactivate public site banners. |
+| `/admin/notifications` | `apps/web/src/app/(admin)/admin/notifications/page.tsx` | Send email or in-app notifications to a user or audience. |
+| `/admin/reports` | `apps/web/src/app/(admin)/admin/reports/page.tsx` | Permission-filtered CSV export page. |
+| `/admin/roles` | `apps/web/src/app/(admin)/admin/roles/page.tsx` | Super Admin permission-grant editor for non-super admin roles. |
 
 ## Framework-level and non-page states
 
@@ -76,4 +82,4 @@
 ## Important scope notes
 
 - Statuses in the accompanying reports are based on source evidence, with the limited smoke-test results above called out separately. “Working” means the source contains a connected UI-to-handler/API path; it does **not** mean the production integration has been exercised.
-- This inventory describes the current worktree, including the uncommitted `/careers` route and recent support/contact additions.
+- This inventory describes the source/routes as of its audit date and the limited local browser run recorded above. Later code changes are noted as source-only deltas, not runtime evidence.

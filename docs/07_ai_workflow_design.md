@@ -1,128 +1,76 @@
-# AI Workflow Design & Prompt Engineering — JobIN
+# JobIN AI Workflows
 
-This document defines the prompt architectures, multi-model fallback flows, mathematical scoring criteria, and cost structures powering JobIN’s AI operations.
+**Reviewed:** 13 November 2026. This document reflects the current API workflow in `apps/api/src/ai` and feature services. Earlier material describing GPT-4o/Claude defaults, Pinecone vectors, fixed cosine-match scores, or universal automatic fallback does not describe the current implementation.
 
----
+## Provider routing
 
-## 1. Resume Tailoring Pipeline
+The API reads the active provider, model and optional base URL from `AIPlatformSettings`. Provider credentials are looked up server-side from `AIProviderCredential` and decrypted with `AI_SETTINGS_ENCRYPTION_KEY`. Gemini also reads its configured key from the API environment. Ollama can use a hosted reachable endpoint without a provider key. Supported provider adapters are Gemini, OpenAI, Anthropic, DeepSeek, Groq, Kimi/Moonshot, NVIDIA, and Ollama.
 
-The tailoring pipeline transforms a candidate's base resume into an ATS-optimized, job-specific version:
+The active model/provider is configurable from the Super Admin AI Settings screen. The API normalizes provider-specific request/response formats, parses structured JSON where required, and records provider/model/token/cost estimates to `AIUsage`. The cost estimate is an operational estimate, not a vendor invoice. Provider-specific retry behavior is implemented in the adapter and is not a general multi-provider fallback guarantee.
+
+**Operational rule:** Keep provider keys in API environment or encrypted API database records. Never add them to web `NEXT_PUBLIC_*` variables, extension `VITE_*` variables, source code, prompts shown to users, or logs. Keep `AI_SETTINGS_ENCRYPTION_KEY` stable: changing it makes stored provider credentials unreadable until they are re-entered.
+
+## Resume upload, analysis, and tailoring
 
 ```mermaid
 flowchart TD
-    A[User Uploads Resume & Inputs JD] --> B[Extract Text via pdf-parse/mammoth]
-    B --> C[Create Vector Embeddings using text-embedding-3-small]
-    C --> D[Identify Keyword Gap via Cosine Similarity in Pinecone]
-    D --> E[Send Context to Claude 3.5 Sonnet]
-    E --> F{Output Schema Valid?}
-    F -->|No| G[Regenerate with OpenAI fallback]
-    F -->|Yes| H[Generate PDF/DOCX via NestJS Server]
-    H --> I[Run Final ATS Parsing Simulation & Match Score]
-    I --> J[Display Highlighted Changes Diff to User]
-    G --> H
+  Upload[Authenticated PDF / DOCX / TeX upload] --> Extract[Extract text; OCR scanned PDF if configured]
+  Extract --> Store[Private object storage + Resume metadata]
+  Store --> User[User chooses resume and supplies job description]
+  User --> Prompt[Build evidence-constrained tailoring prompt]
+  Prompt --> Provider[Configured AI provider]
+  Provider --> Parse[Parse and validate structured response]
+  Parse --> Check[Preserve contact lines; reconcile evidence map]
+  Check --> Version[Store ResumeVersion and tailoring report]
+  Version --> Export[PDF / DOCX / LaTeX export]
 ```
 
----
+1. The authenticated upload route accepts PDF, DOCX, and `.tex` source up to the configured controller limit. PDF/DOCX text is extracted server-side. Text-based LaTeX is treated as source; uploaded commands are not executed. Low-text/image-heavy PDF can use Poppler plus Tesseract if installed/configured.
+2. Original files are stored in private OCI Object Storage, with metadata and owner in `Resume`.
+3. Tailoring combines extracted resume text and the user-provided job description. The prompt requires factual grounding: no invented employers, dates, credentials, skills, responsibilities, or metrics. The model returns complete resume text plus job requirement statuses, source evidence, evidence map, missing requirements, keyword counts, caveats, and estimated alignment values.
+4. The API validates the structured result, preserves original contact lines, removes unsupported claims from the evidence map, and records a `ResumeVersion` with tailoring report and settings. AI usage is recorded separately.
+5. The user can compare, edit and save a version and export PDF/DOCX/LaTeX using one of the supported single-column designs and page sizes.
 
-## 2. Core System Prompts
+The `scoreBefore`/`scoreAfter` values are model-generated role-alignment estimates. They are not calculated from a proprietary ATS engine, validated against a hiring platform, or a prediction of interview/hiring outcome. Users should check every generated statement for accuracy.
 
-### 2.1 AI Resume Tailor System Prompt (Claude 3.5 Sonnet)
+## Resume export
 
-```markdown
-You are a Lead Career Architect and ATS Optimization Expert. Your task is to tailor the candidate's Resume to align with the provided Job Description.
+- PDF export compiles generated LaTeX with configured Tectonic when available, using untrusted-input settings and validating the output.
+- If the compiler is unavailable or fails, a native PDFKit renderer provides the fallback; `X-PDF-Engine` identifies the selected engine.
+- DOCX is generated on the API from the stored resume content and chosen design settings.
+- LaTeX source can be downloaded for editing; it is not compiled on download.
+- Temporary files for OCR and LaTeX processing are removed in the request cleanup path.
 
-CORE RULES:
-1. Preserve absolute truth. Do not invent degrees, certifications, or employment dates.
-2. Rewrite accomplishment bullets using the XYZ Formula:
-   "Accomplished [X] as measured by [Y], by doing [Z]"
-   Example: "Optimized application rendering speed by 35% (X) as verified by Datadog APM metrics (Y) through rewriting page layouts with Next.js dynamic routing (Z)."
-3. Quantify achievements. If a bullet lacks metrics, estimate logically based on standard operational outputs.
-4. Seamlessly inject missing keywords into the experience bullets and skills list.
-5. Return ONLY a valid JSON payload matching this exact schema:
+Production API image includes the export/OCR tools described in `apps/api/README.md`. Local installations can omit OCR/Tectonic; resulting behavior follows the configured fallback.
 
-{
-  "modifiedProfessionalSummary": "string",
-  "modifiedBulletPoints": [
-    {
-      "originalBullet": "string",
-      "tailoredBullet": "string",
-      "rationale": "string"
-    }
-  ],
-  "addedKeywords": ["string"],
-  "skillsListUpdated": ["string"]
-}
-```
+## Other AI-powered features
 
-### 2.2 AI Career Copilot System Prompt (GPT-4o)
+### Cover letters
 
-```markdown
-You are "JobIN Copilot", a persistent, proactive career advisor. You are helping the candidate land their target job.
+The authenticated `/cover-letters/generate` workflow uses an owned resume when supplied, job description, company/role, hiring-manager name where provided, and selected letter variant. Generated letters are persisted in `CoverLetter`; export supports PDF and DOCX. The content is model output and requires user review.
 
-BEHAVIORAL CONSTRAINTS:
-1. Provide actionable, concise, and structured answers (use lists/markdown bold text).
-2. Avoid generic platitudes ("dress professionally", "work hard"). Provide concrete action items (e.g., exact salary negotiation scripts, direct email outreach headers).
-3. Review user applications, resumes, and saved jobs contextually. Retain memory of conversations across the current session.
-```
+### Interview practice
 
-### 2.3 AI Interview Coach System Prompt (GPT-4o)
+`POST /interview/question` generates a role/resume-aware question and records usage/credit impact. `POST /interview/evaluate` evaluates a submitted answer. The API does not store a first-class interview session model in the current schema.
 
-```markdown
-You are an expert technical interviewer at the target company. Your behavior must mimic a realistic screening call.
+### Public support chat
 
-INSTRUCTIONS:
-1. Ask one single interview question at a time. Wait for the candidate's response before proceeding.
-2. Mix behavioral (STAR-format) and technical role-specific questions.
-3. Once the candidate responds, provide:
-   - A score (1-10)
-   - Brief constructive critique on content and style
-   - An optimized response example in STAR format matching their actual resume experience.
-4. Promptly follow up with the next question.
-```
+`POST /support/chat` is a rate-limited public endpoint for general JobIN product guidance. It is instructed to avoid account-specific facts and direct account issues to support. It must not be treated as authenticated account support.
 
----
+## Usage and credits
 
-## 3. Job Match Scoring Algorithm
+`AIUsage` stores feature, provider model, prompt/completion/total token counts, estimated cost, tier, and credit units. Per-user `AICredits` stores totals/usage and optional expiry. Plan defaults and billing behavior are controlled by current service logic and database plan features. Admin reporting provides aggregate operational visibility; estimates depend on accurate model/provider configuration.
 
-The matching system evaluates a candidate's resume vector ($A$) against the job description vector ($B$) along with weighted relational rules.
+Do not assume that all generated content consumes the same number of credits, or that an estimated token cost exactly matches provider billing. Check the service implementation for the current feature's charge and refund-on-error behavior before changing credit policy.
 
-### 3.1 Cosine Similarity Calculation
-The semantic alignment of the experience text is computed via:
+## Data handling and prompt safety
 
-$$\text{Similarity} = \cos(\theta) = \frac{\mathbf{A} \cdot \mathbf{B}}{\|\mathbf{A}\| \|\mathbf{B}\|}$$
+- Resume text and job descriptions are personal/untrusted user content and are sent to the configured AI provider for the requested generation operation.
+- Only the current provider/model receives a request; there is no Pinecone vector store, embedding database, or universal Claude→OpenAI→Gemini fallback in the active code.
+- Prompt rules constrain generated claims, but do not guarantee factual correctness; the user remains responsible for final review.
+- Support chat inputs are untrusted and constrained to general product support.
+- Avoid logging full resumes, job descriptions, provider credentials, bearer tokens, or user answers. Do not put sensitive user content in analytics events.
 
-### 3.2 Category-Based Weighted Score Breakdown
-The overall Match Score ($S_{\text{match}}$) is evaluated using a weighted sum of normalized values ($0 \le S \le 100$):
+## How to update this guide
 
-$$S_{\text{match}} = (w_{\text{skills}} \cdot S_{\text{skills}}) + (w_{\text{experience}} \cdot S_{\text{exp}}) + (w_{\text{keywords}} \cdot S_{\text{kw}}) + (w_{\text{visa}} \cdot S_{\text{visa}}) + (w_{\text{education}} \cdot S_{\text{edu}})$$
-
-#### Weight Allocations ($w_i$):
-*   **Skills Match ($w_{\text{skills}} = 0.40$):** Semantic intersection of listed hard tools and technical languages.
-*   **Experience Alignment ($w_{\text{experience}} = 0.30$):** Semantic similarity of work histories and industry match.
-*   **Keyword Presence ($w_{\text{keywords}} = 0.15$):** Exact match counts of required keywords from JD.
-*   **Visa/Location Suitability ($w_{\text{visa}} = 0.10$):** Hard binary compatibility filter (e.g., if visa sponsor is needed and offered).
-*   **Education Compatibility ($w_{\text{education}} = 0.05$):** Minimum degree criteria checks.
-
----
-
-## 4. Operational Cost Estimation Profile
-
-Calculations assume **10,000 active monthly users** generating typical search loads.
-
-### 4.1 Token Profile per Core Action
-
-| Action | Primary Model | Avg Input Tokens | Avg Output Tokens | Cost per Action (USD) |
-| :--- | :--- | :--- | :--- | :--- |
-| **Resume Tailoring** | Claude 3.5 Sonnet | 10,000 | 1,500 | \$0.0525 |
-| **ATS Scoring & Parse** | Gemini Pro | 8,000 | 500 | \$0.0062 |
-| **Career Chat (Per msg)**| GPT-4o | 4,000 | 300 | \$0.0125 |
-| **Mock Interview session**| GPT-4o | 24,000 (cumulative) | 2,000 | \$0.1450 |
-
-### 4.2 Pro User Unit Economics (Monthly Budget)
-*   **Assumptions (Pro User at \$39/month):**
-    *   30 Resumes Tailored via Claude: $30 \times \$0.0525 = \$1.575$
-    *   100 Job match calculations via Gemini: $100 \times \$0.0062 = \$0.620$
-    *   100 Chat messages via GPT-4o: $100 \times \$0.0125 = \$1.250$
-    *   4 Mock Interview sessions: $4 \times \$0.1450 = \$0.580$
-*   **Total Monthly Cost per Pro User:** **\$4.025**
-*   **Gross Margin %:** **89.6%** (highly viable model for long-term scalability).
+When adding an AI feature, document its route, source service, prompt inputs, output validation, persistence, credit behavior, provider use, and error/retry semantics. Keep claims about quality/scoring bounded by actual evaluation evidence. Current controllers and implementations are the authority; test provider changes using controlled test credentials rather than production data.

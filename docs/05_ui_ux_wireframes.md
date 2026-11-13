@@ -1,5 +1,7 @@
 # UI/UX Wireframes & Visual Theme — JobIN
 
+> **Design proposal:** Wireframes and visual intent may differ from the current UI. Use the app source and [current project guide](./17_current_project_guide.md) for implemented routes and features.
+
 This document defines the visual layout parameters, core styling configurations, and key interface schemas for the JobIN ecosystem.
 
 ---

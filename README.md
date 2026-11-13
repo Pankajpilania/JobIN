@@ -11,15 +11,17 @@
 
 **JobIN** is an AI-powered SaaS platform designed to streamline the modern job search. It analyzes a candidate's uploaded resume alongside target job descriptions to generate ATS-optimized resumes and cover letters.
 
-The platform features a full Kanban-style application tracker, robust admin portals, AI credit billing, and multi-tenant security powered by OCI Identity Domains.
+The platform includes a public job catalogue, AI-assisted resume and cover-letter tools, an application tracker, a Chrome extension, Stripe subscriptions, and role-controlled admin workflows. Sign-in can use the configured OCI, Supabase, or Auth0 integration; this is provider-backed identity with user-scoped API authorization, not a full enterprise multi-tenant system.
 
 ## ✨ Key Features
 
-- 🤖 **AI Resume Tailoring**: Instant ATS-optimization using Google Gemini AI.
+- 🤖 **AI Resume Tailoring**: Evidence-aware, job-specific resume rewriting through the configured AI provider.
+- 🔎 **Job Search**: Search a shared catalogue from public feeds and configured employer boards, with filters and original-source links.
 - 📄 **AI Cover Letters**: Auto-generate personalized cover letters targeting specific hiring managers.
 - 📊 **Application Tracker**: Visual Kanban board to track job pipelines (Applied, Interviewing, Offered).
+- 🧩 **Chrome Extension**: Detect supported job pages and help autofill Greenhouse and Lever forms.
 - 💳 **Monetization & Credits**: Stripe-integrated billing with an "AI Credit" system.
-- 🛡️ **Admin Portal**: Fully-featured dashboard for user management, support tickets, and metric tracking.
+- 🛡️ **Admin Portal**: Role-permission-controlled user, billing/refund, support, notification, site banner, and CSV report tools.
 - ☁️ **Cloud Storage**: Private resume storage in OCI Object Storage using instance-principal authentication.
 
 ## 🛠️ Tech Stack
@@ -32,7 +34,7 @@ JobIN is built using a modern, decoupled monorepo architecture:
 - **ORM**: Prisma.
 - **Authentication**: The web app offers Supabase email/password and Google sign-in, plus a separate OCI IAM Identity Domains OAuth 2.0/PKCE option. The API accepts both during the transition; Auth0 remains an optional alternative.
 - **Storage**: OCI Object Storage (private bucket; the API issues short-lived, object-scoped download links).
-- **AI Engine**: Admin-configurable Gemini, OpenAI, Anthropic, DeepSeek, NVIDIA NIM, and hosted Ollama providers.
+- **AI Engine**: Admin-configurable Gemini, OpenAI, Anthropic, DeepSeek, Groq, Kimi/Moonshot, NVIDIA, and hosted Ollama providers.
 
 ---
 
@@ -59,7 +61,7 @@ The root-level `backend/` and `frontend/` directories are legacy snapshots; acti
 ```text
 Browser (Next.js) ──OCI access token───────────┐
                                                ├──> NestJS API ──Prisma──> PostgreSQL on OCI
-Chrome extension ──Supabase token (migration)──┘        │
+Chrome extension ──provider access token─────────┘      │
                                                 ├──> OCI Object Storage (resume files)
                                                 ├──> AI provider (resume/cover letter tasks)
                                                 └──> Stripe (checkout, billing portal, webhooks)
@@ -69,7 +71,7 @@ Chrome extension ──Supabase token (migration)──┘        │
 
 1. **Web application (`apps/web`)** — Next.js App Router UI for registration, sign-in, resume management, AI tools, job tracking, billing, and admin pages. It uses OCI Identity Domains Authorization Code + PKCE by default and sends an API access token to the backend; ID tokens are not used for API authorization. Provider settings are in the corresponding `.env.example` files.
 2. **Chrome extension (`apps/extension`)** — Manifest V3 extension. Its popup/options/side panel communicate with the extension service worker; the worker detects supported job pages, requests autofill data, and calls the same API endpoints as the web app. It defaults to Supabase Auth and supports OCI/Auth0 Authorization Code + PKCE using Chrome Identity. It does not connect directly to PostgreSQL or call AI providers.
-3. **API (`apps/api`)** — NestJS is the trusted boundary for application data and privileged operations. `SupabaseAuthGuard` validates OCI and Auth0 access tokens; `oci_dual` also accepts Supabase tokens for clients that have not migrated and for the web app's separate Google sign-in option. It links verified identities to a JobIN `User`, checks account status, and attaches database roles to the request. A Supabase identity can match an existing JobIN user by email only after email confirmation; when the database record already has a Supabase ID, API requests continue using that canonical ID without replacing it. Controllers enforce endpoint authorization; services perform business logic.
+3. **API (`apps/api`)** — NestJS is the trusted boundary for application data and privileged operations. The historically named `SupabaseAuthGuard` validates tokens for the configured provider mode (`oci`, `oci_dual`, `auth0`, or Supabase). It resolves the identity to a JobIN `User`, checks account status, and attaches roles and permissions. Controllers and services enforce endpoint and ownership authorization; services perform business logic.
 4. **Database** — PostgreSQL stores JobIN users and roles, resumes and versions, applications, subscription and payment records, AI usage/credits, and admin configuration. The OCI deployment runs PostgreSQL in a private Docker volume on the OCI Always Free VM. Prisma schema and migrations are under `apps/api/prisma`; connection strings are supplied by `DATABASE_URL` and `DIRECT_URL`.
 5. **Resume file storage** — Uploaded resume objects are stored in a private OCI Object Storage bucket; PostgreSQL stores object metadata, ownership, and keys. The API uses the OCI VM's instance principal for storage operations and issues short-lived, single-object download links after authorization checks.
 6. **AI providers** — The API selects the configured provider/model and makes generation requests server-side. Admin-managed provider credentials are encrypted before persistence using `AI_SETTINGS_ENCRYPTION_KEY`; never expose provider keys to the web app or extension.
@@ -81,7 +83,7 @@ Chrome extension ──Supabase token (migration)──┘        │
 - **Resume and AI:** Client uploads a resume through the API → API validates ownership and stores the file in OCI Object Storage, with metadata in PostgreSQL → user selects a resume and supplies a job description → API calls the configured AI provider, stores the tailored version and usage/credit data → client loads the generated result from the API.
 - **Subscription:** Client asks the API to start checkout → Stripe handles payment → Stripe webhook calls the API → API verifies the webhook signature using the raw request body and updates PostgreSQL. Customers manage active Stripe subscriptions through Stripe's customer portal.
 - **Extension application workflow:** Extension content scripts identify supported job pages and extract job details → service worker requests profile/resume data from the authenticated API → the extension fills supported forms and can save the application to the same account's tracker.
-- **Admin:** The API checks the signed-in user's database role for every admin operation. Role assignment is restricted to super admins. Provider keys, payment settings, complimentary plans, and account operations are stored/processed server-side.
+- **Admin:** Every admin API operation checks an active admin role and its required permission, with separately guarded Super Admin actions. Role assignment and permission editing are Super Admin-only. Provider keys, payment settings, refunds, complimentary plans, and account operations are processed server-side and audited where implemented.
 
 ### Extension and deployment configuration
 
@@ -153,11 +155,11 @@ The extension's Auth0 manifest permissions are generated from its configured dom
 
 ## 🚀 Local Development Setup
 
-To run JobIN locally, you need Node.js 20.19+ (or 22.12+), npm, an OCI Identity Domain OAuth client, PostgreSQL, and the service credentials for any enabled integrations.
+To run JobIN locally, you need Node.js 20.19+ (or 22.12+), npm, PostgreSQL, a configured authentication provider (OCI, Supabase, or Auth0), and credentials for any integrations you want to use.
 
 ### 1. Prerequisites
 
-Ensure Node.js 20.19+ (or 22.12+) and npm are installed. Copy `apps/api/.env.example` to `apps/api/.env` and configure the database and OCI Identity Domain settings. Copy `apps/web/.env.example` to `apps/web/.env.local` and configure the public OCI and API URL variables.
+Ensure Node.js 20.19+ (or 22.12+) and npm are installed. Copy `apps/api/.env.example` to `apps/api/.env` and configure the database and chosen auth-provider settings. Copy `apps/web/.env.example` to `apps/web/.env.local` and configure the public auth-client and API URL variables.
 
 ### 2. Install Dependencies
 
@@ -234,7 +236,7 @@ npm run db:generate --workspace=apps/api
 
 ## 📚 Architectural Documentation
 
-Product requirements, architecture, API specifications, deployment, and product plans are maintained in [`docs/`](./docs/).
+Start with the [current project guide](./docs/17_current_project_guide.md) for the repository map, actual capabilities, auth, admin permissions, API endpoint map, security controls, local setup, and deployment notes. Implementation-focused references are the [system architecture](./docs/02_system_architecture.md), [database guide](./docs/03_database_schema.md), [API reference](./docs/04_api_specifications.md), [Chrome extension architecture](./docs/06_chrome_extension_architecture.md), and [AI workflow](./docs/07_ai_workflow_design.md). Product requirements and commercial/roadmap documents describe planning context; they may contain proposed features that are not implemented. Dated files under `docs/audit/` are snapshots and should not be treated as current runtime verification without a newer check.
 
 ---
 

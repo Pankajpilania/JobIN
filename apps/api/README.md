@@ -1,6 +1,6 @@
 # JobIN API
 
-This is the NestJS backend for the JobIN SaaS platform.
+This is the NestJS 12 backend for the JobIN SaaS platform. API routes are prefixed with `/api`; see the [current project guide](../../docs/17_current_project_guide.md) and [API reference](../../docs/04_api_specifications.md) for the route, access-control, and data-model maps.
 
 ## Resume tailoring pipeline
 
@@ -8,19 +8,25 @@ The authenticated resume flow accepts PDF, DOCX, and `.tex` source files. PDF an
 
 Tailored versions store the evidence report and chosen design/page settings. The dashboard lets users compare original and tailored text, edit and save a version, choose one of five single-column templates, select A4 or US Letter, and download PDF, DOCX, or editable LaTeX. PDF export tries the configured `LATEX_COMPILER` (Tectonic by default) with untrusted-input mode and validates the generated PDF; if the compiler is unavailable or fails, it falls back to the native ATS PDFKit renderer and reports that engine in the `X-PDF-Engine` response header. The production Docker image includes a checksum-pinned Tectonic compiler and prewarms its TeX bundle; local API hosts can install Tectonic and set `LATEX_COMPILER` to its executable path, or use the PDFKit fallback. Temporary OCR and TeX working files are removed after processing.
 
-The new migration is `20261112_resume_tailoring_report`. Existing databases that have tables but no `_prisma_migrations` history need their baseline reconciled before `prisma migrate deploy`; the API's production start command applies pending migrations on startup.
+The resume tailoring migration is `20261112_resume_tailoring_report`. Recent admin feature migrations include `20261113_admin_payment_management`, `20261113_admin_role_permissions`, and `20261113_admin_site_banners`. Existing databases that have tables but no `_prisma_migrations` history need their baseline reconciled before `prisma migrate deploy`; the API's production start command applies pending migrations on startup. Review and back up the target database before applying production migrations.
 
-## Render Deployment Note
+## API deployment
 
 The API production start command runs `prisma migrate deploy` before starting the server. Keep `DATABASE_URL` configured on the Render service so pending schema migrations are applied before requests reach the application. This also covers Render services whose Start Command is configured directly in the dashboard.
 
-IMPORTANT: After deploying to Render, sign up at [uptimerobot.com](https://uptimerobot.com) (free) and create an HTTP monitor for `https://[your-render-url].onrender.com/api/health` on a 5-minute interval. This prevents the free tier from spinning down and causing 30-second cold starts.
+Use `GET /api/health` as a liveness probe and `GET /api/health/ready` as a PostgreSQL readiness probe. Configure uptime monitoring according to the selected hosting plan and provider's current recommendations; an external ping is not a substitute for a supported always-on service plan or a readiness/alerting strategy.
 
 ## Admin-managed AI providers
 
-Set `AI_SETTINGS_ENCRYPTION_KEY` in the API environment before saving provider keys from Admin → AI settings. Generate a key with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"` and keep it stable; changing it makes previously encrypted provider keys unreadable. The key itself must never be committed or shared. Ollama must use a hosted endpoint reachable from the Render API service.
+Set `AI_SETTINGS_ENCRYPTION_KEY` in the API environment before saving provider keys from Admin → AI settings. Generate a key with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"` and keep it stable; changing it makes previously encrypted provider keys unreadable. The key itself must never be committed or shared. Supported adapters are Gemini, OpenAI, Anthropic, DeepSeek, Groq, Kimi/Moonshot, NVIDIA, and Ollama. Ollama must use an endpoint reachable from the API service.
 
-Stripe customer-portal management and subscription cancellation require a valid `STRIPE_SECRET_KEY` on the API service. Admin user deletion also requires `SUPABASE_SERVICE_ROLE_KEY`; deletion is restricted to super admins and removes the linked authentication account and stored resume files.
+Stripe customer-portal management, refunds, and subscription cancellation require a valid `STRIPE_SECRET_KEY` on the API service. Admin user deletion is restricted to Super Admins and needs provider/storage-specific configuration to remove linked identity and stored resume objects; verify the configured auth-provider credentials before relying on full external cleanup.
+
+## Admin permissions and new features
+
+The API checks that an admin user is active and has an admin role. Most admin routes then require an explicit `Permission.action` grant. The `SUPER_ADMIN` role retains a guarded bypass for permission-gated routes; editing role grants, assigning user roles, permanently deleting users, and changing AI provider settings are Super Admin-only. Changes to roles, account status/billing, refunds, banners, notification sends, and reports write audit events where implemented.
+
+The admin portal now includes user status/activity and plan tools, subscription/payment reports, full/partial Stripe refunds, discount-code management, public homepage banner scheduling, email/in-app notifications, streamed CSV exports, and an Operations/Support/Finance role editor. Apply the admin migrations listed above before using the matching endpoints. Public support/contact forms still use Web3Forms and do not automatically create rows in the admin ticket queue. There is no separate manual verification flag or commission ledger in the current schema.
 
 ## Public job search feeds
 

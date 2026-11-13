@@ -1,406 +1,99 @@
-# Database Schema Design — JobIN
+# JobIN Database Guide
 
-This document defines the relational database model, vector index structure, and caching keyspace configurations for the JobIN SaaS platform.
+**Reviewed:** 13 November 2026. The canonical schema is [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma); this guide summarizes its current models and relationships. It supersedes the earlier conceptual schema in this file, which contained unimplemented vectors, activity logs, and enterprise structures.
 
----
+## Database and migration workflow
 
-## 1. Prisma Relational Schema (PostgreSQL)
+- Provider: PostgreSQL.
+- Prisma schema: `apps/api/prisma/schema.prisma`.
+- Connection settings: `DATABASE_URL` and `DIRECT_URL` in the API environment.
+- Migrations: `apps/api/prisma/migrations/`; migrations are applied by the API production start command using `prisma migrate deploy`.
+- Generate the client with `npm run db:generate --workspace=apps/api`.
+- Apply local pending migrations only after checking which database the configured URLs target: `npm run db:migrate:deploy --workspace=apps/api`.
+- Existing databases with tables but no `_prisma_migrations` history need baseline reconciliation before deployment. Never replay the initial schema against an existing production database.
+- The schema is validated with Prisma; no database URL is embedded in source. Back up production data and review migration SQL before deploying changes.
 
-Below is the complete database schema defined for Prisma. It establishes multi-tenant constraints, billing structures, user trackers, audit logging, and AI token tracking.
+## Model catalogue
 
-```prisma
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+### Identity, access, and audit
 
-generator client {
-  provider = "prisma-client-js"
-}
+| Model | Purpose and key links |
+|---|---|
+| `User` | JobIN profile, provider subject IDs (`supabaseId`, `auth0Sub`, `ociSub`), account status, tenant ID, last login. Parent for resumes, applications, saved jobs, subscriptions, AI usage/credits, notifications, tickets, roles, and audit events. |
+| `Role` | Named role such as `CANDIDATE`, `RECRUITER`, `SUPER_ADMIN`, `OPERATIONS_ADMIN`, `SUPPORT_ADMIN`, or `FINANCE_ADMIN`. |
+| `Permission` | Unique action name and description, e.g. `billing:read` or `content:manage`. |
+| `UserRole` | User ↔ role join; composite primary key `(userId, roleId)`. |
+| `RolePermission` | Role ↔ permission join; composite primary key `(roleId, permissionId)`. |
+| `AuditLog` | Admin/system action, target, before/after JSON, metadata, actor and IP string. Indexed by user, action, and timestamp. |
 
-// ==========================================
-// USER & ACCESS CONTROL MODULES
-// ==========================================
+Super Admin is checked as a privileged role in the guard. The configurable role grants cover Operations, Support, and Finance roles. Assignment of user roles is not delegated through the role-permission editor.
 
-model User {
-  id                String             @id @default(uuid())
-  email             String             @unique
-  fullName          String
-  passwordHash      String?            // Null if registered via OAuth (Google/LinkedIn)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  status            AccountStatus      @default(ACTIVE) // ACTIVE, SUSPENDED, DELETED
-  country           String?
-  lastLoginAt       DateTime?
-  tenantId          String?            // Links to Enterprise Org if applicable
-  
-  // Relations
-  roles             UserRole[]
-  subscriptions     Subscription[]
-  resumes           Resume[]
-  coverLetters      CoverLetter[]
-  jobApplications   JobApplication[]
-  savedJobs         SavedJob[]
-  aiUsage           AIUsage[]
-  aiCredits         AICredits?
-  supportTickets    SupportTicket[]
-  auditLogs         AuditLog[]
-  activityLogs      UserActivityLog[]
-  interviewSessions InterviewSession[]
-  skillGaps         SkillGap[]
-}
+### Plans, subscriptions, and payment records
 
-enum AccountStatus {
-  ACTIVE
-  SUSPENDED
-  DELETED
-}
+| Model | Purpose and key links |
+|---|---|
+| `Plan` | Named subscription tier, monthly/yearly prices, currency, Stripe price fallback, enabled state, features and subscriptions. |
+| `PlanFeature` | Key/value feature limits or settings attached to a plan. |
+| `StripePriceConfig` | Stripe Price ID for a plan/currency/interval; unique per combination and Price ID. |
+| `Subscription` | User and plan relation, Stripe subscription ID, lifecycle status, period bounds, cancellation fields, complimentary-access flag. Owns invoices and payments. |
+| `Payment` | Payment intent/invoice reference, amount/currency/status, refund total, failure text and creation time. Relates to subscription. |
+| `Invoice` | Stripe invoice and hosted/PDF URL references, paid amount and currency for a subscription. |
+| `AICredits` | Optional per-user purchased/admin-granted AI credit balance, used amount, granting admin and optional expiry. |
 
-model Role {
-  id          String           @id @default(uuid())
-  name        String           @unique // SUPER_ADMIN, OPERATIONS_ADMIN, SUPPORT_ADMIN, FINANCE_ADMIN, CANDIDATE
-  permissions RolePermission[]
-  users       UserRole[]
-}
+Discount codes are created and managed in Stripe; the current database does not have a parallel promotion-code table. Payment amounts are `Float` in the current schema, not integer minor units.
 
-model Permission {
-  id          String           @id @default(uuid())
-  action      String           @unique // e.g. "users:read", "billing:write", "ai:bypass_limits"
-  roles       RolePermission[]
-}
+### Resume and AI records
 
-model RolePermission {
-  roleId       String
-  permissionId String
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+| Model | Purpose and key links |
+|---|---|
+| `Resume` | User-owned uploaded document metadata, object key/URL, parsed text, analysis JSON, default flag and ATS analysis field. |
+| `ResumeVersion` | Tailored snapshot per resume with version number, content, report/keyword JSON, design/page-size options, scores and optional exported object key. Unique `(resumeId, versionNum)`. |
+| `AIUsage` | User, optional resume, feature, model, token counts, estimated cost, tier and credit units. |
+| `AIPlatformSettings` | Active provider/model and optional API base URL. |
+| `AIProviderCredential` | Provider-indexed encrypted API key. Encryption key is configured separately in the API environment. |
+| `CoverLetter` | User-owned generated letter, optional source resume, role/company, variant, content and word count. |
 
-  @@id([roleId, permissionId])
-}
+The API stores uploaded resume files in private object storage; PostgreSQL stores metadata, ownership, and object references. A stored URL/key is not a public authorization grant.
 
-model UserRole {
-  userId String
-  roleId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+### Jobs and candidate activity
 
-  @@id([userId, roleId])
-}
+| Model | Purpose and key links |
+|---|---|
+| `Company` | Lightweight reusable employer record. |
+| `JobApplication` | User-owned tracker entry with optional company, role/title, URL, status, dates, notes, source, salary and optional resume/letter IDs. |
+| `SavedJob` | User bookmark for a job; optional company, URL, salary, posted and saved timestamps. |
+| `JobListing` | Shared job-search catalogue item with source/board/external ID, title/company, location, work type, URL, description, tags, posting/active/seen timestamps. Unique `(source, sourceBoard, externalId)`. |
+| `JobFeedSyncState` | Per-source/per-board attempt/success/next-run/error/count and short lock lease. Unique `(source, sourceBoard)`. |
 
-// ==========================================
-// BILLING & SUBSCRIPTIONS MODULE
-// ==========================================
+Job search filters catalogue rows by active status and listing fields. Tracker data is separate and belongs to the user. Feed states enable independent retry/availability reporting and avoid marking unseen jobs closed after an incomplete source response.
 
-model Plan {
-  id            String         @id @default(uuid())
-  name          String         @unique // FREE, PREMIUM, PRO, ENTERPRISE
-  stripePriceId String         @unique
-  priceMonthly  Float
-  priceYearly   Float
-  currency      String         @default("GBP")
-  features      PlanFeature[]
-  subscriptions Subscription[]
-}
+### Support, notification, and public site content
 
-model PlanFeature {
-  id          String   @id @default(uuid())
-  planId      String
-  plan        Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
-  featureKey  String   // "autofill_limit", "resume_versions", "ai_messages"
-  value       String   // e.g. "100", "5", "unlimited", "true"
-}
+| Model | Purpose and key links |
+|---|---|
+| `SupportTicket` | User-owned ticket, subject/body, status, priority, optional assignee and resolution time. |
+| `TicketResponse` | Ticket conversation response, author ID and admin/user marker. |
+| `Notification` | User-targeted email or in-app record, content, read/sent/created timestamps. |
+| `SiteBanner` | Public announcement with text, optional paired link, variant, active window, creator and timestamps. |
 
-model Subscription {
-  id                   String             @id @default(uuid())
-  userId               String
-  user                 User               @relation(fields: [userId], references: [id])
-  planId               String
-  plan                 Plan               @relation(fields: [planId], references: [id])
-  status               SubscriptionStatus @default(ACTIVE) // ACTIVE, EXPIRED, CANCELLED, PAST_DUE
-  stripeSubscriptionId String             @unique
-  currentPeriodStart   DateTime
-  currentPeriodEnd     DateTime
-  cancelAtPeriodEnd    Boolean            @default(false)
-  cancellationReason   String?
-  createdAt            DateTime           @default(now())
-  payments             Payment[]
-  invoices             Invoice[]
-}
+Public support/contact forms currently route through Web3Forms and do not automatically create `SupportTicket` records. `Notification` records exist for admin sends; a full user-facing notification center is not implemented. `SiteBanner` is public only while active and within its optional schedule window.
 
-enum SubscriptionStatus {
-  ACTIVE
-  EXPIRED
-  CANCELLED
-  PAST_DUE
-}
+## Enumerations
 
-model Payment {
-  id             String       @id @default(uuid())
-  subscriptionId String
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
-  stripeIntentId String       @unique
-  amount         Float
-  currency       String
-  status         String       // "succeeded", "failed"
-  createdAt      DateTime     @default(now())
-}
+- `AccountStatus`: `ACTIVE`, `SUSPENDED`, `DELETED`.
+- `SubscriptionStatus`: `ACTIVE`, `EXPIRED`, `CANCELLED`, `PAST_DUE`.
+- `ApplicationStatus`: `SAVED`, `APPLIED`, `PHONE_SCREEN`, `INTERVIEW`, `TECHNICAL_ASSESSMENT`, `FINAL_ROUND`, `OFFER`, `REJECTED`, `WITHDRAWN`.
+- `TicketStatus`: `OPEN`, `IN_PROGRESS`, `WAITING_ON_USER`, `WAITING_ON_INTERNAL_TEAM`, `RESOLVED`, `CLOSED`.
+- `TicketPriority`: `LOW`, `MEDIUM`, `HIGH`, `URGENT`.
+- `NotificationType`: `EMAIL`, `IN_APP`, `PUSH` (current admin UI sends email or in-app).
+- `CoverLetterVariant`: `STANDARD`, `CONCISE`, `DETAILED`, `HIRING_MANAGER`.
 
-model Invoice {
-  id             String       @id @default(uuid())
-  subscriptionId String
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
-  stripeInvoiceId String      @unique
-  invoiceUrl     String
-  pdfUrl         String
-  createdAt      DateTime     @default(now())
-}
+## Indexing, uniqueness, and deletion behavior
 
-// ==========================================
-// RESUME & DOCUMENT MANAGER
-// ==========================================
+Read the schema for the exact constraints. Important unique keys include user email/provider subjects, role name, permission action, Stripe subscription/intent/invoice/price references, company name, source-board-external job identity, and per-resume version number. User-owned records cascade on user deletion where explicitly configured. `AuditLog.userId` is nullable and has no cascade rule so historical actions can remain.
 
-model Resume {
-  id           String          @id @default(uuid())
-  userId       String
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title        String          // e.g. "Software Engineer Default"
-  s3Url        String
-  atsScore     Int             @default(0)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  versions     ResumeVersion[]
-  applications JobApplication[]
-}
+The shared catalogue has compound source identity and active/posted, remote/posted, location, and source/active indexes. Feed sync state is unique by source/board and indexed for due/success checks. Do not assume every field has database row-level security; ownership is enforced in API service queries.
 
-model ResumeVersion {
-  id         String   @id @default(uuid())
-  resumeId   String
-  resume     Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
-  versionNum Int
-  s3Url      String
-  changes    String?  // Description of changes made
-  createdAt  DateTime @default(now())
-}
+## Current exclusions
 
-model CoverLetter {
-  id             String           @id @default(uuid())
-  userId         String
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobTitle       String
-  companyName    String
-  content        String           @db.Text
-  createdAt      DateTime         @default(now())
-  applications   JobApplication[]
-}
-
-// ==========================================
-// JOB TRACKING & APPLICATIONS
-// ==========================================
-
-model JobListings {
-  id              String           @id @default(uuid())
-  title           String
-  companyName     String
-  location        String
-  description     String           @db.Text
-  salaryRange     String?
-  sourceBoard     String           // "LinkedIn", "Reed", "Indeed"
-  visaSponsorship Boolean          @default(false)
-  url             String           @unique
-  createdAt       DateTime         @default(now())
-  applications    JobApplication[]
-  savedJobs       SavedJob[]
-}
-
-model SavedJob {
-  id           String      @id @default(uuid())
-  userId       String
-  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobListingId String
-  jobListing   JobListings @relation(fields: [jobListingId], references: [id], onDelete: Cascade)
-  savedAt      DateTime    @default(now())
-
-  @@unique([userId, jobListingId])
-}
-
-model JobApplication {
-  id             String            @id @default(uuid())
-  userId         String
-  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobListingId   String
-  jobListing     JobListings       @relation(fields: [jobListingId], references: [id])
-  resumeId       String?
-  resume         Resume?           @relation(fields: [resumeId], references: [id])
-  coverLetterId  String?
-  coverLetter    CoverLetter?      @relation(fields: [coverLetterId], references: [id])
-  status         ApplicationStatus @default(SAVED)
-  appliedDate    DateTime?
-  notes          String?           @db.Text
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-}
-
-enum ApplicationStatus {
-  SAVED
-  APPLIED
-  PHONE_SCREEN
-  INTERVIEW
-  TECHNICAL_ASSESSMENT
-  FINAL_ROUND
-  OFFER
-  REJECTED
-  WITHDRAWN
-}
-
-// ==========================================
-// AI TRACKING & UTILITY MODULES
-// ==========================================
-
-model AICredits {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  remaining Int      @default(0)
-  updatedAt DateTime @default(now())
-}
-
-model AIUsage {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  modelName String   // "gpt-4o", "claude-3-5-sonnet", "gemini-pro"
-  promptTokens Int
-  completionTokens Int
-  estimatedCost Float
-  createdAt DateTime @default(now())
-}
-
-model SupportTicket {
-  id          String         @id @default(uuid())
-  userId      String
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subject     String
-  description String         @db.Text
-  status      TicketStatus   @default(OPEN)
-  priority    TicketPriority @default(MEDIUM)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  responses   TicketResponse[]
-}
-
-enum TicketStatus {
-  OPEN
-  IN_PROGRESS
-  WAITING_ON_USER
-  WAITING_ON_INTERNAL_TEAM
-  RESOLVED
-  CLOSED
-}
-
-enum TicketPriority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-model TicketResponse {
-  id        String        @id @default(uuid())
-  ticketId  String
-  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  senderId  String        // Maps to User ID (Agent or Customer)
-  message   String        @db.Text
-  isInternal Boolean      @default(false) // Admin internal notes
-  createdAt DateTime      @default(now())
-}
-
-model AuditLog {
-  id           String   @id @default(uuid())
-  userId       String?  // Admin performing action
-  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  ipAddress    String
-  action       String   // "user.suspend", "subscription.billing_override"
-  targetEntity String   // e.g. "User ID: xxxxxxxx"
-  beforeState  Json?
-  afterState   Json?
-  createdAt    DateTime @default(now())
-}
-
-model UserActivityLog {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ipAddress String
-  device    String
-  action    String   // "login", "resume.tailored"
-  createdAt DateTime @default(now())
-}
-
-model InterviewSession {
-  id          String              @id @default(uuid())
-  userId      String
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  roleTitle   String
-  companyName String
-  transcript  Json                // Array of messages in context
-  createdAt   DateTime            @default(now())
-}
-
-model SkillGap {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skillName   String
-  category    String   // "Hard", "Soft", "Tool"
-  recommendedLearning String // Links/Name of courses
-  createdAt   DateTime @default(now())
-}
-```
-
----
-
-## 2. PostgreSQL Indexing Strategy
-
-To maintain sub-200ms page loads on transactional lists, the following indexes are generated:
-
-*   **Composite Unique Key on User Saved Jobs:**
-    `@@unique([userId, jobListingId])` -> Stops duplicate job saves, and indexes both paths.
-*   **Logical Isolation Keys:**
-    `CREATE INDEX idx_user_tenant ON "User"("tenantId");` -> Quick routing verification for corporate environments.
-*   **Search Indices on Listings:**
-    `CREATE INDEX idx_job_sponsor ON "JobListings"("visaSponsorship");` -> Boosts filtering speeds when toggling Skilled Worker tags.
-*   **Application Pipeline Sorting:**
-    `CREATE INDEX idx_app_status ON "JobApplication"("userId", "status");` -> Speeds up Kanban view rendering.
-
----
-
-## 3. Pinecone Vector Database Schema
-
-Semantic match calculations use a dedicated Pinecone vector index.
-
-*   **Index Dimension:** 1536 (matching OpenAI `text-embedding-3-small` / `text-embedding-ada-002`).
-*   **Distance Metric:** `Cosine Similarity`.
-*   **Payload Metadata Structure:**
-    ```json
-    {
-      "userId": "string (GUID mapping to Postgres User.id)",
-      "resumeId": "string (GUID mapping to Postgres Resume.id)",
-      "skills": ["string (comma separated clean tags)"],
-      "experienceYears": "number",
-      "preferredLocations": ["string"],
-      "visaSponsorshipRequired": "boolean"
-    }
-    ```
-
----
-
-## 4. Redis Keyspace Configurations
-
-Redis is configured to run on port 6379 under AWS ElastiCache.
-
-| Data Type | Keyspace Pattern | Purpose | Expiry Policy |
-| :--- | :--- | :--- | :--- |
-| **String** | `rate:limit:<ip_address>:<endpoint>` | API Protection (sliding window) | 60 seconds |
-| **Hash** | `session:auth:<jwt_jti>` | Validated OAuth user states | 24 Hours |
-| **Hash** | `chat:session:<user_id>:<session_id>` | AI Career Copilot context log | 7 days |
-| **BullMQ** | `bull:<queue_name>:*` | BullMQ resume parsing task configurations | Managed by BullMQ library |
+The active Prisma schema has no Pinecone/embedding, Elasticsearch, Redis cache/queue, `UserActivityLog`, `InterviewSession`, `SkillGap`, commission ledger, or email-verification boolean model. These appeared in older proposals or are future work. There is no organization membership/tenant schema beyond `User.tenantId`.

@@ -10,7 +10,9 @@
 - **Broken:** reproduced in local browser or confirmed from route/configuration wiring.
 - **Untested:** source inventory alone does not establish behavior, or there is no test evidence.
 
-The repo has no web E2E runner. No live sign-in, email delivery, AI provider request, Stripe payment, database mutation, or extension install was performed. API Jest specs cover selected service/controller units, not the web feature rows below.
+The repo has no web E2E runner. No live sign-in, email delivery, AI provider request, Stripe payment, database mutation, or extension install was performed. API Vitest specs cover selected service/guard units, not the web feature rows below.
+
+> **Current-source note (13 Nov 2026):** This audit's runtime observations remain a 1 Nov snapshot. Since then, source has added admin payment failure/refund handling, site banners, notifications, CSV exports and editable role permissions, plus security hardening. API/web production builds and focused API tests have passed in the later development session, but the new workflows have not been exercised against a live database/provider. See the [current project guide](../17_current_project_guide.md) for today's source map. Do not read the tables below as a new end-to-end test report.
 
 ## Marketing and public pages
 
@@ -70,6 +72,16 @@ All routes below are protected by the admin layout/check, but no authenticated a
 | `/admin/tickets` | List/filter tickets; detail panel; status update; email reply; notification compose/send. | Partial | Admin API actions exist. Public support submissions currently use Web3Forms and are not persisted to these ticket records, so these flows are not connected end to end. |
 | `/admin/users` | Search/filter/paginate, inspect activity, edit credits/plan, delete. | Working (source-wired); runtime untested | Admin API calls present; destructive/update flows not tested. |
 
+### Admin routes added after this audit snapshot
+
+| Route / surface | Source-wired capability | Runtime status |
+|---|---|---|
+| `/admin/content` | Create, schedule, edit, deactivate homepage banners; public banner endpoint consumes active content. | Not live-tested; migration required. |
+| `/admin/notifications` | Send email or in-app messages to one user or a supported audience; send throttling and audit event. | Not live-tested; email delivery/audience behavior requires integration verification. |
+| `/admin/reports` | Download CSV for user, billing, subscription, and AI usage records. | Not live-tested against dataset; export permission checks are server-side. |
+| `/admin/roles` | Super Admin edits permission grants for Operations, Support, and Finance roles. | Not live-tested against database; migration required. |
+| `/admin/billing` payment actions | View payment failures/refund amounts and submit full/partial Stripe refunds. | Not verified with Stripe test/live account; payment migration required. |
+
 ## Shared feedback and platform states
 
 | Feature | Status | Finding |
@@ -83,7 +95,7 @@ All routes below are protected by the admin layout/check, but no authenticated a
 
 ## API capability inventory
 
-Source declares these API feature families: `/api/health`, `/api/auth/oci/jwks`, `/api/users/me`, `/api/dashboard/summary`, `/api/resumes`, `/api/applications`, `/api/job-search`, `/api/cover-letters`, `/api/interview`, `/api/billing`, `/api/support/chat`, and `/api/admin`. Methods cover CRUD, upload, exports, AI generation, Stripe checkout/portal/webhook, and admin ticket/user/billing operations. Unit test files exist for selected API services and guards; there is no route-wide contract/E2E coverage.
+Source declares these API feature families: `/api/health`, `/api/auth/oci/jwks`, `/api/users/me`, `/api/dashboard/summary`, `/api/resumes`, `/api/applications`, `/api/job-search`, `/api/cover-letters`, `/api/interview`, `/api/billing`, `/api/support/chat`, `/api/content/banners`, and `/api/admin`. Admin APIs now include permission-managed reports, notifications, banners, refunds, and role grants. Unit test files exist for selected API services and guards; there is no route-wide contract/E2E coverage.
 
 ## Prioritized gaps
 

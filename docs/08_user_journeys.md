@@ -1,5 +1,7 @@
 # User Journeys — JobIN
 
+> **Product-flow proposal:** These journeys describe intended flows and may reference unimplemented steps. For current routes and integration boundaries, see the [current project guide](./17_current_project_guide.md).
+
 This document defines the core user flows through the JobIN ecosystem, detailing system actions, entry points, verification processes, and feedback triggers.
 
 ---

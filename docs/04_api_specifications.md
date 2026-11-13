@@ -1,249 +1,111 @@
-# API Specifications — JobIN
+# JobIN API Reference
 
-**Base URL:** `https://api.jobin.ai/v1`  
-**Authentication:** Bearer JWT tokens in the `Authorization: Bearer <token>` header.
+**Reviewed:** 13 November 2026. This is a controller-derived route map, not a generated OpenAPI contract. Source controllers and DTOs are authoritative. API base path is `/api`; local default is `http://localhost:4000/api`.
 
----
+## Request and security conventions
 
-## 1. Authentication Endpoints (`/auth`)
+- Protected routes take `Authorization: Bearer <provider access token>`.
+- The NestJS `SupabaseAuthGuard` validates the configured identity provider(s), resolves the JobIN user, and rejects suspended/deleted accounts. The guard's name is historical; supported modes are configured through `AUTH_PROVIDER`.
+- Admin routes add `AdminRoleGuard`, which requires an ACTIVE account and admin role, then checks the route permission or Super Admin role.
+- JSON inputs pass through the global class-validator `ValidationPipe`: transform and whitelist are enabled, unknown properties are rejected.
+- Global prefix is `/api`. Global throttle is 60 requests per minute; support chat has 6/minute and notification sends 2/minute.
+- Successful `204` endpoints have no response body. Download endpoints return binary files. Errors use the API's standard JSON exception response; server errors conceal infrastructure details.
 
-### 1.1 User Registration
-*   **Endpoint:** `POST /auth/register`
-*   **Auth Required:** No
-*   **Request Body:**
-    ```json
-    {
-      "email": "candidate@example.com",
-      "password": "SecurePassword123!",
-      "fullName": "John Doe"
-    }
-    ```
-*   **Response (201 Created):**
-    ```json
-    {
-      "success": true,
-      "message": "User registered successfully",
-      "userId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
-    }
-    ```
+## Public and system routes
 
-### 1.2 User Login
-*   **Endpoint:** `POST /auth/login`
-*   **Auth Required:** No
-*   **Request Body:**
-    ```json
-    {
-      "email": "candidate@example.com",
-      "password": "SecurePassword123!"
-    }
-    ```
-*   **Response (200 OK):**
-    ```json
-    {
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-      "expiresIn": 86400,
-      "user": {
-        "id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
-        "email": "candidate@example.com",
-        "fullName": "John Doe",
-        "role": "CANDIDATE"
-      }
-    }
-    ```
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/health` | Liveness status, timestamp, and process uptime. |
+| `GET` | `/health/ready` | Database readiness; returns `503` when the database query fails. |
+| `GET` | `/auth/oci/jwks` | Cacheable OCI public signing keys, with transient failures marked `no-store`. |
+| `GET` | `/billing/checkout-options` | Publicly configured checkout plans/currencies/intervals. |
+| `POST` | `/billing/webhook` | Stripe webhook; raw body signature verification. Configure required Stripe events. |
+| `POST` | `/support/chat` | Public product-support chat; 6 requests/minute. Does not expose account-specific data. |
+| `GET` | `/content/banners` | Active site banners within start/end time windows. |
 
----
+## Signed-in user routes
 
-## 2. Resumes & optimization (`/resumes`)
+| Method | Path | Request/behavior |
+|---|---|---|
+| `GET` | `/users/me` | Current profile. |
+| `PATCH` | `/users/me` | Update supported profile fields. |
+| `DELETE` | `/users/me` | Soft-delete current account (`204`). |
+| `GET` | `/dashboard/summary` | Current-user dashboard data and plan usage. |
+| `POST` | `/resumes/upload` | Multipart field `resume`; PDF, DOCX, or `.tex`, max 10 MiB. |
+| `GET` | `/resumes` | List current user's resumes. |
+| `GET` | `/resumes/:id` | Resume detail and authorized pre-signed download URL. |
+| `PATCH` | `/resumes/:id` | Update title/default selection. |
+| `DELETE` | `/resumes/:id` | Delete an owned resume (`204`). |
+| `POST` | `/resumes/:id/analyse` | Analyze owned resume. |
+| `POST` | `/resumes/:id/tailor` | Tailor for supplied role/job description; saves a version and evidence report. |
+| `GET` | `/resumes/:id/versions` | List tailored versions. |
+| `PATCH` | `/resumes/:id/versions/:versionId` | Save user edits to an owned version. |
+| `GET` | `/resumes/:id/export/pdf` | PDF download; optional `versionId`, `template`, `pageSize`; response includes `X-PDF-Engine`. |
+| `GET` | `/resumes/:id/export/docx` | DOCX download; supports the same version/template/page options. |
+| `GET` | `/resumes/:id/export/latex` | LaTeX source download; supports the same version/template/page options. |
+| `POST` | `/cover-letters/generate` | Generate and store a cover letter from validated inputs. |
+| `GET` | `/cover-letters` | List current user's letters. |
+| `GET` | `/cover-letters/:id` | Get one owned letter. |
+| `DELETE` | `/cover-letters/:id` | Delete one owned letter (`204`). |
+| `GET` | `/cover-letters/:id/export/pdf` | PDF download. |
+| `GET` | `/cover-letters/:id/export/docx` | DOCX download. |
+| `GET` | `/applications/stats` | Current user's application summary. |
+| `GET` | `/applications/activity` | Recent application activity. |
+| `POST` | `/applications` | Create an application tracker record. |
+| `GET` | `/applications` | List applications; optional status filter. |
+| `GET` | `/applications/:id` | Read owned application. |
+| `PATCH` | `/applications/:id` | Update owned application fields/status. |
+| `DELETE` | `/applications/:id` | Delete owned application (`204`). |
+| `GET` | `/job-search` | Browse shared job catalogue. See filters below. |
+| `POST` | `/job-search` | On-demand search public feeds; may import selected results into tracker according to request DTO. |
+| `POST` | `/interview/question` | Generate personalized interview question; may spend an AI credit. |
+| `POST` | `/interview/evaluate` | Evaluate candidate answer. |
+| `GET` | `/billing/usage` | Current plan and AI credit usage. |
+| `POST` | `/billing/create-checkout-session` | Create Stripe Checkout session. |
+| `POST` | `/billing/portal` | Create customer-portal session. |
 
-### 2.1 Upload Resume
-*   **Endpoint:** `POST /resumes/upload`
-*   **Auth Required:** Yes
-*   **Content-Type:** `multipart/form-data`
-*   **Request Params:** File upload via key `resume` (PDF or DOCX max 10MB).
-*   **Response (201 Created):**
-    ```json
-    {
-      "id": "e30d1c7f-f77d-4228-b0a7-bcceb0f023ad",
-      "title": "John_Doe_Resume_2026.pdf",
-      "s3Url": "https://s3.eu-west-2.amazonaws.com/jobin-resumes/e30d1c7f.pdf",
-      "atsScore": 68
-    }
-    ```
+Resume routes check owner identity. Download responses are attachments and are not normal JSON. Tailoring alignment values are estimates, not a promise about an employer's ATS.
 
-### 2.2 Tailor Resume to Job Description
-*   **Endpoint:** `POST /resumes/tailor`
-*   **Auth Required:** Yes
-*   **Request Body:**
-    ```json
-    {
-      "resumeId": "e30d1c7f-f77d-4228-b0a7-bcceb0f023ad",
-      "jobDescription": "Looking for a Node.js software engineer with experience in AWS EKS and Redis..."
-    }
-    ```
-*   **Response (200 OK):**
-    ```json
-    {
-      "tailoredResumeId": "8aef3e21-5a41-4566-a36c-2f22bdcde11a",
-      "tailoredS3Url": "https://s3.eu-west-2.amazonaws.com/jobin-resumes/8aef3e21.pdf",
-      "atsScoreBefore": 68,
-      "atsScoreAfter": 94,
-      "changesMade": {
-        "summary": "Realigned executive summary to emphasize Next.js, EKS architectures.",
-        "bulletPointsModified": [
-          "Accomplished a 35% reduction in search latency (X) measured by APM metrics (Y) by implementing Redis session caches (Z)"
-        ]
-      },
-      "missingKeywords": ["Kubernetes", "TypeScript Types"],
-      "keywordDensity": [
-        { "keyword": "Node.js", "count": 6, "density": "2.4%" }
-      ]
-    }
-    ```
+### Catalogue query
 
----
+`GET /job-search` accepts typed query parameters defined in `apps/api/src/job-search/dto/browse-job-listings.dto.ts`: keyword query, location, remote-only, likely visa sponsorship, source, posting-age window, sort, page, and page size (capped at 100). Response includes paginated listings, source availability, and latest successful sync time. Sponsorship is inferred from listing wording, not a visa eligibility guarantee. Exact field names/enums should be read from the DTO to avoid duplicating validation rules here.
 
-## 3. Job Tracking & Operations (`/applications`)
+## Admin endpoints
 
-### 3.1 Get Applications
-*   **Endpoint:** `GET /applications`
-*   **Auth Required:** Yes
-*   **Query Parameters:**
-    *   `status` (Optional, e.g., `APPLIED`, `OFFER`)
-*   **Response (200 OK):**
-    ```json
-    [
-      {
-        "id": "3c41ef5e-d2b3-4f51-b873-6302ed19bb11",
-        "status": "APPLIED",
-        "jobListing": {
-          "title": "Software Engineer",
-          "companyName": "Acme Corp",
-          "location": "London, UK"
-        },
-        "appliedDate": "2026-06-13T12:00:00Z"
-      }
-    ]
-    ```
+All endpoints below require an active admin account and appropriate admin authorization. A Super Admin bypasses permission checks except the account must remain active.
 
-### 3.2 Create Job Tracker Card
-*   **Endpoint:** `POST /applications`
-*   **Auth Required:** Yes
-*   **Request Body:**
-    ```json
-    {
-      "jobTitle": "Lead Architect",
-      "companyName": "AlphaTech",
-      "location": "Remote, UK",
-      "status": "SAVED",
-      "description": "Full-stack cloud application setup details..."
-    }
-    ```
-*   **Response (201 Created):**
-    ```json
-    {
-      "id": "0d99ef87-1234-45aa-bbcc-0987654321ab",
-      "status": "SAVED",
-      "jobTitle": "Lead Architect",
-      "companyName": "AlphaTech"
-    }
-    ```
+| Method | Path | Authorization |
+|---|---|---|
+| `GET` | `/admin/access` | Any active admin role; returns role names and assigned permissions. |
+| `GET` | `/admin/metrics` | `reports:dashboard` |
+| `GET` | `/admin/users` | `users:read` |
+| `GET` | `/admin/users/:id/activity` | `users:read` |
+| `PATCH` | `/admin/users/:id` | `users:read`; service separately restricts status and billing changes; assigning roles requires Super Admin. |
+| `DELETE` | `/admin/users/:id` | Super Admin; external identity/storage configuration may be required. |
+| `GET` | `/admin/subscriptions`, `/admin/billing`, `/admin/stripe-prices` | `billing:read` |
+| `POST` | `/admin/stripe-prices` | `billing:write` |
+| `GET`, `POST` | `/admin/discount-codes` | `discounts:manage` |
+| `PATCH` | `/admin/discount-codes/:id/deactivate` | `discounts:manage` |
+| `POST` | `/admin/payments/:id/refund` | `payments:refund`; optional partial amount in Stripe minor units. |
+| `GET`, `POST` | `/admin/ai-settings` | Super Admin |
+| `GET` | `/admin/ai-usage` | `ai:read` |
+| `GET` | `/admin/tickets` | `support:read_tickets` |
+| `PATCH` | `/admin/tickets/:id` | `support:write_tickets` |
+| `POST` | `/admin/tickets/:id/reply` | `support:write_tickets` |
+| `POST` | `/admin/notifications/send` | `notifications:send`; 2/minute. |
+| `GET`, `POST` | `/admin/content/banners` | `content:manage` |
+| `PATCH`, `DELETE` | `/admin/content/banners/:id` | `content:manage`; DELETE deactivates the banner. |
+| `GET` | `/admin/reports/users.csv` | `reports:users` |
+| `GET` | `/admin/reports/billing.csv` | `reports:billing` |
+| `GET` | `/admin/reports/subscriptions.csv` | `reports:subscriptions` |
+| `GET` | `/admin/reports/ai-usage.csv` | `reports:ai` |
+| `GET` | `/admin/roles` | Super Admin |
+| `PATCH` | `/admin/roles/:id/permissions` | Super Admin; only Operations, Support and Finance roles are editable. `admin:access` must be retained. |
 
-### 3.3 Update Application Status
-*   **Endpoint:** `PATCH /applications/{id}`
-*   **Auth Required:** Yes
-*   **Request Body:**
-    ```json
-    {
-      "status": "INTERVIEW",
-      "appliedDate": "2026-06-13T13:30:00Z"
-    }
-    ```
-*   **Response (200 OK):**
-    ```json
-    {
-      "id": "0d99ef87-1234-45aa-bbcc-0987654321ab",
-      "status": "INTERVIEW"
-    }
-    ```
+Admin notifications target one user or an audience resolved by the service. They create notification records and send email for email delivery. Public support/contact Web3Forms submissions are currently not automatically persisted as admin tickets.
 
----
+## Database and deployment dependencies
 
-## 4. AI Career & Interview Coach (`/ai`)
+The Prisma schema is the data contract. New admin capabilities require their migrations before the API is deployed: `20261113_admin_payment_management`, `20261113_admin_role_permissions`, and `20261113_admin_site_banners`. Do not apply migrations from this document; use the controlled environment deployment process. Existing databases without migration history may need baseline reconciliation.
 
-### 4.1 Chat with JobIN Copilot
-*   **Endpoint:** `POST /ai/copilot/chat`
-*   **Auth Required:** Yes
-*   **Request Body:**
-    ```json
-    {
-      "message": "How do I negotiate a base salary starting at £75,000?",
-      "sessionId": "optional-uuid-for-history"
-    }
-    ```
-*   **Response (200 OK - supports Server-Sent Events/Streaming):**
-    ```json
-    {
-      "response": "Here is a script to approach the recruiter: 'Thank you for this offer! Given my experience in EKS migrations...'",
-      "sessionId": "4567-89ab-cdef"
-    }
-    ```
-
-### 4.2 Start AI Mock Interview Session
-*   **Endpoint:** `POST /ai/interview/start`
-*   **Auth Required:** Yes
-*   **Request Body:**
-    ```json
-    {
-      "roleTitle": "Data Scientist",
-      "companyName": "DeepMind",
-      "jobDescription": "Looking for research developers..."
-    }
-    ```
-*   **Response (200 OK):**
-    ```json
-    {
-      "sessionId": "5a22bbcc-1234-4aab-bbcc-123456789abc",
-      "firstQuestion": "Can you describe a machine learning project where you directly improved business throughput? Detail your metrics."
-    }
-    ```
-
----
-
-## 5. Support Tickets & Admin Operations (`/admin` / `/support`)
-
-### 5.1 Create Support Ticket
-*   **Endpoint:** `POST /support/tickets`
-*   **Auth Required:** Yes
-*   **Request Body:**
-    ```json
-    {
-      "subject": "Billing issue on Pro tier",
-      "description": "Double charged during renewal."
-    }
-    ```
-*   **Response (201 Created):**
-    ```json
-    {
-      "ticketId": "aa43efd2-34ef-4b21-ad2c-12345678abcd",
-      "status": "OPEN"
-    }
-    ```
-
-### 5.2 Admin - Suspend User
-*   **Endpoint:** `POST /admin/users/{id}/suspend`
-*   **Auth Required:** Yes (Admin role check)
-*   **Request Body:**
-    ```json
-    {
-      "reason": "Abuse of AI credits API scraping templates",
-      "durationDays": 30
-    }
-    ```
-*   **Response (200 OK):**
-    ```json
-    {
-      "userId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
-      "status": "SUSPENDED",
-      "suspendedUntil": "2026-07-13T13:34:00Z"
-    }
-    ```
+See [`apps/api/README.md`](../apps/api/README.md) for job feed source limitations, resume processing dependencies, discount-code test mode, and deployment notes. See the [project guide](./17_current_project_guide.md) for environment setup, architecture, security controls and route-group overview.
