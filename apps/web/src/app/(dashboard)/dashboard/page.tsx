@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import {
   Send,
   TrendingUp,
-  Star,
   Zap,
   Wand2,
   Pen,
@@ -531,6 +530,40 @@ export default function DashboardPage() {
             Your search, <strong>in motion.</strong> Here&apos;s where the next opportunity begins.
           </p>
           </div>
+          <div className={styles.heroMetrics} aria-label="Your job search progress">
+            <Link href="/tracker" className={styles.heroMetric}>
+              <span className={styles.heroMetricIcon}><Send size={17} /></span>
+              <span className={styles.heroMetricCopy}>
+                <span className={styles.heroMetricLabel}>Applications</span>
+                <strong>
+                  {dashboardQuery.isLoading && !summary
+                    ? '…'
+                    : dashboardQuery.isError && !summary
+                      ? '—'
+                      : <AnimatedNumber value={stats?.totalApplied ?? 0} />}
+                </strong>
+                <small>{stats?.thisWeek ?? 0} this week</small>
+              </span>
+              <ChevronRight size={16} className={styles.heroMetricArrow} />
+            </Link>
+            <Link href="/resumes" className={styles.heroMetric}>
+              <span className={styles.heroMetricIcon}><Sparkles size={17} /></span>
+              <span className={styles.heroMetricCopy}>
+                <span className={styles.heroMetricLabel}>Resume ATS score</span>
+                <strong>
+                  {dashboardQuery.isLoading && !summary
+                    ? '…'
+                    : dashboardQuery.isError && !summary
+                      ? '—'
+                      : atsScore > 0
+                        ? <><AnimatedNumber value={atsScore} /><span className={styles.heroMetricSuffix}>/100</span></>
+                        : '—'}
+                </strong>
+                <small>{atsScore > 0 ? (topResume?.title ?? 'Your resume') : 'Upload and analyse a CV'}</small>
+              </span>
+              <ChevronRight size={16} className={styles.heroMetricArrow} />
+            </Link>
+          </div>
           <div className={styles.heroActions}>
             <Link href="#job-discovery" className={styles.heroPrimary}>
               <Zap size={16} /> Explore roles <ArrowUpRight size={16} />
@@ -573,16 +606,6 @@ export default function DashboardPage() {
       <div className={styles.statsGrid} style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
         <DashboardStatCard
           delay={0.05}
-          label="Total Applications"
-          icon={Send}
-          value={stats?.total ?? 0}
-          color={{ text: 'var(--brand)', bg: 'var(--brand-light)' }}
-          subText={`${stats?.thisWeek ?? 0} applied this week`}
-          loading={dashboardQuery.isLoading && !summary}
-          error={dashboardQuery.isError && !summary}
-        />
-        <DashboardStatCard
-          delay={0.1}
           label="Interview Rate"
           icon={TrendingUp}
           value={stats?.interviewRate ?? 0}
@@ -595,7 +618,7 @@ export default function DashboardPage() {
           error={dashboardQuery.isError && !summary}
         />
         <DashboardStatCard
-          delay={0.15}
+          delay={0.1}
           label="Offer Rate"
           icon={Award}
           value={stats?.offerRate ?? 0}
@@ -606,17 +629,6 @@ export default function DashboardPage() {
               ? `${stats?.byStatus?.['OFFER']} job offer(s)`
               : 'Keep pushing!'
           }
-          loading={dashboardQuery.isLoading && !summary}
-          error={dashboardQuery.isError && !summary}
-        />
-        <DashboardStatCard
-          delay={0.2}
-          label="Resume Health"
-          icon={Star}
-          value={atsScore}
-          suffix="/100"
-          color={{ text: '#F59E0B', bg: '#FEF9C3' }}
-          subText={atsScore > 0 ? (topResume?.title ?? 'Default CV') : 'Upload a CV first'}
           loading={dashboardQuery.isLoading && !summary}
           error={dashboardQuery.isError && !summary}
         />

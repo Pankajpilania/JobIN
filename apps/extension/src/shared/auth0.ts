@@ -12,6 +12,7 @@ interface Auth0TokenResponse {
   expires_in: number;
   token_type: string;
   id_token: string;
+  refresh_token?: string;
 }
 
 function base64Url(value: Uint8Array) {
@@ -71,7 +72,7 @@ export async function signInWithAuth0(signUp: boolean, email?: string) {
     client_id: clientId,
     redirect_uri: redirectUri,
     audience,
-    scope: 'openid profile email',
+    scope: 'openid profile email offline_access',
     state,
     nonce,
     code_challenge: challenge,
@@ -108,6 +109,11 @@ export async function signInWithAuth0(signUp: boolean, email?: string) {
   if (!tokens.access_token || !tokens.id_token || !Number.isFinite(tokens.expires_in)) {
     throw new Error('Auth0 returned an invalid access token response.');
   }
+  if (!tokens.refresh_token) {
+    throw new Error(
+      'Auth0 did not issue a refresh token. Enable the Refresh Token grant and offline_access scope for the extension application.',
+    );
+  }
 
   const { payload } = await jwtVerify(
     tokens.id_token,
@@ -126,5 +132,5 @@ export async function signInWithAuth0(signUp: boolean, email?: string) {
   };
   if (!user.sub) throw new Error('Auth0 profile is missing a subject identifier.');
 
-  return { ...tokens, user };
+  return { ...tokens, token_endpoint: `${issuerUrl}/oauth/token`, user };
 }

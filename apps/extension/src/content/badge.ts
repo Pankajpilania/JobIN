@@ -178,7 +178,7 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
   info.className = 'info';
   const title = document.createElement('span');
   title.className = 'title';
-  title.textContent = 'JobIN Match';
+  title.textContent = 'Resume Match';
   const scoreRow = document.createElement('div');
   scoreRow.className = 'score-row';
   if (isLoading) {
@@ -192,7 +192,7 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
   scoreRow.appendChild(scoreElement);
   const cta = document.createElement('span');
   cta.className = 'cta';
-  cta.textContent = 'Click to tailor → open panel';
+  cta.textContent = 'Keyword overlap estimate · Open panel';
   info.append(title, scoreRow, cta);
   badge.append(logo, info);
 
@@ -239,13 +239,24 @@ export function injectBadge(options: BadgeOptions = {}): () => void {
 export function updateBadgeScore(score: number): void {
   const host = document.getElementById(BADGE_ID);
   if (!host?.shadowRoot) return;
-  const scoreEl = host.shadowRoot.querySelector('.score');
+  const scoreEl = host.shadowRoot.querySelector<HTMLElement>('.score');
   if (!scoreEl) return;
   const grade = getGrade(score);
   scoreEl.textContent = `${score}/100`;
   scoreEl.className = `score grade-${grade.toLowerCase()}`;
   const pulse = host.shadowRoot.querySelector('.pulse');
   pulse?.remove();
+}
+
+export function updateBadgeMessage(message: string): void {
+  const host = document.getElementById(BADGE_ID);
+  if (!host?.shadowRoot) return;
+  const scoreEl = host.shadowRoot.querySelector<HTMLElement>('.score');
+  if (!scoreEl) return;
+  scoreEl.textContent = message.slice(0, 28);
+  scoreEl.className = 'score loading';
+  scoreEl.style.fontSize = '12px';
+  host.shadowRoot.querySelector('.pulse')?.remove();
 }
 
 export function removeBadge(): void {

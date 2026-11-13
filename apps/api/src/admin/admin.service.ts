@@ -29,6 +29,8 @@ import type {
   CreateSiteBannerDto,
   UpdateSiteBannerDto,
   UpdateRolePermissionsDto,
+  CreatePlanDto,
+  UpdatePlanDto,
 } from './dto/admin.dto';
 
 @Injectable()
@@ -774,6 +776,129 @@ export class AdminService {
       where: { id: userId },
       include: { roles: { include: { role: true } }, subscriptions: { include: { plan: true } } },
     });
+  }
+
+  async listPlans() {
+    const plans = await this.prisma.plan.findMany({
+      include: { features: true, _count: { select: { subscriptions: true } } },
+      orderBy: [{ name: 'asc' }],
+    });
+    return plans.map(({ stripePriceId: _legacyPriceId, features, _count, ...plan }) => ({
+      ...plan,
+      aiCreditsMonthly: Number.parseInt(
+        features.find((feature) => feature.featureKey === 'ai_credits_monthly')?.value ?? '20',
+        10,
+      ),
+      subscriberCount: _count.subscriptions,
+    }));
+  }
+
+  async createPlan(adminId: string, dto: CreatePlanDto, ipAddress?: string) {
+    const name = dto.name.trim().toUpperCase();
+    if (await this.prisma.plan.findUnique({ where: { name }, select: { id: true } })) {
+      throw new ConflictException('A plan with this code already exists.');
+    }
+    const plan = await this.prisma.$transaction(async (transaction) => {
+      const created = await transaction.plan.create({
+        data: {
+          name,
+          // Checkout uses StripePriceConfig. Retain this legacy unique column for schema compatibility.
+          stripePriceId: `plan_internal_${randomUUID().replace(/-/g, '')}`,
+          priceMonthly: dto.priceMonthly,
+          priceYearly: dto.priceYearly,
+          currency: dto.currency,
+        },
+      });
+      await transaction.planFeature.create({
+        data: {
+          planId: created.id,
+          featureKey: 'ai_credits_monthly',
+          value: String(dto.aiCreditsMonthly),
+        },
+      });
+      return created;
+    });
+    await this.audit(
+      adminId,
+      'ADMIN_CREATE_PLAN',
+      'Plan',
+      plan.id,
+      undefined,
+      {
+        name,
+        priceMonthly: dto.priceMonthly,
+        priceYearly: dto.priceYearly,
+        currency: dto.currency,
+        aiCreditsMonthly: dto.aiCreditsMonthly,
+      },
+      undefined,
+      ipAddress,
+    );
+    return (await this.listPlans()).find((item) => item.id === plan.id);
+  }
+
+  async updatePlan(adminId: string, id: string, dto: UpdatePlanDto, ipAddress?: string) {
+    const existing = await this.prisma.plan.findUnique({
+      where: { id },
+      include: { features: true, _count: { select: { subscriptions: true } } },
+    });
+    if (!existing) throw new NotFoundException('Plan not found.');
+    const beforeState = {
+      priceMonthly: existing.priceMonthly,
+      priceYearly: existing.priceYearly,
+      currency: existing.currency,
+      aiCreditsMonthly: Number.parseInt(
+        existing.features.find((feature) => feature.featureKey === 'ai_credits_monthly')?.value ??
+          '20',
+        10,
+      ),
+      isActive: existing.isActive,
+    };
+    if (dto.isActive === false && existing.name === 'FREE') {
+      throw new BadRequestException('The FREE plan cannot be deactivated.');
+    }
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.plan.update({
+        where: { id },
+        data: {
+          ...(dto.priceMonthly !== undefined ? { priceMonthly: dto.priceMonthly } : {}),
+          ...(dto.priceYearly !== undefined ? { priceYearly: dto.priceYearly } : {}),
+          ...(dto.currency !== undefined ? { currency: dto.currency } : {}),
+          ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        },
+      });
+      if (dto.aiCreditsMonthly !== undefined) {
+        const feature = await transaction.planFeature.findFirst({
+          where: { planId: id, featureKey: 'ai_credits_monthly' },
+          select: { id: true },
+        });
+        if (feature) {
+          await transaction.planFeature.update({
+            where: { id: feature.id },
+            data: { value: String(dto.aiCreditsMonthly) },
+          });
+        } else {
+          await transaction.planFeature.create({
+            data: {
+              planId: id,
+              featureKey: 'ai_credits_monthly',
+              value: String(dto.aiCreditsMonthly),
+            },
+          });
+        }
+      }
+    });
+    await this.audit(
+      adminId,
+      'ADMIN_UPDATE_PLAN',
+      'Plan',
+      id,
+      beforeState,
+      { ...beforeState, ...dto },
+      { name: existing.name, activeSubscribers: existing._count.subscriptions },
+      ipAddress,
+    );
+    return (await this.listPlans()).find((item) => item.id === id);
   }
 
   async getStripePrices() {

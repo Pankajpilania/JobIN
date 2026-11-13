@@ -5,7 +5,7 @@
 
 import { detectBoard, isJobPage } from './detector';
 import { extractWithRetry } from './extractor';
-import { injectBadge, updateBadgeScore, removeBadge } from './badge';
+import { injectBadge, updateBadgeScore, updateBadgeMessage, removeBadge } from './badge';
 import { MSG } from '../shared/messages';
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
@@ -41,13 +41,26 @@ async function main() {
     }
   });
 
-  // Keep badge in loading state — score will be computed on-demand when user opens popup/panel
-  // The badge just signals the page was detected
+  // Keep the badge loading while the selected resume is compared with the role.
   injectBadge({
     score: null,
     onOpen: () => {
       // Badge click already handled inside badge.ts (sends OPEN_SIDE_PANEL)
     },
+  });
+
+  chrome.runtime.sendMessage({ type: MSG.REQUEST_MATCH_SCORE, payload: { job } }, (response) => {
+    if (chrome.runtime.lastError) return;
+    const score = response?.match?.score;
+    if (typeof score === 'number' && Number.isFinite(score)) updateBadgeScore(score);
+    else if (response?.error) {
+      const shortStatus = /sign.?in|session|token/i.test(response.error)
+        ? 'Sign in required'
+        : /resume|upload/i.test(response.error)
+          ? 'Add a resume'
+          : 'Open JobIN panel';
+      updateBadgeMessage(shortStatus);
+    }
   });
 }
 

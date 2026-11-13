@@ -68,7 +68,10 @@ export interface SaveApplicationMessage extends BaseMessage {
 
 export interface AutofillFormMessage extends BaseMessage {
   type: typeof MSG.AUTOFILL_FORM;
-  payload: import('./types').UserProfile;
+  payload: {
+    profile: import('./types').UserProfile;
+    settings: import('./types').AutofillSettings;
+  };
 }
 
 export type ExtensionMessage =

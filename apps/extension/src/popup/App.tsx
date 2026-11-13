@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MSG } from '../shared/messages';
 import type { AuthState, DetectedJob, Resume } from '../shared/types';
+import { BrandLogo } from '../shared/brand-mark';
 
 // ─── Score ring SVG component ─────────────────────────────────────────────────
 
@@ -189,6 +190,19 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const syncAuth = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+      if (area !== 'local' || !Object.prototype.hasOwnProperty.call(changes, 'jobin_auth')) return;
+      const nextAuth = changes.jobin_auth.newValue as AuthState | undefined;
+      setAuth(nextAuth ?? null);
+      setAuthError(
+        nextAuth ? '' : 'You are signed out. Sign in again in JobIN extension settings.',
+      );
+    };
+    chrome.storage.onChanged.addListener(syncAuth);
+    return () => chrome.storage.onChanged.removeListener(syncAuth);
+  }, []);
+
   const openSidePanel = () => {
     chrome.runtime.sendMessage({ type: MSG.OPEN_SIDE_PANEL });
     window.close();
@@ -257,57 +271,17 @@ export default function App() {
           background: 'linear-gradient(180deg,rgba(0,217,145,0.1),transparent)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg
-            width="28"
-            height="28"
-            viewBox="0 0 32 32"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <defs>
-              <linearGradient id="pbg" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#007f57" />
-                <stop offset="100%" stopColor="#00d991" />
-              </linearGradient>
-              <linearGradient id="pa" x1="0" y1="1" x2="1" y2="0">
-                <stop offset="0%" stopColor="#ecffe0" />
-                <stop offset="100%" stopColor="#ffffff" />
-              </linearGradient>
-            </defs>
-            <rect width="32" height="32" rx="7" fill="url(#pbg)" />
-            <rect x="8" y="13" width="13" height="2.5" rx="1.25" fill="white" opacity="0.9" />
-            <rect x="8" y="17.5" width="10" height="2.5" rx="1.25" fill="white" opacity="0.75" />
-            <rect x="8" y="22" width="7" height="2.5" rx="1.25" fill="white" opacity="0.6" />
-            <path
-              d="M16 24 L16 10 L22 4"
-              stroke="url(#pa)"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <polygon points="22,4 28,4 22,10" fill="url(#pa)" />
-          </svg>
-          <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 700, fontSize: 15 }}>
-            Job
-            <span
-              style={{
-                background: 'linear-gradient(90deg,#008c60,#00a86b)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              IN
-            </span>
-          </span>
-        </div>
+        <BrandLogo size={28} textColor="var(--text)" />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399' }} />
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{auth.email}</span>
         </div>
       </div>
 
-      <div className="extension-popup-content" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div
+        className="extension-popup-content"
+        style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}
+      >
         {/* ── Job detected ── */}
         {job ? (
           <div

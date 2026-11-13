@@ -25,7 +25,8 @@ export interface DetectedJob {
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export interface AuthState {
-  token: string; // Clerk JWT or API token
+  token: string;
+  provider?: 'supabase' | 'oci' | 'auth0';
   refreshToken?: string;
   tokenEndpoint?: string;
   userId: string;
@@ -123,6 +124,8 @@ export interface MatchScore {
   matchedKeywords: string[];
   missingKeywords: string[];
   summary: string;
+  method?: 'keyword-overlap';
+  caveat?: string;
 }
 
 // ─── API responses used by extension ─────────────────────────────────────────

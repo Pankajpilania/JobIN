@@ -333,6 +333,39 @@ export class ResumesService {
     };
   }
 
+  async match(supabaseId: string, resumeId: string, jobDescription: string) {
+    const userId = await this.resolveUserId(supabaseId);
+    const resume = await this.assertOwnership(resumeId, userId);
+    const resumeText = await this.getResumeText(resume);
+    const stopWords = new Set(
+      'about above after again also and any are around because been before being between both but can could did does each few for from further get give had has have having her here him his how into its job jobs just may might more most must new not now off on once only other our out over role roles same should since some such than that the their them then there these they this those through time under until upon very was were what when where which while who why will with work worked working would your you experience responsibilities responsibility candidate candidates company please required requirement qualifications qualification preferred welcome looking seeking joining'.split(
+        ' ',
+      ),
+    );
+    const words = (text: string) =>
+      new Set(
+        text
+          .toLocaleLowerCase()
+          .normalize('NFKD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .match(/[\p{L}\p{N}+#.]{2,}/gu)
+          ?.filter((word) => word.length > 1 && !stopWords.has(word)) ?? [],
+      );
+    const resumeWords = words(resumeText);
+    const jobWords = [...words(jobDescription)];
+    if (jobWords.length === 0) throw new BadRequestException('No role keywords were found.');
+    const matchedKeywords = jobWords.filter((word) => resumeWords.has(word));
+    const missingKeywords = jobWords.filter((word) => !resumeWords.has(word));
+    return {
+      resumeId,
+      score: Math.round((matchedKeywords.length / jobWords.length) * 100),
+      matchedKeywords: matchedKeywords.slice(0, 12),
+      missingKeywords: missingKeywords.slice(0, 12),
+      method: 'keyword-overlap',
+      caveat: 'A keyword overlap estimate, not an employer ATS score or hiring prediction.',
+    };
+  }
+
   // ─── Tailor (Sprint 3) ────────────────────────────────────────────────────
 
   async tailor(supabaseId: string, resumeId: string, dto: TailorResumeDto) {

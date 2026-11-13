@@ -140,21 +140,29 @@ export interface AutofillResult {
 
 export async function autofillLever(
   profile: UserProfile,
-  options: { workAuthorisation?: string; fillWorkHistory?: boolean } = {},
+  options: {
+    fillName?: boolean;
+    fillEmail?: boolean;
+    fillPhone?: boolean;
+    fillWorkHistory?: boolean;
+    fillEducation?: boolean;
+    fillVisaSponsorship?: boolean;
+    workAuthorisation?: string;
+  } = {},
 ): Promise<AutofillResult> {
   let filled = 0;
   const failed: string[] = [];
 
-  filled += fillFullName(profile);
-  filled += fillEmail(profile);
-  filled += fillPhone(profile);
+  if (options.fillName !== false) filled += fillFullName(profile);
+  if (options.fillEmail !== false) filled += fillEmail(profile);
+  if (options.fillPhone !== false) filled += fillPhone(profile);
   filled += fillLocation(profile);
   filled += fillCurrentCompany(profile);
   filled += fillCurrentTitle(profile);
   filled += fillLinkedIn(profile);
   filled += fillWebsite(profile);
 
-  if (options.workAuthorisation) {
+  if (options.fillVisaSponsorship && options.workAuthorisation) {
     const n = fillVisaSponsor(options.workAuthorisation);
     if (n === 0) failed.push('Visa/work authorisation');
     else filled += n;

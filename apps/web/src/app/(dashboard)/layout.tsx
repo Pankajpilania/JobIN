@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { Topbar } from '@/components/layout/topbar';
+import { ApplyReturnConfirmation } from '@/components/jobs/apply-return-confirmation';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -59,6 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         color: 'var(--text-1)',
       }}
     >
+      <ApplyReturnConfirmation />
       {/* Sidebar nav */}
       <SidebarNav isMobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
       {mobileNavOpen && (

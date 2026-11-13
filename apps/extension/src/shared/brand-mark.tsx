@@ -19,3 +19,29 @@ export function BrandMark({ size = 28, color = '#008c60' }: { size?: number; col
     </svg>
   );
 }
+
+export function BrandLogo({
+  size = 28,
+  textColor = 'currentColor',
+}: {
+  size?: number;
+  textColor?: string;
+}) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: Math.max(6, size * 0.22) }}>
+      <BrandMark size={size} />
+      <span
+        style={{
+          color: textColor,
+          fontSize: size * 0.64,
+          fontWeight: 800,
+          letterSpacing: '-0.045em',
+          lineHeight: 1,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        Job<span style={{ color: 'var(--primary)' }}>IN</span>
+      </span>
+    </span>
+  );
+}

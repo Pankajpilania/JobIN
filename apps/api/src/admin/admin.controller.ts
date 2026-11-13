@@ -37,6 +37,8 @@ import {
   CreateSiteBannerDto,
   UpdateSiteBannerDto,
   UpdateRolePermissionsDto,
+  CreatePlanDto,
+  UpdatePlanDto,
 } from './dto/admin.dto';
 
 type ReportName = 'users' | 'billing' | 'subscriptions' | 'ai-usage';
@@ -196,6 +198,29 @@ export class AdminController {
   @ApiOperation({ summary: 'Platform-wide metrics dashboard' })
   getMetrics() {
     return this.adminService.getMetrics();
+  }
+
+  @Get('plans')
+  @RequireAdminPermission('billing:read')
+  @ApiOperation({ summary: 'List subscription plans and monthly AI credit allowances' })
+  listPlans() {
+    return this.adminService.listPlans();
+  }
+
+  @Post('plans')
+  @HttpCode(HttpStatus.CREATED)
+  @RequireAdminPermission('billing:write')
+  @ApiOperation({ summary: 'Create a subscription plan with its initial AI credit allowance' })
+  createPlan(@Body() dto: CreatePlanDto, @Req() req: any) {
+    return this.adminService.createPlan(req.adminUser?.id ?? 'system', dto, req.ip);
+  }
+
+  @Patch('plans/:id')
+  @HttpCode(HttpStatus.OK)
+  @RequireAdminPermission('billing:write')
+  @ApiOperation({ summary: 'Update plan pricing, availability, or AI credits' })
+  updatePlan(@Param('id') id: string, @Body() dto: UpdatePlanDto, @Req() req: any) {
+    return this.adminService.updatePlan(req.adminUser?.id ?? 'system', id, dto, req.ip);
   }
 
   @Get('stripe-prices')

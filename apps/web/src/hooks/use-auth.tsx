@@ -152,13 +152,23 @@ function useIdleSignOut(
 
     const expireSession = async () => {
       if (signingOut) return;
+      const existingSignOut = window.localStorage.getItem(signOutKey);
+      if (existingSignOut) {
+        window.location.replace(`${signInPath}?reason=inactivity`);
+        return;
+      }
       signingOut = true;
+      const signOutAt = String(Date.now());
+      // Publish the expiry before provider logout, which may redirect away before its promise resolves.
+      window.localStorage.setItem(signOutKey, signOutAt);
       try {
         await signOut();
-        window.localStorage.setItem(signOutKey, String(Date.now()));
         window.location.replace(`${signInPath}?reason=inactivity`);
       } catch (error) {
         console.error('Automatic sign-out after inactivity failed.', error);
+        if (window.localStorage.getItem(signOutKey) === signOutAt) {
+          window.localStorage.removeItem(signOutKey);
+        }
         retryTimer = window.setTimeout(() => {
           signingOut = false;
           void expireSession();
@@ -167,6 +177,10 @@ function useIdleSignOut(
     };
 
     const checkIdle = () => {
+      if (window.localStorage.getItem(signOutKey)) {
+        window.location.replace(`${signInPath}?reason=inactivity`);
+        return;
+      }
       const sharedActivity = Number(window.localStorage.getItem(activityKey));
       if (Number.isFinite(sharedActivity) && sharedActivity > lastActivity) {
         lastActivity = sharedActivity;
@@ -180,6 +194,7 @@ function useIdleSignOut(
 
     let lastActivityWrite = 0;
     const recordActivity = () => {
+      if (window.localStorage.getItem(signOutKey)) return;
       const now = Date.now();
       if (now - lastActivityWrite < 1000) return;
       lastActivity = now;
@@ -217,6 +232,7 @@ function useIdleSignOut(
     );
     window.addEventListener('storage', syncSharedActivity);
     window.addEventListener('focus', checkIdle);
+    window.addEventListener('pageshow', checkIdle);
     document.addEventListener('visibilitychange', checkOnVisibility);
     checkIdle();
 
@@ -226,6 +242,7 @@ function useIdleSignOut(
       activityEvents.forEach((event) => window.removeEventListener(event, recordActivity));
       window.removeEventListener('storage', syncSharedActivity);
       window.removeEventListener('focus', checkIdle);
+      window.removeEventListener('pageshow', checkIdle);
       document.removeEventListener('visibilitychange', checkOnVisibility);
     };
   }, [isReady, signInPath, signOut, userId]);
